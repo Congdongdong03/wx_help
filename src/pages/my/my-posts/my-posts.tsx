@@ -6,7 +6,7 @@ import "./index.scss"; // 引入样式文件，确保文件路径正确
 // 定义 Tab 的状态类型
 type Status = "all" | "published" | "draft" | "reviewing";
 // 定义帖子的审核状态类型
-type AuditStatus = "pending" | "approved" | "rejected";
+type AuditStatus = "pending" | "approved" | "rejected" | "draft";
 
 // 定义 TabItem 接口
 interface TabItem {
@@ -87,21 +87,21 @@ export default function MyPosts() {
     let filteredPosts: Post[] = [];
 
     if (selectedStatus === "all") {
-      // 如果选中“全部”Tab，显示所有 mock 数据
+      // 如果选中"全部"Tab，显示所有 mock 数据
       filteredPosts = mockPosts;
     } else if (selectedStatus === "published") {
-      // 如果选中“已发布”Tab，过滤出 auditStatus 为 'approved' 的帖子
+      // 如果选中"已发布"Tab，过滤出 auditStatus 为 'approved' 的帖子
       filteredPosts = mockPosts.filter(
         (post) => post.auditStatus === "approved"
       );
     } else if (selectedStatus === "reviewing") {
-      // 如果选中“审核中”Tab，显示 auditStatus 为 'pending' 或 'rejected' 的帖子
+      // 如果选中"审核中"Tab，显示 auditStatus 为 'pending' 或 'rejected' 的帖子
       filteredPosts = mockPosts.filter(
         (post) =>
           post.auditStatus === "pending" || post.auditStatus === "rejected"
       );
     } else if (selectedStatus === "draft") {
-      // 如果选中“草稿”Tab，过滤出 auditStatus 为 'draft' 的帖子
+      // 如果选中"草稿"Tab，过滤出 auditStatus 为 'draft' 的帖子
       filteredPosts = mockPosts.filter((post) => post.auditStatus === "draft");
     }
     // TODO: 如果有其他 Tab 状态，在这里添加对应的过滤逻辑
@@ -115,19 +115,61 @@ export default function MyPosts() {
     // 过滤逻辑已移至 useEffect 中
   };
 
-  // *** 新增函数：处理擦亮按钮点击事件 ***
-  const handleBoostClick = (postId: number) => {
-    console.log(`Boosting post ${postId}`);
-    // 在实际应用中，这里会调用 API 通知后端进行擦亮操作
+  // *** 修改函数：处理擦亮按钮点击事件 ***
+  const handleBoostClick = async (postId: number) => {
+    // 模拟 API 调用到后端进行擦亮操作
+    // 在实际应用中，这里会是 Taro.request({...})
+    try {
+      // 假设的 API 调用
+      // const response = await Taro.request({
+      //   url: `/api/posts/${postId}/boost`, // 示例 API 端点
+      //   method: 'POST',
+      //   // header: { 'Authorization': 'Bearer YOUR_USER_TOKEN' } // 如果需要认证
+      // });
 
-    // 更新本地状态，将帖子 id 添加到 boostedPostIds Set 中
-    setBoostedPostIds((prevBoostedIds) => {
-      const newSet = new Set(prevBoostedIds); // 创建 Set 的新副本以确保状态更新
-      newSet.add(postId);
-      return newSet;
-    });
+      // --- Mocking API response for now ---
+      await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate network delay
+      // Simulate success. In a real scenario, check response.statusCode or response.data
+      const apiSaysBoostAllowed = true; //  IMPORTANT: Replace with actual API response check
+      // const apiSaysBoostAllowed = Math.random() > 0.5; // Simulate random success/fail for testing
+      // if (response.statusCode === 200 || response.data.success) {
+      //   apiSaysBoostAllowed = true;
+      // } else if (response.statusCode === 429) { // Example: 429 for "already boosted today"
+      //   apiSaysBoostAllowed = false;
+      // }
+      // --- End Mock ---
 
-    // TODO: 根据后端返回的结果处理成功或失败提示
+      if (apiSaysBoostAllowed) {
+        console.log(
+          `Post ${postId} boosted successfully (simulated API call).`
+        );
+        // 更新本地状态，将帖子 id 添加到 boostedPostIds Set 中
+        setBoostedPostIds((prevBoostedIds) => {
+          const newSet = new Set(prevBoostedIds); // 创建 Set 的新副本以确保状态更新
+          newSet.add(postId);
+          return newSet;
+        });
+        Taro.showToast({
+          title: "擦亮成功",
+          icon: "success",
+          duration: 2000,
+        });
+      } else {
+        // API 表示今天已经擦亮过
+        Taro.showToast({
+          title: "一天只能擦亮一次",
+          icon: "none",
+          duration: 2000,
+        });
+      }
+    } catch (error) {
+      console.error(`Error boosting post ${postId}:`, error);
+      Taro.showToast({
+        title: "擦亮失败，请稍后再试", // Or "一天只能擦亮一次" if error specifically indicates that
+        icon: "none",
+        duration: 2000,
+      });
+    }
   };
 
   // 辅助函数：将英文的审核状态转换为中文显示
@@ -136,7 +178,7 @@ export default function MyPosts() {
       case "pending":
         return "审核中";
       case "approved":
-        return "已发布"; // Tab 显示“已发布”，状态显示“已发布”保持一致
+        return "已发布"; // Tab 显示"已发布"，状态显示"已发布"保持一致
       case "rejected":
         return "未通过";
       default:
@@ -210,12 +252,17 @@ export default function MyPosts() {
                             isBoosted ? "is-boosted" : ""
                           }`} // 添加类名，根据是否已擦亮动态添加 is-boosted 类
                           onClick={() => {
-                            // 在点击时判断是否已被擦亮
+                            // 在点击时首先检查当前会话中是否已被擦亮 (isBoosted 来自 boostedPostIds state)
                             if (isBoosted) {
-                              console.log("一天只能擦亮一次"); // 如果已擦亮，打印提示
-                              // TODO: 在实际应用中，你可能希望在这里显示一个 UI 提示 (Toast/Modal)
+                              // 如果在当前会话中已经记录为擦亮，直接提示，不发起 API 调用
+                              Taro.showToast({
+                                title: "一天只能擦亮一次",
+                                icon: "none",
+                                duration: 2000,
+                              });
                             } else {
-                              handleBoostClick(post.id); // 如果未擦亮，执行擦亮操作
+                              // 如果当前会话未记录为擦亮，则调用 handleBoostClick 尝试通过 API 擦亮
+                              handleBoostClick(post.id);
                             }
                           }}
                         >
@@ -239,7 +286,7 @@ export default function MyPosts() {
           })}
           {/* 如果 posts 数组为空，可以显示一个提示 */}
           {posts.length === 0 && (
-            <View className="no-posts-message">暂无内容</View>
+            <View className="no-posts-message">你还没有发布任何信息～</View>
           )}
         </View>{" "}
         {/* post-list 结束 */}
