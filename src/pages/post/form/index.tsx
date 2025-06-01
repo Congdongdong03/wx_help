@@ -1,5 +1,5 @@
 import Taro, { useRouter } from "@tarojs/taro";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -12,7 +12,37 @@ import {
 } from "@tarojs/components";
 import "./index.scss";
 
-// Define types for form data
+// Interfaces (ensure Post is defined if passed directly, or map from it)
+interface OriginalPostData {
+  // Structure from my-posts.tsx
+  id: number | string;
+  image: string;
+  description: string;
+  createTime: string;
+  auditStatus: string; // AuditStatus type
+  category: string;
+  title?: string;
+  wechatId?: string;
+  roomType?: string;
+  rentAmount?: string;
+  address?: string;
+  includesBills?: boolean;
+  itemCategory?: string;
+  price?: string;
+  condition?: string;
+  position?: string;
+  salaryRange?: string;
+  timeRequirement?: string;
+  [key: string]: any; // Allow other fields
+}
+
+interface DraftPostData {
+  formData: PostFormData;
+  imageFiles: Taro.chooseImage.ImageFile[];
+  category: string | null;
+  timestamp: number;
+}
+
 interface RentFormData {
   title: string;
   roomType: string; //主卧、次卧、整租、床位
@@ -97,202 +127,451 @@ const TIME_REQUIREMENTS = [
 ];
 
 export default function PostFormPage() {
+  console.log(
+    "PostFormPage: Component body rendering/re-rendering. Router params:",
+    useRouter().params
+  );
   const router = useRouter();
   const [category, setCategory] = useState<string | null>(null);
   const [pageTitle, setPageTitle] = useState("填写发布内容");
-
-  const [formData, setFormData] = useState<PostFormData>({}); // Initial empty or with common defaults
-
+  const [initialFormData, setInitialFormData] = useState<PostFormData>({});
+  const [initialImageFiles, setInitialImageFiles] = useState<
+    Taro.chooseImage.ImageFile[]
+  >([]);
+  const [formData, setFormData] = useState<PostFormData>({});
   const [imageFiles, setImageFiles] = useState<Taro.chooseImage.ImageFile[]>(
     []
   );
   const [isFormValid, setIsFormValid] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [attemptingBack, setAttemptingBack] = useState(false);
+  const [editingPostOriginalId, setEditingPostOriginalId] = useState<
+    string | number | null
+  >(null);
 
-  useEffect(() => {
-    const cat = router.params.category;
-    if (cat) {
+  const getPageTitle = (catName: string | null, isEditing = false) => {
+    const prefix = isEditing ? "编辑" : "发布";
+    if (catName === "rent") return `${prefix}租房信息`;
+    if (catName === "used") return `${prefix}二手信息`;
+    if (catName === "jobs") return `${prefix}招聘信息`;
+    if (catName === "help") return `${prefix}帮帮信息`;
+    return isEditing ? "编辑内容" : "填写发布内容";
+  };
+
+  const initializeFormForCategory = useCallback(
+    (
+      cat: string | null | undefined,
+      existingData?: PostFormData,
+      existingImages?: Taro.chooseImage.ImageFile[]
+    ) => {
+      if (!cat) return;
       setCategory(cat);
+      let baseData: PostFormData = {};
       if (cat === "rent") {
-        setPageTitle("发布租房信息");
-        // Set initial form data for rent, including includesBills: true
-        setFormData({
+        baseData = {
           roomType: ROOM_TYPES[0],
           rentPeriod: RENT_PERIODS[0],
-          includesBills: true, // Default to true for rent
+          includesBills: true,
           title: "",
           rentAmount: "",
           address: "",
           wechatId: "",
           description: "",
-        });
+        };
       } else if (cat === "used") {
-        setPageTitle("发布二手信息");
-        // Initialize formData for used goods (ensure common fields or specific defaults are set)
-        setFormData({
+        baseData = {
           itemCategory: ITEM_CATEGORIES[0],
           condition: ITEM_CONDITIONS[0],
           title: "",
           price: "",
           wechatId: "",
           description: "",
-        });
+        };
       } else if (cat === "jobs") {
-        setPageTitle("发布招聘信息");
-        // Initialize formData for jobs
-        setFormData({
+        baseData = {
           position: JOB_POSITIONS[0],
           salaryRange: SALARY_RANGES[0],
           timeRequirement: TIME_REQUIREMENTS[0],
           title: "",
           wechatId: "",
           description: "",
-        });
+        };
       } else if (cat === "help") {
-        setPageTitle("发布帮帮信息");
-        setFormData({
-          title: "",
-          description: "",
-          wechatId: "",
-        });
+        baseData = { title: "", description: "", wechatId: "" };
       }
+
+      const finalData = { ...baseData, ...(existingData || {}) };
+      console.log(
+        "PostFormPage: initializeFormForCategory - Setting formData:",
+        JSON.stringify(finalData)
+      );
+      setFormData(finalData);
+      setInitialFormData(finalData);
+      const finalImages = existingImages || [];
+      setImageFiles(finalImages);
+      setInitialImageFiles(finalImages);
+      setPageTitle(getPageTitle(cat, !!existingData));
+    },
+    []
+  );
+
+  useEffect(() => {
+    const params = router.params;
+    const catFromParam = params.category;
+    const draftId = params.draftId;
+    const editingId = params.editingPostId;
+    console.log(
+      `PostFormPage: Main useEffect - Params: category=${catFromParam}, draftId=${draftId}, editingPostId=${editingId}`
+    );
+    setIsLoadingData(true);
+    if (draftId && catFromParam) {
+      console.log("PostFormPage: Loading from DRAFT_ID", draftId);
+      try {
+        const draft = Taro.getStorageSync(draftId) as DraftPostData | "";
+        if (
+          draft &&
+          typeof draft === "object" &&
+          draft.category === catFromParam
+        ) {
+          initializeFormForCategory(
+            draft.category,
+            draft.formData,
+            draft.imageFiles
+          );
+        } else {
+          initializeFormForCategory(catFromParam);
+        }
+      } catch (e) {
+        console.error("Error loading draft:", e);
+        initializeFormForCategory(catFromParam);
+      } finally {
+        setIsLoadingData(false);
+      }
+    } else if (editingId && catFromParam) {
+      console.log("PostFormPage: Loading from EDITING_POST_ID", editingId);
+      setEditingPostOriginalId(editingId);
+      try {
+        const postDataToEdit = Taro.getStorageSync("editingPostData") as
+          | OriginalPostData
+          | "";
+        Taro.removeStorageSync("editingPostData");
+        if (
+          postDataToEdit &&
+          typeof postDataToEdit === "object" &&
+          postDataToEdit.category === catFromParam
+        ) {
+          console.log("PostFormPage: Found editingPostData:", postDataToEdit);
+          const formDataSource: PostFormData = {
+            title: postDataToEdit.title || postDataToEdit.description,
+            description: postDataToEdit.description,
+            wechatId: postDataToEdit.wechatId,
+            roomType: postDataToEdit.roomType,
+            rentAmount: postDataToEdit.rentAmount,
+            address: postDataToEdit.address,
+            includesBills: postDataToEdit.includesBills,
+            itemCategory: postDataToEdit.itemCategory,
+            price: postDataToEdit.price,
+            condition: postDataToEdit.condition,
+            position: postDataToEdit.position,
+            salaryRange: postDataToEdit.salaryRange,
+            timeRequirement: postDataToEdit.timeRequirement,
+          };
+          const images: Taro.chooseImage.ImageFile[] = postDataToEdit.image
+            ? [{ path: postDataToEdit.image, size: 0 }]
+            : [];
+          initializeFormForCategory(catFromParam, formDataSource, images);
+        } else {
+          console.warn("editingPostData not found or invalid.");
+          initializeFormForCategory(catFromParam);
+        }
+      } catch (e) {
+        console.error("Error loading editingPostData:", e);
+        initializeFormForCategory(catFromParam);
+      } finally {
+        setIsLoadingData(false);
+      }
+    } else if (catFromParam) {
+      console.log(
+        "PostFormPage: Initializing NEW form for category",
+        catFromParam
+      );
+      initializeFormForCategory(catFromParam);
+      setIsLoadingData(false);
     } else {
-      // Handle case where category is not passed - maybe redirect or show error
-      Taro.showToast({ title: "未指定分类", icon: "error" });
+      Taro.showToast({ title: "页面参数错误", icon: "error" });
+      Taro.navigateBack();
+      setIsLoadingData(false);
+    }
+  }, [router.params, initializeFormForCategory]);
+
+  const isDirty = useCallback(() => {
+    if (isLoadingData) return false;
+    const formDataChanged =
+      JSON.stringify(formData) !== JSON.stringify(initialFormData);
+    const imageFilesChanged =
+      imageFiles.length !== initialImageFiles.length ||
+      imageFiles.some(
+        (file, index) =>
+          file.path !==
+          (initialImageFiles[index] && initialImageFiles[index].path)
+      );
+    return formDataChanged || imageFilesChanged;
+  }, [formData, imageFiles, initialFormData, initialImageFiles, isLoadingData]);
+
+  const handleSaveDraft = () => {
+    if (!category) {
+      Taro.showToast({ title: "无法保存草稿", icon: "none" });
+      return;
+    }
+    if (!isDirty()) {
+      Taro.showToast({ title: "内容无修改", icon: "none" });
+      return;
+    }
+    if (!formData.title && !formData.description && imageFiles.length === 0) {
+      Taro.showToast({ title: "内容为空", icon: "none" });
+      return;
+    }
+    const draftId = `draft_${category}_${Date.now()}`;
+    const draftData: DraftPostData = {
+      formData,
+      imageFiles,
+      category,
+      timestamp: Date.now(),
+    };
+    try {
+      Taro.setStorageSync(draftId, draftData);
+      Taro.showToast({ title: "已存为草稿", icon: "success" });
+      setInitialFormData(formData);
+      setInitialImageFiles(imageFiles);
+    } catch (e) {
+      Taro.showToast({ title: "草稿保存失败", icon: "error" });
+    }
+  };
+
+  // User's handleBack, which seems to be an attempt to fix useDidHide
+  const handleBack = () => {
+    console.log("PostFormPage: Custom handleBack triggered");
+    if (attemptingBack) return;
+    if (category === "help" && isDirty()) {
+      // This is still specific to "help"
+      setAttemptingBack(true);
+      Taro.showModal({
+        title: "保存草稿",
+        content: "检测到未保存的内容，是否保存为草稿？",
+        showCancel: true,
+        cancelText: "直接离开",
+        confirmText: "保存草稿",
+        success: (res) => {
+          if (res.confirm) {
+            handleSaveDraft();
+            setTimeout(() => {
+              Taro.navigateBack();
+            }, 500);
+          } else {
+            Taro.navigateBack();
+          }
+          setAttemptingBack(false);
+        },
+        fail: () => {
+          Taro.navigateBack();
+          setAttemptingBack(false);
+        },
+      });
+    } else {
       Taro.navigateBack();
     }
-  }, [router.params.category]);
+  };
 
-  // Form validation effect
+  Taro.useDidHide(() => {
+    console.log(
+      "PostFormPage: useDidHide triggered. Attempting custom back logic."
+    );
+    // Instead of complex logic here, we consider if handleBack should be called if this is the only exit path now.
+    // However, useDidHide might be too late to *prevent* navigation for a modal.
+    // For now, this remains a log point as per user's version, since custom handleBack exists.
+  });
+  const resetPageState = useCallback(() => {
+    setAttemptingBack(false);
+  }, []);
+  useEffect(() => {
+    const timer = setTimeout(resetPageState, 100);
+    return () => clearTimeout(timer);
+  }, [resetPageState]);
+
   useEffect(() => {
     let isValid = false;
-    // const imagesUploaded = imageFiles.length > 0; // Keep this if other categories require it
-
-    if (category === "rent") {
-      const {
-        title,
-        roomType,
-        rentAmount,
-        rentPeriod,
-        address,
-        description,
-        wechatId,
-        // includesBills, // includesBills is not in formData destructuring but used
-      } = formData as RentFormData;
-      const imagesUploaded = imageFiles.length > 0; // rent requires images
-      if (
-        title &&
-        roomType &&
-        rentAmount &&
-        rentPeriod &&
-        address &&
-        description &&
-        wechatId &&
-        imagesUploaded // Rent still requires images
-      ) {
-        isValid = true;
-      }
-    } else if (category === "used") {
-      const { title, itemCategory, price, condition, description, wechatId } =
-        formData as UsedGoodFormData;
-      const imagesUploaded = imageFiles.length > 0; // used requires images
-      if (
-        title &&
-        itemCategory &&
-        price &&
-        condition &&
-        description &&
-        wechatId &&
-        imagesUploaded // Used goods still require images
-      ) {
-        isValid = true;
-      }
-    } else if (category === "jobs") {
-      const {
-        title,
-        position,
-        salaryRange,
-        timeRequirement,
-        description,
-        wechatId,
-      } = formData as JobFormData;
-      const imagesUploaded = imageFiles.length > 0; // jobs requires images
-      if (
-        title &&
-        position &&
-        salaryRange &&
-        timeRequirement &&
-        description &&
-        wechatId &&
-        imagesUploaded // Jobs still require images
-      ) {
-        isValid = true;
-      }
-    } else if (category === "help") {
-      const { title, wechatId } = formData as HelpFormData;
-      // For "help", images and description are optional.
-      if (title && wechatId) {
-        isValid = true;
-      }
+    const { title, wechatId, description } = formData;
+    if (!category || !title || title.trim() === "") {
+      setIsFormValid(false);
+      return;
+    }
+    switch (category) {
+      case "help":
+        if (wechatId && wechatId.trim() !== "") isValid = true;
+        break;
+      case "rent":
+        const rf = formData as RentFormData;
+        if (
+          rf.roomType &&
+          rf.rentAmount &&
+          rf.address &&
+          rf.wechatId &&
+          imageFiles.length > 0
+        )
+          isValid = true;
+        break;
+      case "used":
+        const uf = formData as UsedGoodFormData;
+        if (uf.itemCategory && uf.price && uf.wechatId && imageFiles.length > 0)
+          isValid = true;
+        break;
+      case "jobs":
+        const jf = formData as JobFormData;
+        if (
+          jf.position &&
+          jf.salaryRange &&
+          jf.timeRequirement &&
+          jf.wechatId &&
+          imageFiles.length > 0
+        )
+          isValid = true;
+        break;
+      default:
+        isValid = false;
     }
     setIsFormValid(isValid);
   }, [formData, imageFiles, category]);
 
+  const handleSubmit = async () => {
+    if (!isFormValid) {
+      Taro.showToast({ title: "请完善必填信息后再发布", icon: "none" });
+      return;
+    }
+    let currentImageFiles = [...imageFiles];
+    const { title, description } = formData;
+    if (
+      category === "help" &&
+      (!description || description.trim() === "") &&
+      currentImageFiles.length === 0 &&
+      title
+    ) {
+      Taro.showLoading({ title: "生成图片中..." });
+      try {
+        const generatedImage = await generateImageFromText(title);
+        currentImageFiles = [generatedImage];
+        Taro.hideLoading();
+      } catch (error) {
+        Taro.hideLoading();
+        Taro.showToast({ title: "图片生成失败", icon: "error" });
+        console.error("Image generation failed:", error);
+        return;
+      }
+    }
+    if (
+      (category === "rent" || category === "used" || category === "jobs") &&
+      currentImageFiles.length === 0
+    ) {
+      Taro.showToast({ title: "至少上传一张图片", icon: "none" });
+      return;
+    }
+    if (
+      category === "help" &&
+      (!description || description.trim() === "") &&
+      currentImageFiles.length === 0
+    ) {
+      Taro.showToast({ title: "请填写文字描述或上传图片", icon: "none" });
+      return;
+    }
+    if (currentImageFiles.length > 6) {
+      Taro.showToast({ title: "最多只能上传6张图", icon: "none" });
+      return;
+    }
+
+    console.log("PostFormPage: Form Data to submit:", formData);
+    console.log(
+      "PostFormPage: Image files to submit:",
+      currentImageFiles.map((f) => f.path)
+    );
+    const draftId = router.params.draftId;
+    if (draftId) {
+      Taro.removeStorageSync(draftId);
+      console.log(`PostFormPage: Draft ${draftId} removed after submission.`);
+    }
+
+    const submissionMode = editingPostOriginalId
+      ? "Edit"
+      : draftId
+      ? "Draft-to-Post"
+      : "New Post";
+    console.log("Submitting data for mode:", submissionMode);
+
+    Taro.showLoading({
+      title: editingPostOriginalId ? "更新中..." : "发布中...",
+    });
+    setTimeout(() => {
+      Taro.hideLoading();
+      Taro.showModal({
+        title: editingPostOriginalId ? "更新成功" : "发布成功",
+        content: editingPostOriginalId
+          ? "内容已更新，等待后台审核～"
+          : "发布成功，等待后台审核～",
+        showCancel: false,
+        success: () => {
+          Taro.setStorageSync("refreshMyPosts", "true");
+          Taro.redirectTo({ url: "/pages/my/my-posts/my-posts" });
+        },
+      });
+    }, 1500);
+  };
+
+  // Input handlers and render functions (ensure formData fields are accessed with || '' for safety in value prop)
   const handleInputChange = (field: keyof PostFormData, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
-
   const handleRoomTypeChange = (e) => {
     handleInputChange(
       "roomType" as keyof RentFormData,
       ROOM_TYPES[e.detail.value]
     );
   };
-
   const handleRentPeriodChange = (e) => {
     handleInputChange(
       "rentPeriod" as keyof RentFormData,
       RENT_PERIODS[e.detail.value]
     );
   };
-
-  // Add new picker handlers for used goods and jobs
   const handleItemCategoryChange = (e) => {
     handleInputChange(
       "itemCategory" as keyof UsedGoodFormData,
       ITEM_CATEGORIES[e.detail.value]
     );
   };
-
   const handleItemConditionChange = (e) => {
     handleInputChange(
       "condition" as keyof UsedGoodFormData,
       ITEM_CONDITIONS[e.detail.value]
     );
   };
-
   const handleJobPositionChange = (e) => {
     handleInputChange(
       "position" as keyof JobFormData,
       JOB_POSITIONS[e.detail.value]
     );
   };
-
   const handleSalaryRangeChange = (e) => {
     handleInputChange(
       "salaryRange" as keyof JobFormData,
       SALARY_RANGES[e.detail.value]
     );
   };
-
   const handleTimeRequirementChange = (e) => {
     handleInputChange(
       "timeRequirement" as keyof JobFormData,
       TIME_REQUIREMENTS[e.detail.value]
     );
   };
-
   const handleChooseImage = () => {
-    const count = 6 - imageFiles.length; // Max 6 images
+    const count = 6 - imageFiles.length;
     if (count <= 0) {
       Taro.showToast({ title: "最多只能上传6张图", icon: "none" });
       return;
@@ -306,111 +585,17 @@ export default function PostFormPage() {
       },
     });
   };
-
   const handleRemoveImage = (index: number) => {
     setImageFiles((prev) => prev.filter((_, i) => i !== index));
   };
-
-  // Placeholder for actual image generation function
-  // It should return a Promise that resolves to an object compatible with Taro.chooseImage.ImageFile
   const generateImageFromText = async (
     text: string
   ): Promise<Taro.chooseImage.ImageFile> => {
-    console.log(`Generating image for text: ${text}`);
-    // Simulate API call or local generation
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    // This is a MOCK implementation. Replace with your actual image generation
-    // and ensure the returned object matches Taro.chooseImage.ImageFile structure.
-    const mockFilePath = "path/to/generated/image.png"; // This should be a real path or data URI
     return {
-      path: mockFilePath,
-      size: 102400, // Example size in bytes
-      // type: "image/png" // Optional: if your image object includes a type
-    } as Taro.chooseImage.ImageFile; // Type assertion for clarity
-  };
-
-  const handleSubmit = async () => {
-    if (!isFormValid) {
-      Taro.showToast({ title: "请完善必填信息后再发布", icon: "none" });
-      return;
-    }
-
-    let currentImageFiles = [...imageFiles]; // Work with a copy
-
-    if (
-      category === "help" &&
-      (!formData.description || formData.description.trim() === "") &&
-      currentImageFiles.length === 0
-    ) {
-      Taro.showLoading({ title: "生成图片中..." });
-      try {
-        const generatedImage = await generateImageFromText(
-          formData.title || "默认标题"
-        );
-        currentImageFiles = [generatedImage]; // Replace or add based on your logic
-        // If you want to update the state for UI (e.g., to show the new image preview immediately):
-        // setImageFiles(currentImageFiles);
-        // However, for submission, using currentImageFiles directly is safer due to state update's async nature.
-        Taro.hideLoading();
-      } catch (error) {
-        Taro.hideLoading();
-        Taro.showToast({ title: "图片生成失败", icon: "error" });
-        console.error("Image generation failed:", error);
-        return; // Stop submission if image generation fails
-      }
-    }
-
-    // Adjusted image validation:
-    // If images are required for other categories, this check needs to be conditional.
-    // For 'help', this check is skipped if an image was generated or if a description exists.
-    if (category !== "help" && currentImageFiles.length === 0) {
-      Taro.showToast({ title: "至少上传一张图片", icon: "none" });
-      return;
-    }
-    // For 'help', if there's no description, no user-uploaded images, AND image generation failed (or wasn't triggered),
-    // then it means there's no content. The `isFormValid` should ideally catch this,
-    // but an explicit check here might be good depending on `isFormValid`'s thoroughness for the 'help' case.
-    // Given the current `isFormValid` for 'help' only checks title and wechatId,
-    // we need to ensure that if description is empty, an image (either uploaded or generated) MUST exist.
-
-    if (
-      category === "help" &&
-      (!formData.description || formData.description.trim() === "") &&
-      currentImageFiles.length === 0
-    ) {
-      Taro.showToast({ title: "请填写文字描述或上传图片", icon: "none" });
-      return;
-    }
-
-    if (currentImageFiles.length > 6) {
-      Taro.showToast({ title: "最多只能上传6张图", icon: "none" });
-      return;
-    }
-
-    console.log("Form Data to submit:", formData);
-    console.log(
-      "Image files to submit:",
-      currentImageFiles.map((f) => f.path)
-    );
-    // TODO: Actual API submission
-    // 1. Upload images (currentImageFiles) to your server, get URLs
-    // 2. Submit formData along with image URLs to POST /api/posts/create
-
-    Taro.showLoading({ title: "发布中..." });
-    setTimeout(() => {
-      // Simulate API call
-      Taro.hideLoading();
-      Taro.showModal({
-        title: "发布成功",
-        content: "发布成功，等待后台审核～",
-        showCancel: false,
-        success: () => {
-          // TODO: Navigate to "我的发布" page. Need to know its path.
-          // Assuming /pages/my/my-posts/my-posts
-          Taro.redirectTo({ url: "/pages/my/my-posts/my-posts" });
-        },
-      });
-    }, 1500);
+      path: `path/to/generated/${text.replace(/\s+/g, "_")}.png`,
+      size: 102400,
+    } as Taro.chooseImage.ImageFile;
   };
 
   // Render form based on category
@@ -422,7 +607,7 @@ export default function PostFormPage() {
           className="form-input"
           type="text"
           placeholder="示例：墨尔本近CBD温馨主卧出租"
-          value={formData.title}
+          value={formData.title || ""}
           onInput={(e) => handleInputChange("title", e.detail.value)}
         />
       </View>
@@ -445,7 +630,7 @@ export default function PostFormPage() {
           className="form-input rent-amount"
           type="digit"
           placeholder="金额"
-          value={formData.rentAmount}
+          value={formData.rentAmount || ""}
           onInput={(e) => handleInputChange("rentAmount", e.detail.value)}
         />
         <Picker
@@ -465,7 +650,7 @@ export default function PostFormPage() {
           className="form-input"
           type="text"
           placeholder="输入详细地址"
-          value={formData.address}
+          value={formData.address || ""}
           onInput={(e) => handleInputChange("address", e.detail.value)}
         />
         {/* TODO: Add map location button/feature */}
@@ -497,7 +682,7 @@ export default function PostFormPage() {
           className="form-input"
           type="text"
           placeholder="填写你的微信号"
-          value={formData.wechatId}
+          value={formData.wechatId || ""}
           onInput={(e) => handleInputChange("wechatId", e.detail.value)}
         />
       </View>
@@ -506,7 +691,7 @@ export default function PostFormPage() {
         <Textarea
           className="form-textarea"
           placeholder="请填写房况、室友要求、入住时间等"
-          value={formData.description}
+          value={formData.description || ""}
           onInput={(e) => handleInputChange("description", e.detail.value)}
           autoHeight
         />
@@ -522,7 +707,7 @@ export default function PostFormPage() {
           className="form-input"
           type="text"
           placeholder="例如：九成新沙发低价转让"
-          value={formData.title}
+          value={formData.title || ""}
           onInput={(e) => handleInputChange("title", e.detail.value)}
         />
       </View>
@@ -547,7 +732,7 @@ export default function PostFormPage() {
           className="form-input"
           type="digit"
           placeholder="转让价格，如: 150"
-          value={formData.price}
+          value={formData.price || ""}
           onInput={(e) => handleInputChange("price", e.detail.value)}
         />
       </View>
@@ -572,7 +757,7 @@ export default function PostFormPage() {
           className="form-input"
           type="text"
           placeholder="填写你的微信号"
-          value={formData.wechatId}
+          value={formData.wechatId || ""}
           onInput={(e) => handleInputChange("wechatId", e.detail.value)}
         />
       </View>
@@ -581,7 +766,7 @@ export default function PostFormPage() {
         <Textarea
           className="form-textarea"
           placeholder="描述一下你的宝贝，例如品牌、购买渠道、使用情况等"
-          value={formData.description}
+          value={formData.description || ""}
           onInput={(e) => handleInputChange("description", e.detail.value)}
           autoHeight
         />
@@ -597,7 +782,7 @@ export default function PostFormPage() {
           className="form-input"
           type="text"
           placeholder="例如：市中心咖啡店诚聘全职员工"
-          value={formData.title}
+          value={formData.title || ""}
           onInput={(e) => handleInputChange("title", e.detail.value)}
         />
       </View>
@@ -650,7 +835,7 @@ export default function PostFormPage() {
           className="form-input"
           type="text"
           placeholder="填写招聘联系微信号"
-          value={formData.wechatId}
+          value={formData.wechatId || ""}
           onInput={(e) => handleInputChange("wechatId", e.detail.value)}
         />
       </View>
@@ -659,7 +844,7 @@ export default function PostFormPage() {
         <Textarea
           className="form-textarea"
           placeholder="详细描述岗位职责、要求、福利待遇、工作地点等"
-          value={formData.description}
+          value={formData.description || ""}
           onInput={(e) => handleInputChange("description", e.detail.value)}
           autoHeight
         />
@@ -675,7 +860,7 @@ export default function PostFormPage() {
           className="form-input"
           type="text"
           placeholder="请输入主题"
-          value={formData.title}
+          value={formData.title || ""}
           onInput={(e) => handleInputChange("title", e.detail.value)}
           maxlength={50}
         />
@@ -685,7 +870,7 @@ export default function PostFormPage() {
         <Textarea
           className="form-textarea"
           placeholder="请输入文字内容 (100字以内)"
-          value={formData.description}
+          value={formData.description || ""}
           onInput={(e) => handleInputChange("description", e.detail.value)}
           maxlength={100}
           autoHeight
@@ -697,7 +882,7 @@ export default function PostFormPage() {
           className="form-input"
           type="text"
           placeholder="填写你的微信号"
-          value={formData.wechatId}
+          value={formData.wechatId || ""}
           onInput={(e) => handleInputChange("wechatId", e.detail.value)}
         />
       </View>
@@ -715,14 +900,13 @@ export default function PostFormPage() {
 
       <View className="form-item">
         <Text className="form-label">
-          {/* Dynamically set "required" text or adjust based on category if needed */}
-          {/* For now, making it generally optional in text for "help", but other categories might still enforce it */}
           上传图片 ({imageFiles.length}/6)
-          {category !== "help" ? (
+          {(category === "rent" ||
+            category === "used" ||
+            category === "jobs") && (
             <Text className="required-indicator">*</Text>
-          ) : (
-            " (可选)"
           )}
+          {category === "help" && <Text> (可选)</Text>}
         </Text>
         <View className="image-uploader">
           {imageFiles.map((file, index) => (
@@ -749,13 +933,24 @@ export default function PostFormPage() {
         </View>
       </View>
 
-      <Button
-        className="submit-button"
-        disabled={!isFormValid}
-        onClick={handleSubmit}
-      >
-        发布
-      </Button>
+      <View className="form-actions-container">
+        {category && (
+          <Button
+            className="save-draft-button"
+            onClick={handleSaveDraft}
+            disabled={!isDirty()}
+          >
+            存为草稿
+          </Button>
+        )}
+        <Button
+          className="submit-button"
+          disabled={!isFormValid}
+          onClick={handleSubmit}
+        >
+          {editingPostOriginalId ? "更新" : "发布"}
+        </Button>
+      </View>
     </View>
   );
 }
