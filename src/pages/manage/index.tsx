@@ -2,14 +2,14 @@ import { View, Text } from "@tarojs/components";
 import { definePageConfig } from "@tarojs/taro";
 import "./index.scss";
 
-export default function Index() {
+export default function Manage() {
   return (
     <View className="index">
-      <Text>首页页面</Text>
+      <Text>管理页面</Text>
     </View>
   );
 }
 
 definePageConfig({
-  navigationBarTitleText: "首页",
+  navigationBarTitleText: "管理",
 });

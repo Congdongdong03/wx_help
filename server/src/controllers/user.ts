@@ -1,9 +1,20 @@
 import { Request, Response } from "express";
 import { UserModel, User } from "../models/user";
-import { Logtail } from "@logtail/node";
-import { config } from "../config";
+// import { AsyncClient, PutLogsRequest, LogGroup, LogItem, Content } from "tencentcloud-cls-sdk-js"; // 移除腾讯云 CLS 导入
 
-const logtail = new Logtail(config.logtailToken);
+// 移除 CLS 环境变量获取和客户端初始化
+// const { TENCENTCLOUD_SECRET_ID, TENCENTCLOUD_SECRET_KEY, TENCENTCLOUD_REGION, TENCENTCLOUD_CLS_TOPIC_ID } = process.env;
+// const endpoint = `${TENCENTCLOUD_REGION}.cls.tencentcs.com`;
+// const clsClient = new AsyncClient({ /* ... */ });
+
+// 移除发送日志到 CLS 的辅助函数，改用 console.log
+const log = (
+  level: "info" | "error" | "warn" | "debug",
+  message: string,
+  data?: any
+) => {
+  console[level](message, data);
+};
 
 export class UserController {
   static async register(req: Request, res: Response) {
@@ -24,11 +35,13 @@ export class UserController {
       };
 
       await UserModel.create(user);
-      logtail.info("User registered", { username, email });
+      // sendLogToCls("info", "User registered", { username, email }); // 移除 CLS 日志调用
+      log("info", "User registered", { username, email }); // 改用 console.log
 
       res.status(201).json({ message: "注册成功" });
-    } catch (error) {
-      logtail.error("Registration error", { error });
+    } catch (error: any) {
+      // sendLogToCls("error", "Registration error", { error: error.message || error }); // 移除 CLS 日志调用
+      log("error", "Registration error", { error: error.message || error }); // 改用 console.error
       res.status(500).json({ error: "注册失败" });
     }
   }
@@ -43,13 +56,15 @@ export class UserController {
         return res.status(401).json({ error: "用户名或密码错误" });
       }
 
-      logtail.info("User logged in", { username });
+      // sendLogToCls("info", "User logged in", { username }); // 移除 CLS 日志调用
+      log("info", "User logged in", { username }); // 改用 console.log
       res.json({
         message: "登录成功",
         user: { id: user.id, username: user.username, email: user.email },
       });
-    } catch (error) {
-      logtail.error("Login error", { error });
+    } catch (error: any) {
+      // sendLogToCls("error", "Login error", { error: error.message || error }); // 移除 CLS 日志调用
+      log("error", "Login error", { error: error.message || error }); // 改用 console.error
       res.status(500).json({ error: "登录失败" });
     }
   }

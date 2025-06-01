@@ -1,0 +1,104 @@
+.index {
+  padding: 20px;
+  background-color: #f5f5f5;
+  min-height: 100vh;
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+
+    .title {
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+
+      .avatar,
+      .avatar-placeholder {
+        width: 40px;
+        height: 40px;
+        background-color: #ccc;
+        border-radius: 50%;
+        margin-right: 8px;
+      }
+
+      .nickname {
+        font-size: 16px;
+      }
+    }
+  }
+
+  .auth-login {
+    margin-bottom: 20px;
+  }
+
+  .categories {
+    margin-bottom: 20px;
+
+    .adm-grid-item-inner {
+      padding: 0;
+    }
+
+    button {
+      width: 100%;
+    }
+  }
+
+  .list {
+    margin-bottom: 20px;
+
+    .list-item {
+      margin-bottom: 10px;
+
+      .adm-card-body {
+        padding: 10px;
+      }
+
+      .item-content {
+        display: flex;
+
+        .item-image-placeholder {
+          width: 80px;
+          height: 80px;
+          background-color: #eee;
+          margin-right: 10px;
+        }
+
+        .item-details {
+          flex-grow: 1;
+
+          .item-text-placeholder {
+            height: 14px;
+            background-color: #eee;
+            margin-bottom: 8px;
+          }
+
+          .item-location-time {
+            font-size: 12px;
+            color: #999;
+          }
+        }
+      }
+    }
+  }
+
+  .weekly-recommendation {
+    .recommendation-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .recommendation-item {
+      .adm-card-body {
+        padding: 10px;
+      }
+    }
+  }
+}

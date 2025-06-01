@@ -1,9 +1,14 @@
 export default defineAppConfig({
-  pages: ["pages/index/index", "pages/my/index", "pages/square/index"],
+  pages: [
+    "pages/index/index",
+    "pages/my/index",
+    "pages/my/my-posts",
+    "pages/publish/index",
+  ],
   window: {
     backgroundTextStyle: "light",
     navigationBarBackgroundColor: "#fff",
-    navigationBarTitleText: "WeChat",
+    navigationBarTitleText: "帮帮",
     navigationBarTextStyle: "black",
   },
   tabBar: {
@@ -19,10 +24,10 @@ export default defineAppConfig({
         selectedIconPath: "assets/tabbar/home_selected.png", // 请替换为你的选中图标路径
       },
       {
-        pagePath: "pages/square/index",
-        text: "广场",
-        iconPath: "assets/tabbar/square.png", // 请替换为你的图标路径
-        selectedIconPath: "assets/tabbar/square_selected.png", // 请替换为你的选中图标路径
+        pagePath: "pages/publish/index",
+        text: "发布",
+        iconPath: "assets/tabbar/publish.png", // 请替换为你的图标路径
+        selectedIconPath: "assets/tabbar/publish_selected.png", // 请替换为你的选中图标路径
       },
       {
         pagePath: "pages/my/index",
