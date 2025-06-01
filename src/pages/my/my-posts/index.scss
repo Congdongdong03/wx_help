@@ -1,0 +1,136 @@
+.my-posts {
+  min-height: 100vh;
+  background-color: #f7f7f7;
+  padding-bottom: 40rpx;
+
+  .tabs {
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 99;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    height: 80rpx;
+    background-color: #fff;
+    border-bottom: 1rpx solid #eee;
+
+    .tab-item {
+      padding: 0 20rpx;
+      font-size: 28rpx;
+      color: #666;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      border-bottom: 4rpx solid transparent;
+      box-sizing: border-box;
+
+      &.active {
+        color: #007bff;
+        font-weight: 500;
+        border-bottom-color: #007bff;
+      }
+    }
+  }
+
+  .tab-content {
+    padding: 24rpx;
+    .post-list {
+      display: flex;
+      flex-direction: column;
+      gap: 24rpx;
+      margin-top: 80rpx;
+      .post-card {
+        background-color: #fff;
+        border-radius: 16rpx;
+        padding: 24rpx;
+        display: flex;
+        gap: 24rpx;
+        box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+
+        .post-image {
+          width: 200rpx;
+          height: 150rpx;
+          border-radius: 8rpx;
+          flex-shrink: 0;
+          background-color: #f5f5f5;
+        }
+
+        .post-details {
+          flex: 1;
+          display: flex; // 添加 display: flex;
+          flex-direction: column; // 添加 flex-direction: column; 使子元素垂直排列
+          justify-content: space-between; // 保持内容上下对齐
+          .post-description {
+            margin-right: 0rpx;
+            font-size: 28rpx;
+            color: #333;
+            line-height: 1.4;
+            margin-bottom: 16rpx;
+            display: -webkit-box;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            -webkit-line-clamp: 2;
+            text-overflow: ellipsis;
+          }
+
+          .post-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 24rpx;
+            color: #999;
+            margin-bottom: 16rpx;
+
+            .post-time {
+              white-space: nowrap;
+            }
+
+            .post-status {
+              font-weight: 500;
+              &.status-pending {
+                color: #ff9900;
+              }
+              &.status-approved {
+                color: #1aad19;
+              }
+              &.status-rejected {
+                color: #e51c23;
+              }
+            }
+          }
+
+          .post-actions {
+            display: flex;
+            justify-content: flex-end;
+            .boost-button-container {
+              margin-right: 0rpx;
+
+              &.is-boosted {
+                .boost-button {
+                  // 选择 .is-boosted 容器内的 .boost-button
+                  background-color: #cccccc; // 变成灰色背景
+                  color: #666666; // 文本颜色变暗
+                  // 可以添加其他样式，例如边框、阴影等
+                }
+              }
+            }
+            .boost-button {
+              font-size: 24rpx;
+              padding: 8rpx 16rpx;
+              height: auto;
+              line-height: 1;
+              border-radius: 20rpx;
+              background-color: #007bff;
+              color: #fff;
+              border: none;
+              &::after {
+                border: none;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

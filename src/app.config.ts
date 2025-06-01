@@ -2,7 +2,7 @@ export default defineAppConfig({
   pages: [
     "pages/index/index",
     "pages/my/index",
-    "pages/my/my-posts",
+    "pages/my/my-posts/my-posts",
     "pages/publish/index",
   ],
   window: {
