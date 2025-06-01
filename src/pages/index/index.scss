@@ -77,6 +77,7 @@
 
 // Post Card Styling
 .post-card {
+  position: relative; // Needed for absolute positioning of the pin
   background-color: #fff;
   margin-bottom: 20rpx; // Vertical gap between cards in the same column
   border-radius: 16rpx;
@@ -160,6 +161,19 @@
         color: #999;
       }
     }
+  }
+
+  .post-card-pin-indicator {
+    position: absolute;
+    top: 8px; // Adjust as needed
+    left: 8px; // Adjust as needed
+    background-color: #ff4500; // Example: Orange-red background
+    color: white;
+    padding: 2px 6px;
+    font-size: 10px; // Adjust as needed
+    border-radius: 3px;
+    z-index: 1; // Ensure it's above other content
+    font-weight: bold;
   }
 }
 

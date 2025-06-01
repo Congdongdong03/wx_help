@@ -29,20 +29,20 @@ export default defineAppConfig({
       {
         pagePath: "pages/index/index",
         text: "首页",
-        iconPath: "assets/tabbar/home.png", // 请替换为你的图标路径
-        selectedIconPath: "assets/tabbar/home_selected.png", // 请替换为你的选中图标路径
+        iconPath: "assets/tabbar/homepage.png", // 请替换为你的图标路径
+        selectedIconPath: "assets/tabbar/homepage.png", // 请替换为你的选中图标路径
       },
       {
         pagePath: "pages/post/index",
-        text: "发布",
-        iconPath: "assets/tabbar/publish.png", // 请替换为你的图标路径
-        selectedIconPath: "assets/tabbar/publish_selected.png", // 请替换为你的选中图标路径
+        text: "帮帮",
+        iconPath: "assets/tabbar/help.png", // 请替换为你的图标路径
+        selectedIconPath: "assets/tabbar/help.png", // 请替换为你的选中图标路径
       },
       {
         pagePath: "pages/my/index",
         text: "我的",
-        iconPath: "assets/tabbar/my.png", // 请替换为你的图标路径
-        selectedIconPath: "assets/tabbar/my_selected.png", // 请替换为你的选中图标路径
+        iconPath: "assets/tabbar/mine.png", // 请替换为你的图标路径
+        selectedIconPath: "assets/tabbar/mine.png", // 请替换为你的选中图标路径
       },
     ],
   },

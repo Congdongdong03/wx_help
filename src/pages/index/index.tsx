@@ -31,7 +31,8 @@ interface FeedPost {
 const CITIES: string[] = ["悉尼", "墨尔本", "卧龙岗"];
 
 const CATEGORIES: Category[] = [
-  { id: "recommend", name: "推荐", color: "#6f42c1" }, // A distinct color for "Recommend", e.g., purple
+  { id: "recommend", name: "推荐", color: "#6f42c1" }, // Purple
+  { id: "help", name: "帮帮", color: "#17a2b8" }, // Teal/Info Blue
   { id: "rent", name: "租房", color: "#007bff" }, // Blue
   { id: "used", name: "二手", color: "#28a745" }, // Green
   { id: "jobs", name: "招聘", color: "#ffc107" }, // Orange (text should be dark)
@@ -115,6 +116,22 @@ const ALL_MOCK_POSTS: FeedPost[] = CITIES.reduce((acc, city) => {
 
 const POSTS_PER_PAGE = 10;
 
+// Define the fake pinned post
+const fakePinnedPost: FeedPost = {
+  id: "fake-pinned-post-coles-wws",
+  title: "Coles & WWS 本周特价汇总 (置顶)",
+  description:
+    "点击查看本周Coles和Woolworths的最新折扣信息，省钱攻略不容错过！",
+  category: CATEGORIES.find((c) => c.id === "recommend")!, // Ensure this category exists
+  updateTime: new Date(), // Show as most recent
+  boostTime: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000), // Ensure it's boosted to appear first if ever part of normal sort
+  city: "通用", // Applicable to all cities or a general placeholder
+  auditStatus: "approved",
+  mockImagePlaceholderHeight: 280, // Example placeholder height
+  mockImagePlaceholderColor: PRESET_PLACEHOLDER_COLORS[0] || "#a2d2ff", // Use a preset color
+  price: "查看折扣",
+};
+
 // ------------------ HELPER FUNCTIONS ------------------
 const formatRelativeTime = (date: Date): string => {
   const now = new Date();
@@ -136,16 +153,22 @@ const formatRelativeTime = (date: Date): string => {
 // ------------------ POST CARD COMPONENT ------------------
 interface PostCardProps {
   post: FeedPost;
+  isPinned?: boolean; // Added for the pinned indicator
 }
 
-const PostCard: React.FC<PostCardProps> = ({ post }) => {
+const PostCard: React.FC<PostCardProps> = ({ post, isPinned }) => {
   return (
     <View
       className="post-card"
       onClick={() =>
-        Taro.navigateTo({ url: `/pages/post-detail/post-detail?id=${post.id}` })
+        Taro.navigateTo({ url: `/pages/detail/index?id=${post.id}` })
       }
     >
+      {isPinned && (
+        <View className="post-card-pin-indicator">
+          <Text>置顶</Text>
+        </View>
+      )}
       {post.mockImagePlaceholderHeight && post.mockImagePlaceholderColor && (
         <View
           className="post-card-image-placeholder"
@@ -213,18 +236,8 @@ const LAST_VIEWED_CATEGORY_KEY = "home_last_viewed_category";
 
 export default function Index() {
   const [selectedCity, setSelectedCity] = useState<string>(CITIES[0]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(() => {
-    try {
-      const lastCategory = Taro.getStorageSync(LAST_VIEWED_CATEGORY_KEY);
-      // Default to 'recommend' if no valid last category is found or if it doesn't exist in current CATEGORIES
-      return lastCategory && CATEGORIES.some((c) => c.id === lastCategory)
-        ? lastCategory
-        : CATEGORIES[0].id; // CATEGORIES[0] is now 'recommend'
-    } catch (e) {
-      console.error("Failed to get last viewed category from storage", e);
-      return CATEGORIES[0].id; // Default to 'recommend'
-    }
-  });
+  const [selectedCategoryId, setSelectedCategoryId] =
+    useState<string>("recommend"); // Always default to 'recommend'
   const [displayedPosts, setDisplayedPosts] = useState<FeedPost[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -273,19 +286,24 @@ export default function Index() {
 
         let filteredPostsForCategory;
         if (categoryId === "recommend") {
-          // For 'recommend', include posts from all actual content categories ('rent', 'used', 'jobs')
-          // Exclude 'recommend' itself from this specific filter step if it somehow got into post.category.id
           const actualContentCategoryIds = CATEGORIES.filter(
-            (c) => c.id !== "recommend"
+            (c) => c.id !== "recommend" // This will now correctly include 'help'
           ).map((c) => c.id);
           filteredPostsForCategory = ALL_MOCK_POSTS.filter(
             (p) =>
               p.city === city &&
-              actualContentCategoryIds.includes(p.category.id) && // Check if post category is one of the content categories
+              actualContentCategoryIds.includes(p.category.id) &&
               p.auditStatus === "approved"
           );
+          // Randomize the order of posts for the 'recommend' category
+          for (let i = filteredPostsForCategory.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [filteredPostsForCategory[i], filteredPostsForCategory[j]] = [
+              filteredPostsForCategory[j],
+              filteredPostsForCategory[i],
+            ];
+          }
         } else {
-          // For specific categories like 'rent', 'used', 'jobs'
           filteredPostsForCategory = ALL_MOCK_POSTS.filter(
             (p) =>
               p.city === city &&
@@ -296,6 +314,7 @@ export default function Index() {
 
         // Sort all filtered posts (either from a specific category or from all for 'recommend')
         filteredPostsForCategory.sort((a, b) => {
+          // Reverted to original sorting: by boostTime then updateTime
           const aBoostTime = a.boostTime ? a.boostTime.getTime() : 0;
           const bBoostTime = b.boostTime ? b.boostTime.getTime() : 0;
           if (aBoostTime !== bBoostTime) {
@@ -483,9 +502,18 @@ export default function Index() {
         {/* Masonry Container for Posts */}
         {displayedPosts.length > 0 && !loadError && (
           <View className="post-list-masonry-container">
-            {displayedPosts.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))}
+            {/* Render the fake pinned post first if 'recommend' category is selected */}
+            {selectedCategoryId === "recommend" && currentPage === 1 && (
+              <PostCard
+                key={fakePinnedPost.id}
+                post={fakePinnedPost}
+                isPinned={true}
+              />
+            )}
+            {displayedPosts.map((post) => {
+              // Regular posts are not pinned by this specific logic
+              return <PostCard key={post.id} post={post} isPinned={false} />;
+            })}
           </View>
         )}
 
@@ -501,11 +529,6 @@ export default function Index() {
           </View>
         )}
       </ScrollView>
-
-      {/* Bottom Discount Area - Placeholder */}
-      <View className="bottom-discount-area">
-        <Text>本周折扣推荐区域 (占位)</Text>
-      </View>
 
       {/* City Picker Popup */}
       {isCityPickerVisible && (
