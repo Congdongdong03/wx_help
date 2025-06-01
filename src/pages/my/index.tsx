@@ -1,6 +1,5 @@
 import Taro from "@tarojs/taro";
 import { View, Text } from "@tarojs/components";
-import { AtButton } from "taro-ui";
 import "./index.scss";
 
 export default function My() {
@@ -19,28 +18,6 @@ export default function My() {
   return (
     <View className="index">
       <Text>我的页面</Text>
-
-      <AtButton
-        className="my-posts-button"
-        onClick={() => {
-          console.log("Navigating to my-posts page...");
-          Taro.navigateTo({
-            url: "/pages/my/my-posts",
-            success: () => {
-              console.log("Navigation successful");
-            },
-            fail: (error) => {
-              console.error("Navigation failed:", error);
-            },
-          });
-        }}
-      >
-        我的发布
-      </AtButton>
-
-      <AtButton onClick={handleTestRequest} className="test-request-button">
-        测试后端连接
-      </AtButton>
     </View>
   );
 }
