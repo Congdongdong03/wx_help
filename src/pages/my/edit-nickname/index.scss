@@ -1,0 +1,68 @@
+.edit-nickname-page {
+  padding: 40rpx;
+  background-color: #f8f9fa;
+  min-height: 100vh;
+  box-sizing: border-box;
+
+  .input-container {
+    display: flex;
+    align-items: center;
+    background-color: #fff;
+    padding: 0 30rpx; // Padding horizontal, vertical from input itself
+    border-radius: 12rpx;
+    margin-bottom: 20rpx;
+    border: 1rpx solid #e0e0e0;
+
+    .nickname-input {
+      flex-grow: 1;
+      height: 100rpx; // Explicit height for the input area
+      font-size: 32rpx;
+      color: #333;
+    }
+    .clear-input-btn {
+      padding: 20rpx;
+      font-size: 30rpx;
+      color: #999;
+      cursor: pointer;
+    }
+  }
+
+  .error-text {
+    display: block;
+    font-size: 26rpx;
+    color: #fa5151; // Red for errors
+    margin-bottom: 10rpx;
+    min-height: 30rpx; // Reserve space even if no error to prevent layout shift
+  }
+
+  .char-limit-info {
+    display: block;
+    text-align: right;
+    font-size: 24rpx;
+    color: #999;
+    margin-bottom: 60rpx;
+  }
+
+  .save-button {
+    width: 100%;
+    max-width: 650rpx;
+    padding: 20rpx 0;
+    font-size: 32rpx;
+    font-weight: bold;
+    color: #fff;
+    background-color: #007bff;
+    border-radius: 40rpx;
+    border: none;
+    margin: 0 auto; // Center button
+    display: block;
+
+    &::after {
+      border: none;
+    }
+
+    &[disabled] {
+      background-color: #cccccc;
+      color: #888888;
+    }
+  }
+}

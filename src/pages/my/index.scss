@@ -1,0 +1,81 @@
+// src/pages/my/index.scss
+// Styles for the "My" page (/pages/my/index)
+
+.my-page {
+  background-color: #f8f9fa; // Light page background
+  min-height: 100vh;
+  padding-top: 20rpx; // Overall top padding
+
+  .user-info-section {
+    display: flex;
+    align-items: center;
+    background-color: #fff;
+    padding: 30rpx 40rpx;
+    margin: 0 20rpx 30rpx 20rpx; // Side and bottom margin
+    border-radius: 16rpx;
+    box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+
+    .user-avatar {
+      width: 120rpx;
+      height: 120rpx;
+      border-radius: 50%;
+      margin-right: 30rpx;
+      background-color: #ffc0cb; // Pink color
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40rpx; // Adjust size as needed
+      font-weight: bold;
+      color: white;
+      position: relative; // Needed for pseudo-element if we use it for text
+    }
+
+    .user-details {
+      flex-grow: 1;
+      display: flex; // Allow nickname and indicator to be in a row
+      align-items: center; // Vertically align nickname and indicator
+      justify-content: space-between; // Push indicator to the right
+    }
+
+    .user-nickname {
+      flex-grow: 1;
+      font-size: 36rpx;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .edit-indicator {
+      font-size: 30rpx;
+      color: #bbb;
+    }
+  }
+
+  .menu-list {
+    background-color: #fff;
+    margin: 0 20rpx; // Side margin
+    border-radius: 16rpx;
+    box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
+    overflow: hidden; // Ensure border-radius clips children if needed
+
+    .menu-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 35rpx 40rpx;
+      font-size: 30rpx;
+      color: #333;
+      border-bottom: 1rpx solid #f0f0f0;
+      cursor: pointer;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .menu-arrow {
+        font-size: 28rpx;
+        color: #bbb;
+      }
+    }
+  }
+}

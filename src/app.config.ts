@@ -4,6 +4,15 @@ export default defineAppConfig({
     "pages/my/index",
     "pages/my/my-posts/my-posts",
     "pages/publish/index",
+    "pages/detail/index",
+    "pages/post/index",
+    "pages/post/form/index",
+    "pages/my/edit-nickname/index",
+    "pages/my/favorites/index",
+    "pages/settings/about/index",
+    "pages/settings/help-feedback/index",
+    "pages/settings/user-agreement/index",
+    "pages/settings/privacy-policy/index",
   ],
   window: {
     backgroundTextStyle: "light",
@@ -24,7 +33,7 @@ export default defineAppConfig({
         selectedIconPath: "assets/tabbar/home_selected.png", // 请替换为你的选中图标路径
       },
       {
-        pagePath: "pages/publish/index",
+        pagePath: "pages/post/index",
         text: "发布",
         iconPath: "assets/tabbar/publish.png", // 请替换为你的图标路径
         selectedIconPath: "assets/tabbar/publish_selected.png", // 请替换为你的选中图标路径
