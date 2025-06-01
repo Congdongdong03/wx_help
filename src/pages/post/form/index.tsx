@@ -43,8 +43,17 @@ interface JobFormData {
   wechatId: string;
 }
 
+interface HelpFormData {
+  title: string; // 主题 (Required)
+  description?: string; // 文字 (Optional, max 100 chars)
+  // images are handled by imageFiles state (Optional)
+  wechatId: string; // 微信号 (Required, assuming it's needed for contact)
+}
+
 // Union type for all possible form data structures
-type PostFormData = Partial<RentFormData & UsedGoodFormData & JobFormData>;
+type PostFormData = Partial<
+  RentFormData & UsedGoodFormData & JobFormData & HelpFormData
+>;
 
 const ROOM_TYPES = ["主卧", "次卧", "整租", "床位"];
 const RENT_PERIODS = ["$/周"];
@@ -138,6 +147,13 @@ export default function PostFormPage() {
           wechatId: "",
           description: "",
         });
+      } else if (cat === "help") {
+        setPageTitle("发布帮帮信息");
+        setFormData({
+          title: "",
+          description: "",
+          wechatId: "",
+        });
       }
     } else {
       // Handle case where category is not passed - maybe redirect or show error
@@ -149,7 +165,7 @@ export default function PostFormPage() {
   // Form validation effect
   useEffect(() => {
     let isValid = false;
-    const imagesUploaded = imageFiles.length > 0;
+    // const imagesUploaded = imageFiles.length > 0; // Keep this if other categories require it
 
     if (category === "rent") {
       const {
@@ -160,8 +176,9 @@ export default function PostFormPage() {
         address,
         description,
         wechatId,
-        includesBills,
+        // includesBills, // includesBills is not in formData destructuring but used
       } = formData as RentFormData;
+      const imagesUploaded = imageFiles.length > 0; // rent requires images
       if (
         title &&
         roomType &&
@@ -170,13 +187,14 @@ export default function PostFormPage() {
         address &&
         description &&
         wechatId &&
-        imagesUploaded
+        imagesUploaded // Rent still requires images
       ) {
         isValid = true;
       }
     } else if (category === "used") {
       const { title, itemCategory, price, condition, description, wechatId } =
         formData as UsedGoodFormData;
+      const imagesUploaded = imageFiles.length > 0; // used requires images
       if (
         title &&
         itemCategory &&
@@ -184,7 +202,7 @@ export default function PostFormPage() {
         condition &&
         description &&
         wechatId &&
-        imagesUploaded
+        imagesUploaded // Used goods still require images
       ) {
         isValid = true;
       }
@@ -197,6 +215,7 @@ export default function PostFormPage() {
         description,
         wechatId,
       } = formData as JobFormData;
+      const imagesUploaded = imageFiles.length > 0; // jobs requires images
       if (
         title &&
         position &&
@@ -204,8 +223,14 @@ export default function PostFormPage() {
         timeRequirement &&
         description &&
         wechatId &&
-        imagesUploaded
+        imagesUploaded // Jobs still require images
       ) {
+        isValid = true;
+      }
+    } else if (category === "help") {
+      const { title, wechatId } = formData as HelpFormData;
+      // For "help", images and description are optional.
+      if (title && wechatId) {
         isValid = true;
       }
     }
@@ -286,16 +311,78 @@ export default function PostFormPage() {
     setImageFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = () => {
+  // Placeholder for actual image generation function
+  // It should return a Promise that resolves to an object compatible with Taro.chooseImage.ImageFile
+  const generateImageFromText = async (
+    text: string
+  ): Promise<Taro.chooseImage.ImageFile> => {
+    console.log(`Generating image for text: ${text}`);
+    // Simulate API call or local generation
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // This is a MOCK implementation. Replace with your actual image generation
+    // and ensure the returned object matches Taro.chooseImage.ImageFile structure.
+    const mockFilePath = "path/to/generated/image.png"; // This should be a real path or data URI
+    return {
+      path: mockFilePath,
+      size: 102400, // Example size in bytes
+      // type: "image/png" // Optional: if your image object includes a type
+    } as Taro.chooseImage.ImageFile; // Type assertion for clarity
+  };
+
+  const handleSubmit = async () => {
     if (!isFormValid) {
-      Taro.showToast({ title: "请完善信息后再发布", icon: "none" });
+      Taro.showToast({ title: "请完善必填信息后再发布", icon: "none" });
       return;
     }
-    if (imageFiles.length === 0) {
+
+    let currentImageFiles = [...imageFiles]; // Work with a copy
+
+    if (
+      category === "help" &&
+      (!formData.description || formData.description.trim() === "") &&
+      currentImageFiles.length === 0
+    ) {
+      Taro.showLoading({ title: "生成图片中..." });
+      try {
+        const generatedImage = await generateImageFromText(
+          formData.title || "默认标题"
+        );
+        currentImageFiles = [generatedImage]; // Replace or add based on your logic
+        // If you want to update the state for UI (e.g., to show the new image preview immediately):
+        // setImageFiles(currentImageFiles);
+        // However, for submission, using currentImageFiles directly is safer due to state update's async nature.
+        Taro.hideLoading();
+      } catch (error) {
+        Taro.hideLoading();
+        Taro.showToast({ title: "图片生成失败", icon: "error" });
+        console.error("Image generation failed:", error);
+        return; // Stop submission if image generation fails
+      }
+    }
+
+    // Adjusted image validation:
+    // If images are required for other categories, this check needs to be conditional.
+    // For 'help', this check is skipped if an image was generated or if a description exists.
+    if (category !== "help" && currentImageFiles.length === 0) {
       Taro.showToast({ title: "至少上传一张图片", icon: "none" });
       return;
     }
-    if (imageFiles.length > 6) {
+    // For 'help', if there's no description, no user-uploaded images, AND image generation failed (or wasn't triggered),
+    // then it means there's no content. The `isFormValid` should ideally catch this,
+    // but an explicit check here might be good depending on `isFormValid`'s thoroughness for the 'help' case.
+    // Given the current `isFormValid` for 'help' only checks title and wechatId,
+    // we need to ensure that if description is empty, an image (either uploaded or generated) MUST exist.
+
+    if (
+      category === "help" &&
+      (!formData.description || formData.description.trim() === "") &&
+      currentImageFiles.length === 0
+    ) {
+      Taro.showToast({ title: "请填写文字描述或上传图片", icon: "none" });
+      return;
+    }
+
+    if (currentImageFiles.length > 6) {
       Taro.showToast({ title: "最多只能上传6张图", icon: "none" });
       return;
     }
@@ -303,10 +390,10 @@ export default function PostFormPage() {
     console.log("Form Data to submit:", formData);
     console.log(
       "Image files to submit:",
-      imageFiles.map((f) => f.path)
+      currentImageFiles.map((f) => f.path)
     );
     // TODO: Actual API submission
-    // 1. Upload images to your server, get URLs
+    // 1. Upload images (currentImageFiles) to your server, get URLs
     // 2. Submit formData along with image URLs to POST /api/posts/create
 
     Taro.showLoading({ title: "发布中..." });
@@ -580,6 +667,43 @@ export default function PostFormPage() {
     </View>
   );
 
+  const renderHelpForm = () => (
+    <View>
+      <View className="form-item">
+        <Text className="form-label required">主题</Text>
+        <Input
+          className="form-input"
+          type="text"
+          placeholder="请输入主题"
+          value={formData.title}
+          onInput={(e) => handleInputChange("title", e.detail.value)}
+          maxlength={50}
+        />
+      </View>
+      <View className="form-item">
+        <Text className="form-label">文字 (可选)</Text>
+        <Textarea
+          className="form-textarea"
+          placeholder="请输入文字内容 (100字以内)"
+          value={formData.description}
+          onInput={(e) => handleInputChange("description", e.detail.value)}
+          maxlength={100}
+          autoHeight
+        />
+      </View>
+      <View className="form-item">
+        <Text className="form-label required">微信号</Text>
+        <Input
+          className="form-input"
+          type="text"
+          placeholder="填写你的微信号"
+          value={formData.wechatId}
+          onInput={(e) => handleInputChange("wechatId", e.detail.value)}
+        />
+      </View>
+    </View>
+  );
+
   return (
     <View className="post-form-page">
       <Text className="page-title-form">{pageTitle}</Text>
@@ -587,10 +711,18 @@ export default function PostFormPage() {
       {category === "rent" && renderRentForm()}
       {category === "used" && renderUsedGoodForm()}
       {category === "jobs" && renderJobForm()}
+      {category === "help" && renderHelpForm()}
 
       <View className="form-item">
-        <Text className="form-label required">
+        <Text className="form-label">
+          {/* Dynamically set "required" text or adjust based on category if needed */}
+          {/* For now, making it generally optional in text for "help", but other categories might still enforce it */}
           上传图片 ({imageFiles.length}/6)
+          {category !== "help" ? (
+            <Text className="required-indicator">*</Text>
+          ) : (
+            " (可选)"
+          )}
         </Text>
         <View className="image-uploader">
           {imageFiles.map((file, index) => (

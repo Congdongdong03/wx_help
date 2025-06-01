@@ -4,12 +4,13 @@ import { View, Text, Button } from "@tarojs/components";
 import "./index.scss";
 
 interface CategoryOption {
-  id: "rent" | "used" | "jobs";
+  id: "rent" | "used" | "jobs" | "help";
   name: string;
   icon: string; // Emoji or a class name for an icon font, or path to an image
 }
 
 const POST_CATEGORIES: CategoryOption[] = [
+  { id: "help", name: "帮帮", icon: "🤝" },
   { id: "rent", name: "租房", icon: "🏠" },
   { id: "used", name: "二手", icon: "📦" },
   { id: "jobs", name: "招聘", icon: "💼" },

@@ -6,7 +6,7 @@ import "./index.scss"; // 引入样式文件，确保文件路径正确
 // 定义 Tab 的状态类型
 type Status = "all" | "published" | "draft" | "reviewing";
 // 定义帖子的审核状态类型
-type AuditStatus = "pending" | "approved" | "rejected" | "draft";
+type AuditStatus = "pending" | "approved" | "rejected" | "draft" | "taken_down";
 
 // 定义 TabItem 接口
 interface TabItem {
@@ -75,6 +75,7 @@ export default function MyPosts() {
   const [current, setCurrent] = useState(0);
   // 用于存储当前需要显示的帖子列表的状态，初始为空数组
   const [posts, setPosts] = useState<Post[]>([]);
+  const [activeMenuPostId, setActiveMenuPostId] = useState<number | null>(null);
 
   // *** 新增状态：存储当前 session 中已被擦亮的帖子 id ***
   const [boostedPostIds, setBoostedPostIds] = useState<Set<number>>(new Set());
@@ -87,27 +88,25 @@ export default function MyPosts() {
     let filteredPosts: Post[] = [];
 
     if (selectedStatus === "all") {
-      // 如果选中"全部"Tab，显示所有 mock 数据
-      filteredPosts = mockPosts;
+      filteredPosts = mockPosts.filter(
+        (post) => post.auditStatus !== "taken_down"
+      ); // Exclude taken_down from 'all' for now, or handle as needed
     } else if (selectedStatus === "published") {
-      // 如果选中"已发布"Tab，过滤出 auditStatus 为 'approved' 的帖子
       filteredPosts = mockPosts.filter(
         (post) => post.auditStatus === "approved"
       );
     } else if (selectedStatus === "reviewing") {
-      // 如果选中"审核中"Tab，显示 auditStatus 为 'pending' 或 'rejected' 的帖子
       filteredPosts = mockPosts.filter(
         (post) =>
           post.auditStatus === "pending" || post.auditStatus === "rejected"
       );
     } else if (selectedStatus === "draft") {
-      // 如果选中"草稿"Tab，过滤出 auditStatus 为 'draft' 的帖子
       filteredPosts = mockPosts.filter((post) => post.auditStatus === "draft");
     }
-    // TODO: 如果有其他 Tab 状态，在这里添加对应的过滤逻辑
+    // TODO: Consider a tab for "taken_down" posts if needed
 
-    setPosts(filteredPosts); // 在所有过滤逻辑处理完后，统一更新 posts 状态
-  }, [current, tabList]); // 依赖项：当 current 或 tabList 变化时重新运行这个 Effect
+    setPosts(filteredPosts);
+  }, [current, mockPosts]); // Add mockPosts to dependencies if it can be modified directly by takedown
 
   // Tab 点击处理函数
   const handleClick = (value: number) => {
@@ -172,6 +171,65 @@ export default function MyPosts() {
     }
   };
 
+  const handleEdit = (postId: number) => {
+    console.log(`Edit post ${postId}`);
+    Taro.showToast({ title: "编辑功能待实现", icon: "none" });
+    setActiveMenuPostId(null);
+  };
+
+  const handleTakedown = (postId: number) => {
+    setActiveMenuPostId(null); // Close menu first
+    Taro.showModal({
+      title: "确认操作",
+      content: "确认下架该信息吗？",
+      success: (res) => {
+        if (res.confirm) {
+          console.log(`Taking down post ${postId}`);
+          // Simulate API call
+          // Find the post in mockPosts and update its status
+          const postIndex = mockPosts.findIndex((p) => p.id === postId);
+          if (postIndex !== -1) {
+            // Change status to 'rejected' or a new 'taken_down' status
+            // For this example, let's change it to 'rejected' so it moves to '审核中' or disappears from '已发布'
+            // Or, ideally, add a 'taken_down' status and handle its display.
+            // For now, to ensure it's removed from "published", we can use 'rejected'
+            // Or filter it out directly if we don't want it in "reviewing"
+            mockPosts[postIndex].auditStatus = "taken_down"; // Using the new status
+
+            // Trigger a re-filter by updating the posts state based on the new mockPosts
+            // This can be done by forcing useEffect to re-run or by recalculating here.
+            // For simplicity, let's manually re-filter based on the current tab.
+            const selectedStatus = tabList[current].status;
+            let refreshedPosts: Post[] = [];
+            if (selectedStatus === "all") {
+              refreshedPosts = mockPosts.filter(
+                (post) => post.auditStatus !== "taken_down"
+              );
+            } else if (selectedStatus === "published") {
+              refreshedPosts = mockPosts.filter(
+                (p) => p.auditStatus === "approved"
+              );
+            } else if (selectedStatus === "reviewing") {
+              refreshedPosts = mockPosts.filter(
+                (p) =>
+                  p.auditStatus === "pending" || p.auditStatus === "rejected"
+              );
+            } else if (selectedStatus === "draft") {
+              refreshedPosts = mockPosts.filter(
+                (p) => p.auditStatus === "draft"
+              );
+            }
+            setPosts(refreshedPosts);
+
+            Taro.showToast({ title: "下架成功", icon: "success" });
+          } else {
+            Taro.showToast({ title: "操作失败", icon: "error" });
+          }
+        }
+      },
+    });
+  };
+
   // 辅助函数：将英文的审核状态转换为中文显示
   const displayAuditStatus = (status: AuditStatus) => {
     switch (status) {
@@ -181,6 +239,8 @@ export default function MyPosts() {
         return "已发布"; // Tab 显示"已发布"，状态显示"已发布"保持一致
       case "rejected":
         return "未通过";
+      case "taken_down":
+        return "已下架";
       default:
         return "未知状态";
     }
@@ -210,77 +270,93 @@ export default function MyPosts() {
         <View className="post-list">
           {/* 遍历当前需要显示的 posts 数组，渲染每个帖子卡片 */}
           {posts.map((post) => {
-            // *** 检查当前帖子是否已被擦亮 ***
             const isBoosted = boostedPostIds.has(post.id);
 
             return (
               <View key={post.id} className="post-card">
-                {" "}
-                {/* 帖子卡片容器 */}
-                {/* 帖子图片 */}
-                <Image
-                  className="post-image"
-                  src={post.image}
-                  mode="aspectFill" // 图片填充模式
-                />
-                {/* 帖子详情区域（图片右侧的内容） */}
-                <View className="post-details">
-                  {/* 帖子描述/内容 */}
-                  <Text className="post-description">{post.description}</Text>
-                  {/* 包裹时间/状态和按钮的容器 */}
-                  <View className="post-footer-row">
-                    {" "}
-                    {/* 这个类名对应 CSS 修改 */}
-                    {/* 发布时间 和 审核状态区域 */}
-                    <View className="post-meta">
-                      <Text className="post-time">{post.createTime}</Text>{" "}
-                      {/* 发布时间 */}
-                      {/* 根据审核状态应用不同的样式类名 */}
-                      <Text
-                        className={`post-status status-${post.auditStatus}`}
-                      >
-                        {/* 调用辅助函数显示中文审核状态 */}
-                        {displayAuditStatus(post.auditStatus)}
-                      </Text>
-                    </View>
-                    <View className="post-actions">
-                      {/* 条件渲染包含按钮的 View：只有审核状态为 'approved' 时显示 */}
-                      {post.auditStatus === "approved" && (
-                        // 新增一个可点击的 View 来包裹按钮
-                        <View
-                          className={`boost-button-container ${
-                            isBoosted ? "is-boosted" : ""
-                          }`} // 添加类名，根据是否已擦亮动态添加 is-boosted 类
-                          onClick={() => {
-                            // 在点击时首先检查当前会话中是否已被擦亮 (isBoosted 来自 boostedPostIds state)
-                            if (isBoosted) {
-                              // 如果在当前会话中已经记录为擦亮，直接提示，不发起 API 调用
-                              Taro.showToast({
-                                title: "一天只能擦亮一次",
-                                icon: "none",
-                                duration: 2000,
-                              });
-                            } else {
-                              // 如果当前会话未记录为擦亮，则调用 handleBoostClick 尝试通过 API 擦亮
-                              handleBoostClick(post.id);
-                            }
-                          }}
+                <View className="post-main">
+                  <Image
+                    className="post-image"
+                    src={post.image}
+                    mode="aspectFill"
+                  />
+                  <View className="post-details">
+                    <Text className="post-description">{post.description}</Text>
+                    <View className="post-footer-row">
+                      {/* New container for meta and actions */}
+                      <View className="post-meta">
+                        <Text className="post-time">{post.createTime}</Text>
+                        <Text
+                          className={`post-status status-${post.auditStatus}`}
                         >
-                          {/* 将 Button 放在 View 内部，Button 本身不再处理点击和禁用状态 */}
+                          {displayAuditStatus(post.auditStatus)}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+                {/* 底部操作按钮，移出 post-details 外部 */}
+                <View className="post-actions">
+                  {/* Three-dot menu first */}
+                  {(post.auditStatus === "approved" ||
+                    post.auditStatus === "rejected" ||
+                    post.auditStatus === "pending" ||
+                    post.auditStatus === "draft") && (
+                    <View className="post-options-menu-container">
+                      <Text
+                        className="three-dots-icon"
+                        onClick={() =>
+                          setActiveMenuPostId(
+                            activeMenuPostId === post.id ? null : post.id
+                          )
+                        }
+                      >
+                        ···
+                      </Text>
+                      {activeMenuPostId === post.id && (
+                        <View className="options-menu">
                           <Button
-                            className="boost-button"
-                            disabled={isBoosted} // Button 仍然可以根据 isBoosted 状态设置 disabled 属性，用于样式控制或防止原生点击效果
+                            className="menu-button"
+                            onClick={() => handleEdit(post.id)}
                           >
-                            {isBoosted ? "已擦亮" : "擦亮"}{" "}
-                            {/* 根据状态改变按钮文本 */}
+                            编辑
                           </Button>
+                          {post.auditStatus === "approved" && (
+                            <Button
+                              className="menu-button takedown"
+                              onClick={() => handleTakedown(post.id)}
+                            >
+                              下架
+                            </Button>
+                          )}
                         </View>
                       )}
                     </View>
-                  </View>{" "}
-                  {/* post-footer-row 结束 */}
-                </View>{" "}
-                {/* post-details 结束 */}
+                  )}
+                  {/* Boost Button second */}
+                  {post.auditStatus === "approved" && (
+                    <View
+                      className={`boost-button-container ${
+                        isBoosted ? "is-boosted" : ""
+                      }`}
+                      onClick={() => {
+                        if (isBoosted) {
+                          Taro.showToast({
+                            title: "一天只能擦亮一次",
+                            icon: "none",
+                            duration: 2000,
+                          });
+                        } else {
+                          handleBoostClick(post.id);
+                        }
+                      }}
+                    >
+                      <Button className="boost-button" disabled={isBoosted}>
+                        {isBoosted ? "已擦亮" : "擦亮"}
+                      </Button>
+                    </View>
+                  )}
+                </View>
               </View>
             );
           })}
