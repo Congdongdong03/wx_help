@@ -4,6 +4,7 @@ import cors from "cors";
 import { config } from "./config";
 import userRoutes from "./routes/user";
 import postRoutes from "./routes/post";
+import homeRoutes from "./routes/home";
 import { initializeDatabase } from "./config/database";
 
 const app = express();
@@ -43,6 +44,9 @@ app.use("/api/users", userRoutes);
 
 // Post routes
 app.use("/api/posts", postRoutes);
+
+// Home routes
+app.use("/api/home", homeRoutes);
 
 // Error handling
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

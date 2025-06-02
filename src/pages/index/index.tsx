@@ -23,12 +23,11 @@ interface FeedPost {
   boostTime?: Date; // For sorting (optional, boosted posts first)
   city: string; // For filtering
   auditStatus: "approved" | "pending" | "rejected" | "draft"; // Added auditStatus
+  image_url?: string; // Added for the image URL
   // Potentially other fields like publisher_avatar, contact_info etc. for detail view
 }
 
 // ------------------ MOCK DATA ------------------
-
-const CITIES: string[] = ["悉尼", "墨尔本", "卧龙岗"];
 
 const CATEGORIES: Category[] = [
   { id: "recommend", name: "推荐", color: "#6f42c1" }, // Purple
@@ -110,45 +109,382 @@ const generateMockPosts = (
   return posts;
 };
 
-const ALL_MOCK_POSTS: FeedPost[] = CITIES.reduce((acc, city) => {
-  return acc.concat(generateMockPosts(25, city)); // Generate 25 posts per city for diverse data
-}, [] as FeedPost[]);
+// ------------------ API 数据加载 ------------------
 
 const POSTS_PER_PAGE = 10;
 
-// Define the fake pinned post
-const fakePinnedPost: FeedPost = {
-  id: "fake-pinned-post-coles-wws",
-  title: "Coles & WWS 本周特价汇总 (置顶)",
-  description:
-    "点击查看本周Coles和Woolworths的最新折扣信息，省钱攻略不容错过！",
-  category: CATEGORIES.find((c) => c.id === "recommend")!, // Ensure this category exists
-  updateTime: new Date(), // Show as most recent
-  boostTime: new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000), // Ensure it's boosted to appear first if ever part of normal sort
-  city: "通用", // Applicable to all cities or a general placeholder
-  auditStatus: "approved",
-  mockImagePlaceholderHeight: 280, // Example placeholder height
-  mockImagePlaceholderColor: PRESET_PLACEHOLDER_COLORS[0] || "#a2d2ff", // Use a preset color
-  price: "查看折扣",
-};
+export default function Index() {
+  // 用于存储真实城市数据
+  const [cities, setCities] = useState<string[]>([]);
+  const [selectedCity, setSelectedCity] = useState<string>("");
+  const [selectedCategoryId, setSelectedCategoryId] =
+    useState<string>("recommend");
+  const [displayedPosts, setDisplayedPosts] = useState<FeedPost[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [hasMoreData, setHasMoreData] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<boolean>(false);
+  const [isCityPickerVisible, setIsCityPickerVisible] =
+    useState<boolean>(false);
+  const [pinnedPosts, setPinnedPosts] = useState<FeedPost[]>([]);
+  const [normalPosts, setNormalPosts] = useState<FeedPost[]>([]);
 
-// ------------------ HELPER FUNCTIONS ------------------
-const formatRelativeTime = (date: Date): string => {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSeconds = Math.round(diffMs / 1000);
-  const diffMinutes = Math.round(diffSeconds / 60);
-  const diffHours = Math.round(diffMinutes / 60);
-  const diffDays = Math.round(diffHours / 24);
+  // Refs for values used in useCallback guard to prevent loops
+  const isLoadingRef = useRef(isLoading);
+  const currentPageRef = useRef(currentPage);
 
-  if (diffSeconds < 60) return `${diffSeconds}秒前`;
-  if (diffMinutes < 60) return `${diffMinutes}分钟前`;
-  if (diffHours < 24) return `${diffHours}小时前`;
-  if (diffDays <= 7) return `${diffDays}天前`;
-  return `${date.getMonth() + 1}月${date.getDate()}日 ${String(
-    date.getHours()
-  ).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-};
+  useEffect(() => {
+    isLoadingRef.current = isLoading;
+  }, [isLoading]);
+
+  useEffect(() => {
+    currentPageRef.current = currentPage;
+  }, [currentPage]);
+
+  // 获取城市列表
+  useEffect(() => {
+    Taro.request({
+      url: "http://192.168.1.243:3000/api/home/cities",
+      method: "GET",
+    }).then((res) => {
+      if (res.data && res.data.code === 0) {
+        setCities(res.data.data.map((city: any) => city.name));
+      }
+    });
+  }, []);
+
+  // 新的 loadPosts，调用后端 API
+  const loadPosts = useCallback(
+    async (
+      city: string,
+      categoryId: string,
+      page: number,
+      append: boolean = false
+    ) => {
+      if (isLoadingRef.current && !append && page === currentPageRef.current) {
+        console.log("LoadPosts call skipped by guard using refs");
+        return;
+      }
+      setIsLoading(true);
+      setLoadError(false);
+      try {
+        let url = `http://192.168.1.243:3000/api/home/recommendations?city=${encodeURIComponent(
+          city
+        )}`;
+        if (categoryId && categoryId !== "recommend") {
+          url += `&category=${categoryId}`;
+        }
+        const res = await Taro.request({
+          url,
+          method: "GET",
+        });
+        // 调试日志
+        console.log("API返回数据:", res.data);
+        if (res.data && res.data.code === 0) {
+          const pinnedRaw = res.data.data.pinned || [];
+          const listRaw = res.data.data.list || [];
+          const mapToFeedPost = (item: any): FeedPost => ({
+            id: item.id || `temp-${Date.now()}-${Math.random()}`,
+            title: item.title || "无标题",
+            description: item.description || "暂无描述",
+            category:
+              CATEGORIES.find((c) => c.id === (item.category || "recommend")) ||
+              CATEGORIES[0],
+            price: item.price || undefined,
+            updateTime: new Date(
+              item.updated_at || item.created_at || Date.now()
+            ),
+            boostTime: item.is_pinned ? new Date() : undefined,
+            city: item.city || city,
+            auditStatus: (item.is_active ? "approved" : "pending") as
+              | "approved"
+              | "pending"
+              | "rejected"
+              | "draft",
+            image_url: item.image_url || undefined,
+          });
+          const pinned = pinnedRaw.map(mapToFeedPost);
+          const list = listRaw.map(mapToFeedPost);
+          // 调试日志
+          console.log("置顶帖子数量:", pinned.length);
+          console.log("普通帖子数量:", list.length);
+          setPinnedPosts(pinned);
+          setNormalPosts(list);
+          if (categoryId !== "recommend") {
+            setDisplayedPosts(list);
+          } else {
+            setDisplayedPosts([]);
+          }
+          setHasMoreData(list.length === POSTS_PER_PAGE);
+          setCurrentPage(page);
+        } else {
+          setPinnedPosts([]);
+          setNormalPosts([]);
+          setDisplayedPosts([]);
+          setHasMoreData(false);
+        }
+      } catch (error) {
+        console.error("Failed to load posts:", error);
+        setLoadError(true);
+        Taro.showToast({
+          title: "加载失败，请检查网络连接",
+          icon: "none",
+          duration: 2000,
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [
+      setIsLoading,
+      setLoadError,
+      setDisplayedPosts,
+      setHasMoreData,
+      setCurrentPage,
+    ]
+  );
+
+  // 当城市和分类变化时加载数据
+  useEffect(() => {
+    if (!selectedCity && cities.length > 0) {
+      setSelectedCity(cities[0]);
+      return;
+    }
+    if (selectedCity) {
+      setDisplayedPosts([]);
+      setCurrentPage(1);
+      setHasMoreData(true);
+      setLoadError(false);
+      loadPosts(selectedCity, selectedCategoryId, 1, false);
+    }
+  }, [selectedCity, selectedCategoryId, loadPosts, cities]);
+
+  const handleCategoryChange = (categoryId: string) => {
+    setSelectedCategoryId(categoryId);
+  };
+
+  const handleCitySelectorClick = () => {
+    setIsCityPickerVisible(true);
+  };
+
+  const handleCloseCityPicker = () => {
+    setIsCityPickerVisible(false);
+  };
+
+  const handleSelectCity = (city: string) => {
+    setSelectedCity(city);
+    setIsCityPickerVisible(false);
+    // useEffect will handle reloading posts due to selectedCity change
+  };
+
+  const onScrollToLower = () => {
+    if (!isLoading && hasMoreData) {
+      console.log("Reached bottom, loading more...");
+      loadPosts(selectedCity, selectedCategoryId, currentPage + 1, true);
+    }
+  };
+
+  const retryLoad = () => {
+    setDisplayedPosts([]); // Clear potentially partial data
+    setCurrentPage(1);
+    setHasMoreData(true);
+    loadPosts(selectedCity, selectedCategoryId, 1);
+  };
+
+  // 修改渲染逻辑：只在推荐页显示置顶帖子
+  const isRecommendFirstPage =
+    selectedCategoryId === "recommend" && currentPage === 1;
+  let singlePinnedPost: FeedPost | undefined = undefined;
+  let mixedPosts: FeedPost[] = [];
+
+  if (isRecommendFirstPage && pinnedPosts.length > 0) {
+    // 只在推荐页第一页显示置顶帖子
+    singlePinnedPost = pinnedPosts[0];
+    const pinnedIds = new Set(pinnedPosts.map((p) => p.id));
+    // 普通帖子按时间降序排序，排除所有置顶帖
+    mixedPosts = normalPosts
+      .filter((p) => !pinnedIds.has(p.id))
+      .sort((a, b) => b.updateTime.getTime() - a.updateTime.getTime());
+  } else {
+    // 其他分类或非第一页：使用原有逻辑，不显示置顶
+    if (selectedCategoryId === "recommend") {
+      mixedPosts = normalPosts;
+    } else {
+      mixedPosts = displayedPosts;
+    }
+  }
+
+  console.log("singlePinnedPost:", singlePinnedPost);
+  console.log("mixedPosts:", mixedPosts);
+
+  return (
+    <View className="index-page">
+      {/* Header: City + Categories */}
+      <View className="header">
+        <View className="city-selector" onClick={handleCitySelectorClick}>
+          <Text>{selectedCity}</Text>
+          <Text className="arrow">▼</Text>
+        </View>
+        <View className="category-tabs">
+          {CATEGORIES.map((cat) => (
+            <Button
+              key={cat.id}
+              className={`category-tab ${
+                selectedCategoryId === cat.id ? "active" : ""
+              }`}
+              onClick={() => handleCategoryChange(cat.id)}
+            >
+              {cat.name}
+            </Button>
+          ))}
+        </View>
+      </View>
+
+      {/* Posts Feed */}
+      <ScrollView
+        scrollY
+        className="posts-scroll-view"
+        onScrollToLower={onScrollToLower}
+        lowerThreshold={150}
+      >
+        {isLoading && currentPage === 1 && !loadError && (
+          <View className="loading-container skeleton-container post-list-masonry-container">
+            {[...Array(4)].map((_, index) => {
+              const randomHeight =
+                Math.floor(Math.random() * (450 - 250 + 1)) + 250;
+              return (
+                <SkeletonCard
+                  key={`skeleton-${index}`}
+                  mockImageHeight={randomHeight}
+                />
+              );
+            })}
+          </View>
+        )}
+
+        {loadError && !isLoading && (
+          <View className="empty-state-container">
+            <Text className="empty-state-text">加载失败，请检查网络连接</Text>
+            <Button className="empty-state-button" onClick={retryLoad}>
+              重试
+            </Button>
+          </View>
+        )}
+
+        {/* 空状态：推荐页专用 */}
+        {isRecommendFirstPage &&
+          !singlePinnedPost &&
+          mixedPosts.length === 0 && (
+            <View className="empty-state-container">
+              <Text className="empty-state-text">
+                暂无相关信息，换个分类试试？
+              </Text>
+              <Button
+                className="empty-state-button"
+                onClick={() => Taro.navigateTo({ url: "/pages/publish/index" })}
+              >
+                去发帖
+              </Button>
+            </View>
+          )}
+
+        {/* 其他分类空状态 */}
+        {!isRecommendFirstPage && mixedPosts.length === 0 && !isLoading && (
+          <View className="empty-state-container">
+            <Text className="empty-state-text">
+              暂无相关信息，换个分类试试？
+            </Text>
+            <Button
+              className="empty-state-button"
+              onClick={() => Taro.navigateTo({ url: "/pages/publish/index" })}
+            >
+              去发帖
+            </Button>
+          </View>
+        )}
+
+        {/* 推荐页内容 */}
+        {isRecommendFirstPage &&
+          (singlePinnedPost || mixedPosts.length > 0) && (
+            <View className="post-list-masonry-container">
+              {/* 置顶帖子只在推荐页显示 */}
+              {singlePinnedPost && (
+                <PostCard
+                  key={singlePinnedPost.id}
+                  post={singlePinnedPost}
+                  isPinned={true}
+                />
+              )}
+              {/* 显示普通帖子 */}
+              {mixedPosts.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+            </View>
+          )}
+
+        {/* 其他分类内容 */}
+        {!isRecommendFirstPage && mixedPosts.length > 0 && (
+          <View className="post-list-masonry-container">
+            {mixedPosts.map((post) => (
+              <PostCard key={post.id} post={post} />
+            ))}
+          </View>
+        )}
+
+        {isLoading && currentPage > 1 && (
+          <View className="loading-more-container">
+            <Text>加载中...</Text>
+          </View>
+        )}
+
+        {!isLoading && !hasMoreData && mixedPosts.length > 0 && (
+          <View className="no-more-posts-container">
+            <Text>已经到底啦~</Text>
+          </View>
+        )}
+      </ScrollView>
+
+      {/* City Picker Popup */}
+      {isCityPickerVisible && (
+        <View className="city-picker-overlay" onClick={handleCloseCityPicker}>
+          <View
+            className="city-picker-content"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <View className="city-picker-header">
+              <Text>选择城市</Text>
+              <Button
+                className="city-picker-close-btn"
+                onClick={handleCloseCityPicker}
+              >
+                关闭
+              </Button>
+            </View>
+            <ScrollView scrollY className="city-picker-list">
+              {cities.map((city) => (
+                <View
+                  key={city}
+                  className={`city-picker-item ${
+                    selectedCity === city ? "active" : ""
+                  }`}
+                  onClick={() => handleSelectCity(city)}
+                >
+                  {city}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// definePageConfig might be in index.config.ts or here.
+// If it's in index.config.ts, this line is not needed here.
+// definePageConfig({
+//   navigationBarTitleText: '首页'
+// });
 
 // ------------------ POST CARD COMPONENT ------------------
 interface PostCardProps {
@@ -156,7 +492,17 @@ interface PostCardProps {
   isPinned?: boolean; // Added for the pinned indicator
 }
 
+const DEFAULT_IMAGE_URL =
+  "https://images.unsplash.com/photo-1506744038136-46273834b3fb";
+
 const PostCard: React.FC<PostCardProps> = ({ post, isPinned }) => {
+  // 安全处理 description，防止 undefined 错误
+  const safeDescription = post.description || "暂无描述";
+  const truncatedDescription =
+    safeDescription.length > 50
+      ? safeDescription.substring(0, 50) + "..."
+      : safeDescription;
+
   return (
     <View
       className="post-card"
@@ -169,21 +515,17 @@ const PostCard: React.FC<PostCardProps> = ({ post, isPinned }) => {
           <Text>置顶</Text>
         </View>
       )}
-      {post.mockImagePlaceholderHeight && post.mockImagePlaceholderColor && (
-        <View
-          className="post-card-image-placeholder"
-          style={{
-            height: `${post.mockImagePlaceholderHeight}rpx`,
-            backgroundColor: post.mockImagePlaceholderColor,
-          }}
-        />
-      )}
+      <Image
+        className="post-card-image"
+        src={post.image_url || DEFAULT_IMAGE_URL}
+        mode="aspectFill"
+      />
       <View className="post-card-content">
         <Text className="post-card-title" numberOfLines={2}>
-          {post.title}
+          {post.title || "无标题"}
         </Text>
         <Text className="post-card-description" numberOfLines={2}>
-          {post.description.substring(0, 50)}...
+          {truncatedDescription}
         </Text>
         <View className="post-card-footer">
           <View className="post-card-tags">
@@ -231,345 +573,20 @@ const SkeletonCard: React.FC<SkeletonCardProps> = ({ mockImageHeight }) => {
   );
 };
 
-// ------------------ INDEX PAGE COMPONENT ------------------
-const LAST_VIEWED_CATEGORY_KEY = "home_last_viewed_category";
+// ------------------ HELPER FUNCTIONS ------------------
+const formatRelativeTime = (date: Date): string => {
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSeconds = Math.round(diffMs / 1000);
+  const diffMinutes = Math.round(diffSeconds / 60);
+  const diffHours = Math.round(diffMinutes / 60);
+  const diffDays = Math.round(diffHours / 24);
 
-export default function Index() {
-  const [selectedCity, setSelectedCity] = useState<string>(CITIES[0]);
-  const [selectedCategoryId, setSelectedCategoryId] =
-    useState<string>("recommend"); // Always default to 'recommend'
-  const [displayedPosts, setDisplayedPosts] = useState<FeedPost[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [hasMoreData, setHasMoreData] = useState<boolean>(true);
-  const [loadError, setLoadError] = useState<boolean>(false);
-  const [isCityPickerVisible, setIsCityPickerVisible] =
-    useState<boolean>(false); // State for city picker visibility
-
-  // Refs for values used in useCallback guard to prevent loops
-  const isLoadingRef = useRef(isLoading);
-  const currentPageRef = useRef(currentPage);
-
-  useEffect(() => {
-    isLoadingRef.current = isLoading;
-  }, [isLoading]);
-
-  useEffect(() => {
-    currentPageRef.current = currentPage;
-  }, [currentPage]);
-
-  const loadPosts = useCallback(
-    async (
-      city: string,
-      categoryId: string,
-      page: number,
-      append: boolean = false
-    ) => {
-      // Use refs for the guard to ensure stable useCallback reference
-      if (isLoadingRef.current && !append && page === currentPageRef.current) {
-        console.log("LoadPosts call skipped by guard using refs");
-        return;
-      }
-      setIsLoading(true);
-      setLoadError(false);
-
-      console.log(
-        `Loading posts for City: ${city}, Category: ${categoryId}, Page: ${page}`
-      );
-
-      try {
-        await new Promise((resolve) => {
-          setTimeout(() => {
-            resolve(true);
-          }, 2000); // Keep 2s delay for testing skeleton
-        });
-
-        let filteredPostsForCategory;
-        if (categoryId === "recommend") {
-          const actualContentCategoryIds = CATEGORIES.filter(
-            (c) => c.id !== "recommend" // This will now correctly include 'help'
-          ).map((c) => c.id);
-          filteredPostsForCategory = ALL_MOCK_POSTS.filter(
-            (p) =>
-              p.city === city &&
-              actualContentCategoryIds.includes(p.category.id) &&
-              p.auditStatus === "approved"
-          );
-          // Randomize the order of posts for the 'recommend' category
-          for (let i = filteredPostsForCategory.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [filteredPostsForCategory[i], filteredPostsForCategory[j]] = [
-              filteredPostsForCategory[j],
-              filteredPostsForCategory[i],
-            ];
-          }
-        } else {
-          filteredPostsForCategory = ALL_MOCK_POSTS.filter(
-            (p) =>
-              p.city === city &&
-              p.category.id === categoryId &&
-              p.auditStatus === "approved"
-          );
-        }
-
-        // Sort all filtered posts (either from a specific category or from all for 'recommend')
-        filteredPostsForCategory.sort((a, b) => {
-          // Reverted to original sorting: by boostTime then updateTime
-          const aBoostTime = a.boostTime ? a.boostTime.getTime() : 0;
-          const bBoostTime = b.boostTime ? b.boostTime.getTime() : 0;
-          if (aBoostTime !== bBoostTime) {
-            return bBoostTime - aBoostTime;
-          }
-          return b.updateTime.getTime() - a.updateTime.getTime();
-        });
-
-        const startIndex = (page - 1) * POSTS_PER_PAGE;
-        const endIndex = startIndex + POSTS_PER_PAGE;
-        const newPosts = filteredPostsForCategory.slice(startIndex, endIndex);
-
-        console.log(
-          "Simulated newPosts count:",
-          newPosts.length,
-          "Total filtered for category/city:",
-          filteredPostsForCategory.length
-        );
-
-        setDisplayedPosts((prevPosts) =>
-          append ? [...prevPosts, ...newPosts] : newPosts
-        );
-        setHasMoreData(
-          newPosts.length === POSTS_PER_PAGE &&
-            filteredPostsForCategory.length > endIndex
-        );
-        setCurrentPage(page);
-      } catch (error) {
-        console.error("Failed to load posts:", error);
-        setLoadError(true);
-        Taro.showToast({
-          title: "加载失败，请检查网络连接",
-          icon: "none",
-          duration: 2000,
-        });
-      } finally {
-        setIsLoading(false);
-        console.log(
-          "setIsLoading(false) called in finally. isLoading should be false."
-        );
-      }
-    },
-    // Dependencies are now stable setters, making loadPosts reference stable
-    [
-      setIsLoading,
-      setLoadError,
-      setDisplayedPosts,
-      setHasMoreData,
-      setCurrentPage,
-    ]
-  );
-
-  useEffect(() => {
-    console.log(
-      "Effect for city/category change is running. City:",
-      selectedCity,
-      "Category:",
-      selectedCategoryId
-    );
-    setDisplayedPosts([]);
-    setCurrentPage(1); // Set to 1 before loading
-    setHasMoreData(true);
-    setLoadError(false);
-    loadPosts(selectedCity, selectedCategoryId, 1, false);
-  }, [selectedCity, selectedCategoryId, loadPosts]); // loadPosts is now stable
-
-  const handleCategoryChange = (categoryId: string) => {
-    setSelectedCategoryId(categoryId);
-    try {
-      Taro.setStorageSync(LAST_VIEWED_CATEGORY_KEY, categoryId);
-    } catch (e) {
-      console.error("Failed to save last viewed category to storage", e);
-    }
-  };
-
-  const handleCitySelectorClick = () => {
-    setIsCityPickerVisible(true);
-  };
-
-  const handleCloseCityPicker = () => {
-    setIsCityPickerVisible(false);
-  };
-
-  const handleSelectCity = (city: string) => {
-    setSelectedCity(city);
-    setIsCityPickerVisible(false);
-    // useEffect will handle reloading posts due to selectedCity change
-  };
-
-  const onScrollToLower = () => {
-    if (!isLoading && hasMoreData) {
-      console.log("Reached bottom, loading more...");
-      loadPosts(selectedCity, selectedCategoryId, currentPage + 1, true);
-    }
-  };
-
-  const retryLoad = () => {
-    setDisplayedPosts([]); // Clear potentially partial data
-    setCurrentPage(1);
-    setHasMoreData(true);
-    loadPosts(selectedCity, selectedCategoryId, 1);
-  };
-
-  // Add auditStatus to FeedPost and mock data
-  // For now, let's assume all mock posts are 'approved' for simplicity in loadPosts filter
-  // In a real app, this would come from the backend.
-  // Add a temporary fix in generateMockPosts to include auditStatus: 'approved'
-
-  return (
-    <View className="index-page">
-      {/* Header: City + Categories */}
-      <View className="header">
-        <View className="city-selector" onClick={handleCitySelectorClick}>
-          <Text>{selectedCity}</Text>
-          <Text className="arrow">▼</Text> {/* Placeholder for dropdown icon */}
-        </View>
-        <View className="category-tabs">
-          {CATEGORIES.map((cat) => (
-            <Button
-              key={cat.id}
-              className={`category-tab ${
-                selectedCategoryId === cat.id ? "active" : ""
-              }`}
-              onClick={() => handleCategoryChange(cat.id)}
-              // style={selectedCategoryId === cat.id ? { backgroundColor: cat.color, color: '#fff' } : {}}
-            >
-              {cat.name}
-            </Button>
-          ))}
-        </View>
-      </View>
-
-      {/* Posts Feed */}
-      <ScrollView
-        scrollY
-        className="posts-scroll-view"
-        onScrollToLower={onScrollToLower}
-        lowerThreshold={150} // Pixels from bottom to trigger load more
-      >
-        {isLoading && currentPage === 1 && !loadError && (
-          <View className="loading-container skeleton-container post-list-masonry-container">
-            {" "}
-            {/* Apply masonry to skeleton too */}
-            {/* Display a few skeleton cards with random heights for initial load */}
-            {[...Array(4)].map((_, index) => {
-              // Example: 4 skeleton cards
-              const randomHeight =
-                Math.floor(Math.random() * (450 - 250 + 1)) + 250; // Random height between 250rpx and 450rpx
-              return (
-                <SkeletonCard
-                  key={`skeleton-${index}`}
-                  mockImageHeight={randomHeight}
-                />
-              );
-            })}
-          </View>
-        )}
-
-        {loadError && !isLoading && (
-          <View className="empty-state-container">
-            {" "}
-            {/* Reusing empty-state for error display */}
-            <Text className="empty-state-text">加载失败，请检查网络连接</Text>
-            <Button className="empty-state-button" onClick={retryLoad}>
-              重试
-            </Button>
-          </View>
-        )}
-
-        {displayedPosts.length === 0 && !isLoading && !loadError && (
-          <View className="empty-state-container">
-            {/* TODO: Add empty state image */}
-            <Text className="empty-state-text">
-              暂无相关信息，换个分类试试？
-            </Text>
-            <Button
-              className="empty-state-button"
-              onClick={() => Taro.navigateTo({ url: "/pages/publish/index" })}
-            >
-              去发帖
-            </Button>
-          </View>
-        )}
-
-        {/* Masonry Container for Posts */}
-        {displayedPosts.length > 0 && !loadError && (
-          <View className="post-list-masonry-container">
-            {/* Render the fake pinned post first if 'recommend' category is selected */}
-            {selectedCategoryId === "recommend" && currentPage === 1 && (
-              <PostCard
-                key={fakePinnedPost.id}
-                post={fakePinnedPost}
-                isPinned={true}
-              />
-            )}
-            {displayedPosts.map((post) => {
-              // Regular posts are not pinned by this specific logic
-              return <PostCard key={post.id} post={post} isPinned={false} />;
-            })}
-          </View>
-        )}
-
-        {isLoading && currentPage > 1 && (
-          <View className="loading-more-container">
-            <Text>加载中...</Text>
-          </View>
-        )}
-
-        {!isLoading && !hasMoreData && displayedPosts.length > 0 && (
-          <View className="no-more-posts-container">
-            <Text>已经到底啦~</Text>
-          </View>
-        )}
-      </ScrollView>
-
-      {/* City Picker Popup */}
-      {isCityPickerVisible && (
-        <View className="city-picker-overlay" onClick={handleCloseCityPicker}>
-          <View
-            className="city-picker-content"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {" "}
-            {/* Prevent click through */}
-            <View className="city-picker-header">
-              <Text>选择城市</Text>
-              <Button
-                className="city-picker-close-btn"
-                onClick={handleCloseCityPicker}
-              >
-                关闭
-              </Button>
-            </View>
-            <ScrollView scrollY className="city-picker-list">
-              {CITIES.map((city) => (
-                <View
-                  key={city}
-                  className={`city-picker-item ${
-                    selectedCity === city ? "active" : ""
-                  }`}
-                  onClick={() => handleSelectCity(city)}
-                >
-                  {city}
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      )}
-    </View>
-  );
-}
-
-// definePageConfig might be in index.config.ts or here.
-// If it's in index.config.ts, this line is not needed here.
-// definePageConfig({
-//   navigationBarTitleText: '首页'
-// });
+  if (diffSeconds < 60) return `${diffSeconds}秒前`;
+  if (diffMinutes < 60) return `${diffMinutes}分钟前`;
+  if (diffHours < 24) return `${diffHours}小时前`;
+  if (diffDays <= 7) return `${diffDays}天前`;
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${String(
+    date.getHours()
+  ).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+};

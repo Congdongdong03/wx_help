@@ -13,21 +13,19 @@ export interface Post {
 
 export class PostModel {
   static async findByUserId(userId: number): Promise<Post[]> {
-    const db = getDb(); // 直接获取数据库实例
-    const rows = await db.all(
+    const db = getDb();
+    const [rows]: any = await db.execute(
       "SELECT * FROM posts WHERE user_id = ? ORDER BY created_at DESC",
       [userId]
     );
-    // SQLite 返回的row对象的属性名是区分大小写的，与数据库列名一致。
-    // 转换为 Post 接口类型可能会需要一些映射，这里先直接断言。
     return rows as Post[];
   }
 
   static async create(
     post: Omit<Post, "id" | "created_at" | "updated_at" | "status">
   ): Promise<Post> {
-    const db = getDb(); // 直接获取数据库实例
-    const result = await db.run(
+    const db = getDb();
+    const [result]: any = await db.execute(
       "INSERT INTO posts (user_id, title, category, content, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
       [
         post.user_id,
@@ -35,20 +33,20 @@ export class PostModel {
         post.category,
         post.content,
         "pending",
-        new Date().toISOString(),
-        new Date().toISOString(),
+        new Date(),
+        new Date(),
       ]
     );
-    const insertId = result.lastID;
+    const insertId = result.insertId;
     // 查询新插入的帖子以返回完整信息
-    const newPost = await db.get("SELECT * FROM posts WHERE id = ?", [
+    const [rows]: any = await db.execute("SELECT * FROM posts WHERE id = ?", [
       insertId,
     ]);
-    return newPost as Post;
+    return rows[0] as Post;
   }
 
   static async update(id: number, post: Partial<Post>): Promise<boolean> {
-    const db = getDb(); // 直接获取数据库实例
+    const db = getDb();
     // 构建更新语句，只更新传入的字段
     const updates = Object.keys(post).map((key) => `${key} = ?`);
     const values = Object.values(post);
@@ -60,27 +58,17 @@ export class PostModel {
       ", "
     )}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
 
-    const result = await db.run(statement, values);
-    // 检查 result 是否存在且 changes 属性大于 0
-    return (
-      result !== null &&
-      result !== undefined &&
-      result.changes !== null &&
-      result.changes !== undefined &&
-      result.changes > 0
-    );
+    const [result]: any = await db.execute(statement, values);
+    // MySQL 中检查 affectedRows 是否大于 0
+    return result.affectedRows > 0;
   }
 
   static async delete(id: number): Promise<boolean> {
-    const db = getDb(); // 直接获取数据库实例
-    const result = await db.run("DELETE FROM posts WHERE id = ?", [id]);
-    // 检查 result 是否存在且 changes 属性大于 0
-    return (
-      result !== null &&
-      result !== undefined &&
-      result.changes !== null &&
-      result.changes !== undefined &&
-      result.changes > 0
-    );
+    const db = getDb();
+    const [result]: any = await db.execute("DELETE FROM posts WHERE id = ?", [
+      id,
+    ]);
+    // MySQL 中检查 affectedRows 是否大于 0
+    return result.affectedRows > 0;
   }
 }

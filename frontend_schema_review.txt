@@ -1,0 +1,311 @@
+-- 建库（可选）
+CREATE DATABASE IF NOT EXISTS bangbang DEFAULT CHARSET=utf8mb4;
+USE bangbang;
+
+-- 1. 用户表
+CREATE TABLE `user` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '用户主键',
+  `openid` VARCHAR(64) NOT NULL COMMENT '微信唯一标识',
+  `nickname` VARCHAR(32) DEFAULT NULL COMMENT '昵称',
+  `avatar_url` VARCHAR(255) DEFAULT NULL COMMENT '头像链接',
+  `email` VARCHAR(64) DEFAULT NULL COMMENT '邮箱（预留）',
+  `status` TINYINT DEFAULT 0 COMMENT '0=正常 1=禁用',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最近活跃时间',
+  UNIQUE KEY `uniq_openid` (`openid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 2. 帖子表
+CREATE TABLE `post` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '帖子主键',
+  `user_id` BIGINT NOT NULL COMMENT '发布用户id',
+  `type` ENUM('bangbang','rent','second','job') NOT NULL COMMENT '帖子分类',
+  `title` VARCHAR(100) NOT NULL COMMENT '标题',
+  `description` TEXT NOT NULL COMMENT '内容描述',
+  `images` JSON DEFAULT NULL COMMENT '图片链接数组',
+  `price` VARCHAR(32) DEFAULT NULL COMMENT '价格/租金',
+  `extra_fields` JSON DEFAULT NULL COMMENT '分类扩展字段',
+  `contact_wechat` VARCHAR(50) DEFAULT NULL COMMENT '联系微信号',
+  `status` ENUM('pending','approved','rejected','deleted') DEFAULT 'pending' COMMENT '状态',
+  `polished_time` DATETIME DEFAULT NULL COMMENT '最近擦亮时间',
+  `city` VARCHAR(32) DEFAULT NULL COMMENT '城市',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最近更新时间',
+  INDEX `idx_user_id` (`user_id`),
+  INDEX `idx_type` (`type`),
+  INDEX `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 3. 收藏表
+CREATE TABLE `favorite` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '收藏主键',
+  `user_id` BIGINT NOT NULL COMMENT '用户id',
+  `post_id` BIGINT NOT NULL COMMENT '帖子id',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '收藏时间',
+  UNIQUE KEY `uniq_user_post` (`user_id`, `post_id`),
+  INDEX `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 4. 反馈/举报表
+CREATE TABLE `feedback` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `user_id` BIGINT NOT NULL COMMENT '用户id',
+  `content` VARCHAR(500) NOT NULL COMMENT '反馈内容',
+  `image` VARCHAR(255) DEFAULT NULL COMMENT '反馈图片链接',
+  `type` ENUM('advice','bug','report') DEFAULT 'advice' COMMENT '建议/问题/举报',
+  `status` TINYINT DEFAULT 0 COMMENT '0=未处理 1=已处理',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '提交时间',
+  INDEX `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 5. 擦亮记录表
+CREATE TABLE `polish_log` (
+  `id` BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `user_id` BIGINT NOT NULL COMMENT '用户id',
+  `post_id` BIGINT NOT NULL COMMENT '帖子id',
+  `polished_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '擦亮时间',
+  INDEX `idx_user_post` (`user_id`, `post_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 6. 分类表
+CREATE TABLE `category` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `name` VARCHAR(32) NOT NULL COMMENT '分类名称',
+  `code` VARCHAR(32) NOT NULL COMMENT '英文唯一标识'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 7. 管理员表
+CREATE TABLE `admin_user` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY COMMENT '主键',
+  `username` VARCHAR(32) NOT NULL COMMENT '管理员用户名',
+  `password_hash` VARCHAR(128) NOT NULL COMMENT '密码Hash',
+  `role` VARCHAR(16) DEFAULT 'admin' COMMENT '角色'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-----------------------------------------------------------------------
+-- Frontend Codebase Review and Recommendations (Based on Schema) --
+-----------------------------------------------------------------------
+
+**I. General Recommendations & Proposed Centralized Types**
+
+1.  **Centralized API Type Definitions:**
+    It is highly recommended to create a dedicated file (e.g., `src/types/api.ts`) to store TypeScript interfaces that directly map to your backend database tables. This promotes type safety and consistency across the frontend when dealing with API data.
+
+    ```typescript
+    // Suggested content for src/types/api.ts
+
+    export interface ApiUser {
+      id: number; // BIGINT typically maps to number
+      openid: string;
+      nickname?: string | null;
+      avatar_url?: string | null;
+      email?: string | null;
+      status: 0 | 1; // 0=正常, 1=禁用
+      created_at: string; // DATETIME from DB often becomes string
+      updated_at: string;
+    }
+
+    export type ApiPostType = 'bangbang' | 'rent' | 'second' | 'job';
+    export type ApiPostStatus = 'pending' | 'approved' | 'rejected' | 'deleted';
+
+    export interface ApiPost {
+      id: number;
+      user_id: number;
+      type: ApiPostType;
+      title: string;
+      description: string;
+      images?: string[] | null; // JSON array of image URLs
+      price?: string | null;
+      extra_fields?: { [key: string]: any } | null; // JSON object for category-specific data
+      contact_wechat?: string | null;
+      status: ApiPostStatus;
+      polished_time?: string | null;
+      city?: string | null;
+      created_at: string;
+      updated_at: string;
+    }
+
+    export interface ApiFavorite {
+      id: number;
+      user_id: number;
+      post_id: number;
+      created_at: string;
+    }
+
+    export type ApiFeedbackType = 'advice' | 'bug' | 'report';
+    export interface ApiFeedback {
+      id: number;
+      user_id: number;
+      content: string;
+      image?: string | null;
+      type: ApiFeedbackType;
+      status: 0 | 1; // 0=未处理, 1=已处理
+      created_at: string;
+    }
+
+    export interface ApiPolishLog {
+      id: number;
+      user_id: number;
+      post_id: number;
+      polished_at: string;
+    }
+
+    export interface ApiCategory {
+      id: number;
+      name: string; // e.g., "帮帮", "租房"
+      code: string; // e.g., "help", "rent" (maps to ApiPostType)
+    }
+    ```
+
+2.  **Environment Configuration:**
+    For API base URLs, etc., use Taro's environment configuration (`config/dev.js`, `config/prod.js`) rather than hardcoding URLs.
+
+**II. Review of Existing Frontend Components/Pages vs. Schema**
+
+**1. `user` Table & Login (`src/app.tsx`, `src/components/LoginModal`)**
+    *   **Alignment:**
+        *   The current login flow uses `Taro.getUserProfile` to get `nickname` and `avatar_url`, which aligns with the schema.
+        *   `openid` would be obtained by the backend after receiving the `code` from `Taro.login()`.
+        *   The `UserInfo` interface in `app.tsx` should be aligned with `ApiUser` (e.g., it should expect `id`, `status` if returned from your backend upon login).
+        *   The mock API currently simulates token and openid generation; this will be replaced by actual backend calls.
+    *   **Additions/Changes:**
+        *   When making actual API calls for login: send `code` from `Taro.login()` to backend. Backend returns `ApiUser` data (including your session token and `openid`).
+        *   Store the full `ApiUser` (or relevant parts like `id`, `token`, `openid`, `nickname`, `avatar_url`) in Taro storage.
+        *   The `email` field is for future use.
+        *   `status` (user account status) would be determined by the backend. The frontend might need to react to a disabled status (e.g., prevent actions, show a message).
+
+**2. `post` Table & Post Management**
+    *   **File: `src/pages/post/index.tsx` (Category Selection)**
+        *   **Alignment:** Handles selection of post `type`.
+        *   **Schema Mapping:** The hardcoded `POST_CATEGORIES` currently define `id` (like 'help', 'rent') which maps to `post.type`.
+        *   **Suggestion:** See section on `category` table below.
+    *   **File: `src/pages/post/form/index.tsx` (Post Form)**
+        *   **Alignment:**
+            *   `type`: Correctly set from category selection.
+            *   `title`, `description`, `contact_wechat`, `price`: Fields are present and map to the schema.
+            *   `images`: Handles multiple image uploads. The frontend should upload images to a file storage service (or backend endpoint) and get back an array of URLs to send with the post data. The backend stores this as JSON. This is generally well-handled.
+            *   `status`: The frontend sends data for new/updated posts; the backend sets the initial status (e.g., 'pending').
+        *   **`extra_fields` (JSON):**
+            *   **Current State:** Category-specific data (e.g., `roomType` for rent, `itemCategory` for used goods) is defined in separate interfaces (`RentFormData`, `UsedGoodFormData`, etc.) within `PostFormData`.
+            *   **Recommendation:**
+                1.  **Backend-side Mapping (Preferred for simplicity):** Your backend API endpoint for creating/updating posts should accept these distinct fields. The backend is then responsible for structuring them into the `extra_fields` JSON object before saving to the database. This requires minimal frontend changes.
+                2.  **Frontend-side Structuring:** If the backend API *requires* a single `extra_fields` object, you'll need to modify `handleSubmit` in the form to gather all category-specific fields from `formData` and construct this JSON object before sending. This would also mean `PostFormData` should ideally have an `extra_fields: { [key: string]: any }` property, and the category-specific interfaces become less critical for the final API payload.
+            *   Ensure all fields intended for `extra_fields` (e.g., `roomType`, `rentAmount` for 'rent'; `itemCategory`, `condition` for 'second') are correctly captured in `PostFormData` and its sub-types.
+        *   `city`:
+            *   **Missing:** This field is not currently in the form.
+            *   **Suggestion:** Add a city selector/input to the form. This could be a picker, text input with auto-suggestion, or use location services (`Taro.getLocation`).
+        *   **Editing Posts:** The logic for loading existing post data (both drafts and confirmed posts via `editingPostId`) into the form is present. Ensure the mapping from `OriginalPostData` (from storage) to `formData` in `useEffect` is complete for all fields and all categories.
+    *   **File: `src/pages/my/my-posts/my-posts.tsx` (My Posts List)**
+        *   **Alignment:** Displays posts and their `status`.
+        *   `polished_time`: The "擦亮" (Boost) functionality aligns with updating this server-side.
+        *   The display of `post.title` or `post.description` is good.
+        *   Drafts are correctly loaded from local storage.
+        *   Editing navigates back to the form with context.
+
+**3. `favorite` Table (收藏表)**
+    *   **Frontend Status: MISSING FEATURE**
+    *   **Recommendations:**
+        *   **UI:**
+            *   Add a "Favorite" icon (e.g., star, heart) on post cards (in `my-posts.tsx`, explore page, post details page).
+            *   The icon state should reflect if the current user has favorited the post.
+        *   **State:**
+            *   Manage a list of favorited `post_id`s for the current user (could be part of the global user state or fetched as needed).
+        *   **API Integration:**
+            *   Endpoint to add favorite: `POST /api/posts/{postId}/favorite` (or `POST /api/favorites` with `post_id`).
+            *   Endpoint to remove favorite: `DELETE /api/posts/{postId}/favorite` (or `DELETE /api/favorites/{postId}`).
+            *   Endpoint to get user's favorites: `GET /api/me/favorites`.
+        *   **New Page/Component:**
+            *   A "我的收藏" (My Favorites) page, similar to "我的发布", to list all posts favorited by the user. This page would fetch data from `GET /api/me/favorites`.
+
+**4. `feedback` Table (反馈/举报表)**
+    *   **Frontend Status: MISSING FEATURE**
+    *   **Recommendations:**
+        *   **UI Entry Points:**
+            *   A general "意见反馈" (Feedback/Suggestions) option, perhaps in a user profile menu or settings page.
+            *   A "举报" (Report) button on individual posts (e.g., in the three-dots menu on `my-posts.tsx` cards, and on a post detail page).
+        *   **New Page/Component: `FeedbackFormPage`**
+            *   Input field for `content` (VARCHAR 500).
+            *   Optional image upload (`Taro.chooseImage`) for `image`.
+            *   Picker/Radio group for `type` ('advice', 'bug', 'report').
+            *   If reporting a specific post, the `post_id` should be implicitly included or passed to this form.
+        *   **API Integration:**
+            *   Endpoint to submit feedback/report: `POST /api/feedback`. Payload would include `user_id` (from logged-in user), `content`, `image_url` (if any), `type`, and potentially `reported_post_id`.
+        *   The `status` of feedback is managed by admins.
+
+**5. `polish_log` Table (擦亮记录表)**
+    *   **Frontend Status: PARTIALLY HANDLED (Trigger)**
+    *   **Alignment:** The "擦亮" (Boost) button in `my-posts.tsx` initiates this action.
+    *   **Schema Mapping:** The frontend doesn't directly interact with `polish_log`. It calls an API endpoint (e.g., `POST /api/posts/{postId}/polish`). The backend then updates `post.polished_time` and creates a record in `polish_log`.
+    *   **Suggestion:** Ensure the frontend correctly handles API responses for polishing (e.g., daily limits, success/failure messages). The current mock implementation needs to be replaced with an actual API call.
+
+**6. `category` Table (分类表)**
+    *   **Frontend Status: Hardcoded Categories**
+    *   **File: `src/pages/post/index.tsx`** (Category Selection)
+    *   **Alignment:** `POST_CATEGORIES` array currently defines `id` (e.g., "help") and `name` (e.g., "帮帮"). The `id` maps to `category.code` and `post.type`.
+    *   **Recommendations:**
+        1.  **Fetch Categories Dynamically:**
+            *   Create an API endpoint: `GET /api/categories` that returns an array of `ApiCategory` objects.
+            *   In `PostCategorySelectionPage`, fetch these categories in `useEffect` and store them in state to render the selection dynamically.
+            *   This makes it easier to add, remove, or reorder categories from the backend without frontend code changes.
+        2.  The `code` from `ApiCategory` should be used as the `category` parameter when navigating to the `PostFormPage`.
+
+**7. `admin_user` Table (管理员表)**
+    *   **Frontend Status: OUT OF SCOPE** for the user-facing mini-program.
+    *   **Note:** This table is for a separate admin panel/backend system to manage users, posts, feedback, etc. No direct frontend implementation is needed in the current mini-program for this table.
+
+**III. Refactoring and Code Structure Suggestions**
+
+1.  **API Service Layer:**
+    Create a dedicated directory, e.g., `src/services/api.ts` or `src/utils/api.ts`, to encapsulate all `Taro.request` calls to your backend. This centralizes API logic, makes it reusable, and easier to manage (e.g., adding common headers, error handling).
+    ```typescript
+    // Example: src/services/api.ts
+    import Taro from '@tarojs/taro';
+    import { ApiPost, ApiUser, /* other types */ } from '../types/api';
+
+    const API_BASE_URL = 'YOUR_BACKEND_API_URL'; // From environment config
+
+    // Example function
+    export async function fetchMyPosts(): Promise<ApiPost[]> {
+      // const token = Taro.getStorageSync('userInfo')?.token;
+      // const res = await Taro.request({
+      //   url: `${API_BASE_URL}/me/posts`,
+      //   header: { 'Authorization': `Bearer ${token}` }
+      // });
+      // if (res.statusCode === 200) return res.data;
+      // throw new Error('Failed to fetch posts');
+      return []; // Replace with actual API call
+    }
+    // Add functions for login, createPost, updatePost, getCategories, etc.
+    ```
+
+2.  **State Management for `my-posts.tsx` `mockPosts`:**
+    If you continue to use `mockPosts` for "published" or "reviewing" items on the "My Posts" page for testing, be aware that edits made via the form won't reflect in this static array unless:
+    *   You implement a more robust client-side update mechanism (e.g., after a successful mock "update" API call, find and update the item in `mockPosts` array directly, and trigger a re-render). This can get complex.
+    *   Or, for testing, `my-posts.tsx` could re-fetch/re-initialize its `mockPosts` in `useDidShow` if the `refreshMyPosts` flag is set, assuming you have a "source of truth" for these mock posts that can be updated.
+    *   Ideally, all data, including published/reviewing posts, would come from a backend API.
+
+3.  **Form Component Modularity (`PostFormPage`):**
+    *   The `render<Category>Form` functions are good for separating UI.
+    *   Ensure the `PostFormData` interface and the logic in `initializeFormForCategory` and `handleSubmit` are robust enough to handle all category variations, especially concerning `extra_fields`.
+    *   The form validation logic in `useEffect` needs to be thorough for each category.
+
+4.  **Image Upload Service:**
+    Consider abstracting image upload logic into a separate utility function if it becomes complex or is needed in multiple places (e.g., post form, feedback form). This function would take a file path and return a Promise resolving to the uploaded image URL.
+
+**IV. Summary of Actionable Frontend Tasks**
+
+*   **High Priority:**
+    1.  **Create `src/types/api.ts`** with interfaces matching the SQL schema.
+    2.  **Refactor existing frontend interfaces** to align with `Api...` types.
+    3.  **Adapt `PostFormPage` for `extra_fields`**: Decide on the strategy (backend mapping vs. frontend JSON construction) and implement.
+    4.  **Adapt `PostFormPage` for `city` field.**
+    5.  **Replace Mock APIs:** Incrementally replace `mockLoginAPI`, mock submission in `PostFormPage`, etc., with actual `Taro.request` calls to your backend (ideally via an API service layer).
+*   **Medium Priority (New Features):**
+    1.  **Implement Favorites Feature:** UI, state, API calls, "My Favorites" page.
+    2.  **Implement Feedback/Reporting Feature:** UI, submission form, API calls.
+*   **Optional Enhancements:**
+    1.  **Dynamic Category Loading:** Fetch categories from `/api/categories` in `PostCategorySelectionPage`.
+    2.  Implement more robust image editing in `PostFormPage` (beyond just displaying the first image on edit).
+    3.  Refine client-side state management for edited `mockPosts` if they continue to be used for testing non-draft states.
+
+This review should provide a solid basis for aligning your frontend with the backend schema and planning future development. 

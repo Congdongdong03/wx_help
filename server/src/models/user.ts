@@ -12,36 +12,33 @@ export interface User {
 export class UserModel {
   static async create(user: User): Promise<User> {
     const db = getDb();
-    const result = await db.run(
+    const [result]: any = await db.execute(
       "INSERT INTO users (username, password, email, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
-      [
-        user.username,
-        user.password,
-        user.email,
-        new Date().toISOString(),
-        new Date().toISOString(),
-      ]
+      [user.username, user.password, user.email, new Date(), new Date()]
     );
-    // SQLite insertId 在 result.lastID
-    const insertId = result.lastID;
-    // 查询新插入的用户以返回完整信息（虽然这里通常不需要，但为了和 find 方法保持一致性）
-    const newUser = await db.get("SELECT * FROM users WHERE id = ?", [
+    // MySQL insertId 在 result.insertId
+    const insertId = result.insertId;
+    // 查询新插入的用户以返回完整信息
+    const [rows]: any = await db.execute("SELECT * FROM users WHERE id = ?", [
       insertId,
     ]);
-    return newUser as User;
+    return rows[0] as User;
   }
 
   static async findByUsername(username: string): Promise<User | null> {
     const db = getDb();
-    const row = await db.get("SELECT * FROM users WHERE username = ?", [
-      username,
-    ]);
-    return (row as User) || null;
+    const [rows]: any = await db.execute(
+      "SELECT * FROM users WHERE username = ?",
+      [username]
+    );
+    return (rows[0] as User) || null;
   }
 
   static async findById(id: number): Promise<User | null> {
     const db = getDb();
-    const row = await db.get("SELECT * FROM users WHERE id = ?", [id]);
-    return (row as User) || null;
+    const [rows]: any = await db.execute("SELECT * FROM users WHERE id = ?", [
+      id,
+    ]);
+    return (rows[0] as User) || null;
   }
 }
