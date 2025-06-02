@@ -1,40 +1,39 @@
 import Taro from "@tarojs/taro";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { View, Text, Image, ScrollView, Button } from "@tarojs/components";
-import "./index.scss"; // We'll create this SCSS file later
+import "./index.scss";
 
 // ------------------ DATA STRUCTURES ------------------
 
 interface Category {
   id: string;
   name: string;
-  color: string; // For styling category tags
+  color: string;
 }
 
 interface FeedPost {
   id: string;
-  mockImagePlaceholderHeight?: number; // For placeholder view height
-  mockImagePlaceholderColor?: string; // For placeholder view background color
+  mockImagePlaceholderHeight?: number;
+  mockImagePlaceholderColor?: string;
   title: string;
-  description: string; // First 30-50 chars
+  description: string;
   category: Category;
-  price?: string | number; // Optional price/rent
-  updateTime: Date; // For sorting and display
-  boostTime?: Date; // For sorting (optional, boosted posts first)
-  city: string; // For filtering
-  auditStatus: "approved" | "pending" | "rejected" | "draft"; // Added auditStatus
-  image_url?: string; // Added for the image URL
-  // Potentially other fields like publisher_avatar, contact_info etc. for detail view
+  price?: string | number;
+  updateTime: Date;
+  boostTime?: Date;
+  city: string;
+  auditStatus: "approved" | "pending" | "rejected" | "draft";
+  image_url?: string;
 }
 
 // ------------------ MOCK DATA ------------------
 
 const CATEGORIES: Category[] = [
-  { id: "recommend", name: "推荐", color: "#6f42c1" }, // Purple
-  { id: "help", name: "帮帮", color: "#17a2b8" }, // Teal/Info Blue
-  { id: "rent", name: "租房", color: "#007bff" }, // Blue
-  { id: "used", name: "二手", color: "#28a745" }, // Green
-  { id: "jobs", name: "招聘", color: "#ffc107" }, // Orange (text should be dark)
+  { id: "recommend", name: "推荐", color: "#6f42c1" },
+  { id: "help", name: "帮帮", color: "#17a2b8" },
+  { id: "rent", name: "租房", color: "#007bff" },
+  { id: "used", name: "二手", color: "#28a745" },
+  { id: "jobs", name: "招聘", color: "#ffc107" },
 ];
 
 const PRESET_PLACEHOLDER_COLORS = [
@@ -55,58 +54,30 @@ const PRESET_PLACEHOLDER_COLORS = [
   "#90dbf4",
 ];
 
-const generateMockPosts = (
-  count: number,
-  city: string,
-  categoryId?: string
-): FeedPost[] => {
-  const posts: FeedPost[] = [];
-  const baseDate = new Date();
+// ------------------ MASONRY LAYOUT HELPER ------------------
+const distributePosts = (posts: FeedPost[]): [FeedPost[], FeedPost[]] => {
+  const leftColumn: FeedPost[] = [];
+  const rightColumn: FeedPost[] = [];
+  let leftHeight = 0;
+  let rightHeight = 0;
 
-  for (let i = 0; i < count; i++) {
-    const randomCategory = categoryId
-      ? CATEGORIES.find((c) => c.id === categoryId)!
-      : CATEGORIES[i % CATEGORIES.length];
-    const updatedMinutesAgo = Math.floor(Math.random() * 60 * 24 * 5); // Within last 5 days
-    const updateTime = new Date(baseDate.getTime() - updatedMinutesAgo * 60000);
+  posts.forEach((post) => {
+    // 估算卡片高度 (图片高度 + 内容高度)
+    const imageHeight = post.mockImagePlaceholderHeight || 300;
+    const contentHeight = 180; // 估算的内容区域高度
+    const cardHeight = imageHeight + contentHeight;
 
-    let boostTime: Date | undefined = undefined;
-    if (Math.random() < 0.3) {
-      // 30% chance of being boosted
-      const boostedMinutesAgo = Math.floor(Math.random() * 60 * 24); // Boosted within last 1 day
-      boostTime = new Date(baseDate.getTime() - boostedMinutesAgo * 60000);
+    // 选择高度较小的列
+    if (leftHeight <= rightHeight) {
+      leftColumn.push(post);
+      leftHeight += cardHeight + 20; // 加上margin
+    } else {
+      rightColumn.push(post);
+      rightHeight += cardHeight + 20; // 加上margin
     }
+  });
 
-    // Generate random height and color for the image placeholder
-    const placeholderHeight = Math.floor(Math.random() * (550 - 200 + 1)) + 200; // Random height: 200rpx to 550rpx
-    const placeholderColor =
-      PRESET_PLACEHOLDER_COLORS[
-        Math.floor(Math.random() * PRESET_PLACEHOLDER_COLORS.length)
-      ];
-
-    posts.push({
-      id: `${city}-${randomCategory.id}-${i}`,
-      mockImagePlaceholderHeight: placeholderHeight,
-      mockImagePlaceholderColor: placeholderColor,
-      title: `${randomCategory.name} Post Title ${
-        i + 1
-      } - Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam, voluptatum.`,
-      description:
-        "This is a short description of the item. It will be truncated if it is too long for the card display. We need about 30 to 50 characters here for a good preview of content.",
-      category: randomCategory,
-      price:
-        randomCategory.id === "used"
-          ? `${Math.floor(Math.random() * 500) + 50}元`
-          : randomCategory.id === "rent"
-          ? `${Math.floor(Math.random() * 3000) + 1000}元/月`
-          : undefined,
-      updateTime: updateTime,
-      boostTime: boostTime,
-      city: city,
-      auditStatus: "approved", // Ensuring mock posts are approved for initial display
-    });
-  }
-  return posts;
+  return [leftColumn, rightColumn];
 };
 
 // ------------------ API 数据加载 ------------------
@@ -114,8 +85,7 @@ const generateMockPosts = (
 const POSTS_PER_PAGE = 10;
 
 export default function Index() {
-  // 用于存储真实城市数据
-  const [cities, setCities] = useState<string[]>([]);
+  const [cities, setCities] = useState<{ label: string; value: string }[]>([]);
   const [selectedCity, setSelectedCity] = useState<string>("");
   const [selectedCategoryId, setSelectedCategoryId] =
     useState<string>("recommend");
@@ -129,7 +99,6 @@ export default function Index() {
   const [pinnedPosts, setPinnedPosts] = useState<FeedPost[]>([]);
   const [normalPosts, setNormalPosts] = useState<FeedPost[]>([]);
 
-  // Refs for values used in useCallback guard to prevent loops
   const isLoadingRef = useRef(isLoading);
   const currentPageRef = useRef(currentPage);
 
@@ -143,17 +112,47 @@ export default function Index() {
 
   // 获取城市列表
   useEffect(() => {
+    console.log("开始加载城市列表...");
     Taro.request({
-      url: "http://192.168.1.243:3000/api/home/cities",
+      url: "http://localhost:3000/api/home/cities",
       method: "GET",
-    }).then((res) => {
-      if (res.data && res.data.code === 0) {
-        setCities(res.data.data.map((city: any) => city.name));
-      }
-    });
+      timeout: 10000,
+      header: {
+        "Content-Type": "application/json",
+      },
+    })
+      .then((res) => {
+        console.log("城市API响应:", res);
+        if (res.data && res.data.code === 0) {
+          const cityOptions = res.data.data.map((city: any) => ({
+            label: city.name,
+            value: city.code,
+          }));
+          console.log("解析后的城市选项:", cityOptions);
+          setCities(cityOptions);
+          if (cityOptions.length > 0 && !selectedCity) {
+            setSelectedCity(cityOptions[0].value);
+          }
+        } else {
+          console.warn("城市API返回格式不正确:", res.data);
+          Taro.showToast({
+            title: "获取城市列表失败",
+            icon: "none",
+            duration: 2000,
+          });
+        }
+      })
+      .catch((error) => {
+        console.error("加载城市列表失败:", error);
+        Taro.showToast({
+          title: "加载城市列表失败，请检查网络",
+          icon: "none",
+          duration: 2000,
+        });
+      });
   }, []);
 
-  // 新的 loadPosts，调用后端 API
+  // 加载帖子数据 - 调用真实API
   const loadPosts = useCallback(
     async (
       city: string,
@@ -165,59 +164,102 @@ export default function Index() {
         console.log("LoadPosts call skipped by guard using refs");
         return;
       }
+
       setIsLoading(true);
       setLoadError(false);
+
       try {
-        let url = `http://192.168.1.243:3000/api/home/recommendations?city=${encodeURIComponent(
+        let url = `http://localhost:3000/api/home/recommendations?city=${encodeURIComponent(
           city
         )}`;
         if (categoryId && categoryId !== "recommend") {
           url += `&category=${categoryId}`;
         }
+
         const res = await Taro.request({
           url,
           method: "GET",
         });
-        // 调试日志
+
         console.log("API返回数据:", res.data);
-        if (res.data && res.data.code === 0) {
-          const pinnedRaw = res.data.data.pinned || [];
-          const listRaw = res.data.data.list || [];
-          const mapToFeedPost = (item: any): FeedPost => ({
-            id: item.id || `temp-${Date.now()}-${Math.random()}`,
-            title: item.title || "无标题",
-            description: item.description || "暂无描述",
-            category:
-              CATEGORIES.find((c) => c.id === (item.category || "recommend")) ||
-              CATEGORIES[0],
-            price: item.price || undefined,
-            updateTime: new Date(
-              item.updated_at || item.created_at || Date.now()
-            ),
-            boostTime: item.is_pinned ? new Date() : undefined,
-            city: item.city || city,
-            auditStatus: (item.is_active ? "approved" : "pending") as
-              | "approved"
-              | "pending"
-              | "rejected"
-              | "draft",
-            image_url: item.image_url || undefined,
-          });
+
+        // 先检查API返回的完整数据结构
+        console.log("API返回的完整响应:", JSON.stringify(res.data, null, 2));
+
+        if (res.data && res.data.code === 0 && res.data.data) {
+          const responseData = res.data.data;
+
+          // 根据实际API返回结构处理数据
+          let pinnedRaw = responseData.pinned || [];
+          let listRaw = responseData.list || [];
+
+          console.log("原始置顶数据:", pinnedRaw);
+          console.log("原始普通数据:", listRaw);
+
+          const mapToFeedPost = (item: any): FeedPost => {
+            const feedPost = {
+              id: String(
+                item.id || item.post_id || `temp-${Date.now()}-${Math.random()}`
+              ),
+              title: item.title || "无标题",
+              description: item.description || "暂无描述",
+              category:
+                CATEGORIES.find(
+                  (c) => c.id === (item.category || "recommend")
+                ) || CATEGORIES[0],
+              price: item.price || undefined,
+              updateTime: new Date(
+                item.updated_at || item.created_at || Date.now()
+              ),
+              boostTime: item.is_pinned ? new Date() : undefined,
+              city: item.city || city,
+              auditStatus: (item.is_active ? "approved" : "pending") as
+                | "approved"
+                | "pending"
+                | "rejected"
+                | "draft",
+              image_url: item.image_url || undefined,
+              mockImagePlaceholderHeight:
+                Math.floor(Math.random() * (550 - 200 + 1)) + 200,
+              mockImagePlaceholderColor:
+                PRESET_PLACEHOLDER_COLORS[
+                  Math.floor(Math.random() * PRESET_PLACEHOLDER_COLORS.length)
+                ],
+            };
+            console.log("映射单个帖子:", item, "->", feedPost);
+            return feedPost;
+          };
+
           const pinned = pinnedRaw.map(mapToFeedPost);
           const list = listRaw.map(mapToFeedPost);
-          // 调试日志
-          console.log("置顶帖子数量:", pinned.length);
-          console.log("普通帖子数量:", list.length);
+
+          console.log("处理后的置顶帖子:", pinned);
+          console.log("处理后的普通帖子:", list);
+
           setPinnedPosts(pinned);
-          setNormalPosts(list);
+          setNormalPosts((prevPosts) =>
+            append ? [...prevPosts, ...list] : list
+          );
+
           if (categoryId !== "recommend") {
-            setDisplayedPosts(list);
+            setDisplayedPosts((prevPosts) =>
+              append ? [...prevPosts, ...list] : list
+            );
           } else {
             setDisplayedPosts([]);
           }
+
           setHasMoreData(list.length === POSTS_PER_PAGE);
           setCurrentPage(page);
+        } else if (res.data && res.data.message) {
+          // 处理API返回错误信息的情况
+          console.log("API返回错误:", res.data.message);
+          setPinnedPosts([]);
+          setNormalPosts([]);
+          setDisplayedPosts([]);
+          setHasMoreData(false);
         } else {
+          console.log("API返回数据格式不正确:", res.data);
           setPinnedPosts([]);
           setNormalPosts([]);
           setDisplayedPosts([]);
@@ -235,19 +277,13 @@ export default function Index() {
         setIsLoading(false);
       }
     },
-    [
-      setIsLoading,
-      setLoadError,
-      setDisplayedPosts,
-      setHasMoreData,
-      setCurrentPage,
-    ]
+    [] // 移除所有依赖项，避免死循环
   );
 
   // 当城市和分类变化时加载数据
   useEffect(() => {
     if (!selectedCity && cities.length > 0) {
-      setSelectedCity(cities[0]);
+      setSelectedCity(cities[0].value);
       return;
     }
     if (selectedCity) {
@@ -257,7 +293,7 @@ export default function Index() {
       setLoadError(false);
       loadPosts(selectedCity, selectedCategoryId, 1, false);
     }
-  }, [selectedCity, selectedCategoryId, loadPosts, cities]);
+  }, [selectedCity, selectedCategoryId, cities]); // 移除 loadPosts 依赖
 
   const handleCategoryChange = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
@@ -271,10 +307,9 @@ export default function Index() {
     setIsCityPickerVisible(false);
   };
 
-  const handleSelectCity = (city: string) => {
-    setSelectedCity(city);
+  const handleSelectCity = (cityCode: string) => {
+    setSelectedCity(cityCode);
     setIsCityPickerVisible(false);
-    // useEffect will handle reloading posts due to selectedCity change
   };
 
   const onScrollToLower = () => {
@@ -285,7 +320,7 @@ export default function Index() {
   };
 
   const retryLoad = () => {
-    setDisplayedPosts([]); // Clear potentially partial data
+    setDisplayedPosts([]);
     setCurrentPage(1);
     setHasMoreData(true);
     loadPosts(selectedCity, selectedCategoryId, 1);
@@ -298,15 +333,12 @@ export default function Index() {
   let mixedPosts: FeedPost[] = [];
 
   if (isRecommendFirstPage && pinnedPosts.length > 0) {
-    // 只在推荐页第一页显示置顶帖子
     singlePinnedPost = pinnedPosts[0];
     const pinnedIds = new Set(pinnedPosts.map((p) => p.id));
-    // 普通帖子按时间降序排序，排除所有置顶帖
     mixedPosts = normalPosts
       .filter((p) => !pinnedIds.has(p.id))
       .sort((a, b) => b.updateTime.getTime() - a.updateTime.getTime());
   } else {
-    // 其他分类或非第一页：使用原有逻辑，不显示置顶
     if (selectedCategoryId === "recommend") {
       mixedPosts = normalPosts;
     } else {
@@ -314,15 +346,31 @@ export default function Index() {
     }
   }
 
+  // 分配到两列
+  const [leftColumnPosts, rightColumnPosts] = distributePosts(mixedPosts);
+
+  console.log("=== 渲染状态调试 ===");
+  console.log("isLoading:", isLoading);
+  console.log("loadError:", loadError);
+  console.log("selectedCategoryId:", selectedCategoryId);
+  console.log("isRecommendFirstPage:", isRecommendFirstPage);
   console.log("singlePinnedPost:", singlePinnedPost);
-  console.log("mixedPosts:", mixedPosts);
+  console.log("mixedPosts.length:", mixedPosts.length);
+  console.log("leftColumnPosts.length:", leftColumnPosts.length);
+  console.log("rightColumnPosts.length:", rightColumnPosts.length);
+  console.log("pinnedPosts:", pinnedPosts);
+  console.log("normalPosts:", normalPosts);
+  console.log("displayedPosts:", displayedPosts);
 
   return (
     <View className="index-page">
       {/* Header: City + Categories */}
       <View className="header">
         <View className="city-selector" onClick={handleCitySelectorClick}>
-          <Text>{selectedCity}</Text>
+          <Text>
+            {cities.find((c) => c.value === selectedCity)?.label ||
+              selectedCity}
+          </Text>
           <Text className="arrow">▼</Text>
         </View>
         <View className="category-tabs">
@@ -348,7 +396,7 @@ export default function Index() {
         lowerThreshold={150}
       >
         {isLoading && currentPage === 1 && !loadError && (
-          <View className="loading-container skeleton-container post-list-masonry-container">
+          <View className="loading-container skeleton-container">
             {[...Array(4)].map((_, index) => {
               const randomHeight =
                 Math.floor(Math.random() * (450 - 250 + 1)) + 250;
@@ -371,63 +419,88 @@ export default function Index() {
           </View>
         )}
 
-        {/* 空状态：推荐页专用 */}
-        {isRecommendFirstPage &&
-          !singlePinnedPost &&
-          mixedPosts.length === 0 && (
-            <View className="empty-state-container">
-              <Text className="empty-state-text">
-                暂无相关信息，换个分类试试？
-              </Text>
-              <Button
-                className="empty-state-button"
-                onClick={() => Taro.navigateTo({ url: "/pages/publish/index" })}
-              >
-                去发帖
-              </Button>
-            </View>
-          )}
+        {/* 空状态显示逻辑优化 */}
+        {!isLoading && !loadError && (
+          <>
+            {/* 推荐页空状态 */}
+            {isRecommendFirstPage &&
+              !singlePinnedPost &&
+              mixedPosts.length === 0 && (
+                <View className="empty-state-container">
+                  <Text className="empty-state-text">
+                    暂无相关信息，换个分类试试？
+                  </Text>
+                  <Button
+                    className="empty-state-button"
+                    onClick={() =>
+                      Taro.navigateTo({ url: "/pages/publish/index" })
+                    }
+                  >
+                    去发帖
+                  </Button>
+                </View>
+              )}
 
-        {/* 其他分类空状态 */}
-        {!isRecommendFirstPage && mixedPosts.length === 0 && !isLoading && (
-          <View className="empty-state-container">
-            <Text className="empty-state-text">
-              暂无相关信息，换个分类试试？
-            </Text>
-            <Button
-              className="empty-state-button"
-              onClick={() => Taro.navigateTo({ url: "/pages/publish/index" })}
-            >
-              去发帖
-            </Button>
-          </View>
+            {/* 其他分类空状态 */}
+            {!isRecommendFirstPage && mixedPosts.length === 0 && (
+              <View className="empty-state-container">
+                <Text className="empty-state-text">
+                  该分类暂无内容，换个分类试试？
+                </Text>
+                <Button
+                  className="empty-state-button"
+                  onClick={() =>
+                    Taro.navigateTo({ url: "/pages/publish/index" })
+                  }
+                >
+                  去发帖
+                </Button>
+              </View>
+            )}
+          </>
         )}
 
-        {/* 推荐页内容 */}
-        {isRecommendFirstPage &&
-          (singlePinnedPost || mixedPosts.length > 0) && (
-            <View className="post-list-masonry-container">
-              {/* 置顶帖子只在推荐页显示 */}
-              {singlePinnedPost && (
-                <PostCard
-                  key={singlePinnedPost.id}
-                  post={singlePinnedPost}
-                  isPinned={true}
-                />
-              )}
-              {/* 显示普通帖子 */}
-              {mixedPosts.map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))}
-            </View>
-          )}
+        {/* 瀑布流内容 */}
+        {(mixedPosts.length > 0 || singlePinnedPost) && (
+          <View style={{ padding: "20rpx" }}>
+            {/* 置顶帖子 - 跨两列显示 */}
+            {singlePinnedPost && (
+              <View style={{ width: "100%", marginBottom: "20rpx" }}>
+                <PostCard post={singlePinnedPost} isPinned={true} />
+              </View>
+            )}
 
-        {/* 其他分类内容 */}
-        {!isRecommendFirstPage && mixedPosts.length > 0 && (
-          <View className="post-list-masonry-container">
-            {mixedPosts.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))}
+            {/* 双列瀑布流 */}
+            {mixedPosts.length > 0 && (
+              <View
+                style={{ display: "flex", flexDirection: "row", gap: "20rpx" }}
+              >
+                <View
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "20rpx",
+                  }}
+                >
+                  {leftColumnPosts.map((post) => (
+                    <PostCard key={post.id} post={post} />
+                  ))}
+                </View>
+                <View
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "20rpx",
+                  }}
+                >
+                  {rightColumnPosts.map((post) => (
+                    <PostCard key={post.id} post={post} />
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
         )}
 
@@ -463,13 +536,13 @@ export default function Index() {
             <ScrollView scrollY className="city-picker-list">
               {cities.map((city) => (
                 <View
-                  key={city}
+                  key={city.value}
                   className={`city-picker-item ${
-                    selectedCity === city ? "active" : ""
+                    selectedCity === city.value ? "active" : ""
                   }`}
-                  onClick={() => handleSelectCity(city)}
+                  onClick={() => handleSelectCity(city.value)}
                 >
-                  {city}
+                  {city.label}
                 </View>
               ))}
             </ScrollView>
@@ -480,23 +553,16 @@ export default function Index() {
   );
 }
 
-// definePageConfig might be in index.config.ts or here.
-// If it's in index.config.ts, this line is not needed here.
-// definePageConfig({
-//   navigationBarTitleText: '首页'
-// });
-
 // ------------------ POST CARD COMPONENT ------------------
 interface PostCardProps {
   post: FeedPost;
-  isPinned?: boolean; // Added for the pinned indicator
+  isPinned?: boolean;
 }
 
 const DEFAULT_IMAGE_URL =
   "https://images.unsplash.com/photo-1506744038136-46273834b3fb";
 
 const PostCard: React.FC<PostCardProps> = ({ post, isPinned }) => {
-  // 安全处理 description，防止 undefined 错误
   const safeDescription = post.description || "暂无描述";
   const truncatedDescription =
     safeDescription.length > 50
@@ -519,6 +585,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, isPinned }) => {
         className="post-card-image"
         src={post.image_url || DEFAULT_IMAGE_URL}
         mode="aspectFill"
+        style={{
+          height: post.mockImagePlaceholderHeight
+            ? `${post.mockImagePlaceholderHeight}rpx`
+            : "400rpx",
+        }}
       />
       <View className="post-card-content">
         <Text className="post-card-title" numberOfLines={2}>
@@ -550,7 +621,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, isPinned }) => {
 
 // ------------------ SKELETON CARD COMPONENT ------------------
 interface SkeletonCardProps {
-  mockImageHeight: number; // Expect a height for the mock image
+  mockImageHeight: number;
 }
 
 const SkeletonCard: React.FC<SkeletonCardProps> = ({ mockImageHeight }) => {

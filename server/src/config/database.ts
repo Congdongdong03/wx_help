@@ -122,33 +122,6 @@ export const initializeDatabase = async (): Promise<mysql.Connection> => {
       console.log("Added missing column 'city' to recommendations table.");
     }
 
-    // 插入一些初始城市数据
-    await connection.execute(`
-      INSERT IGNORE INTO cities (name, code, is_hot, sort_order, is_active) VALUES
-      ('悉尼', 'sydney', true, 1, true),
-      ('墨尔本', 'melbourne', true, 2, true),
-      ('卧龙岗', 'wollongong', true, 3, true),
-      ('布里斯班', 'brisbane', false, 4, true),
-      ('珀斯', 'perth', false, 5, true),
-      ('阿德莱德', 'adelaide', false, 6, true),
-      ('堪培拉', 'canberra', false, 7, true),
-      ('黄金海岸', 'goldcoast', false, 8, true),
-      ('纽卡斯尔', 'newcastle', false, 9, true),
-      ('霍巴特', 'hobart', false, 10, true);
-    `);
-    console.log("Initial cities data inserted.");
-
-    // 插入一些初始推荐内容数据
-    await connection.execute(`
-      INSERT IGNORE INTO recommendations (title, description, image_url, category, sort_order, is_active, is_pinned, price, city) VALUES
-      ('Coles & WWS 本周特价汇总', '点击查看本周Coles和Woolworths的最新折扣信息，省钱攻略不容错过！', '/images/recommendations/coles-wws.jpg', 'recommend', 1, true, true, '查看折扣', '通用'),
-      ('校园跑腿', '校园内快速配送服务，帮你解决各种跑腿需求', '/images/recommendations/campus-delivery.jpg', 'help', 2, true, false, null, '悉尼'),
-      ('代取快递', '帮你取快递，省时省力', '/images/recommendations/express.jpg', 'help', 3, true, false, null, '墨尔本'),
-      ('代买早餐', '早起困难户的福音', '/images/recommendations/breakfast.jpg', 'help', 4, true, false, null, '卧龙岗'),
-      ('代打印', '打印资料不用愁', '/images/recommendations/printing.jpg', 'help', 5, true, false, null, '悉尼');
-    `);
-    console.log("Initial recommendations data inserted.");
-
     dbInstance = connection;
     return dbInstance;
   } catch (error) {

@@ -4,8 +4,8 @@
 .index-page {
   display: flex;
   flex-direction: column;
-  height: 100vh; // Full viewport height
-  background-color: #f4f4f4; // Light gray background for the page
+  height: 100vh;
+  background-color: #f4f4f4;
 }
 
 // Header: City Selector + Category Tabs
@@ -13,8 +13,11 @@
   display: flex;
   align-items: center;
   padding: 20rpx;
-  background-color: #fff; // White background for header
-  border-bottom: 1rpx solid #eee; // Light border
+  background-color: #fff;
+  border-bottom: 1rpx solid #eee;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 
   .city-selector {
     display: flex;
@@ -25,6 +28,8 @@
     padding: 10rpx 15rpx;
     border: 1rpx solid #ddd;
     border-radius: 30rpx;
+    background-color: #fff;
+    white-space: nowrap;
 
     .arrow {
       margin-left: 10rpx;
@@ -35,27 +40,28 @@
 
   .category-tabs {
     display: flex;
-    flex-grow: 1;
-    justify-content: space-around; // Distribute tabs evenly
+    flex: 1;
+    overflow-x: auto;
+    gap: 10rpx;
 
     .category-tab {
-      padding: 10rpx 20rpx;
+      padding: 12rpx 24rpx;
       font-size: 28rpx;
       color: #555;
       background-color: transparent;
-      border: none; // Remove default button border
-      border-radius: 30rpx; // Rounded corners for tabs
-      margin: 0 5rpx; // Small margin between tabs
-      line-height: normal; // Ensure text aligns well
+      border: none;
+      border-radius: 30rpx;
+      white-space: nowrap;
+      flex-shrink: 0;
+      line-height: normal;
 
-      // Reset Taro button default styles
       &::after {
         border: none;
       }
 
       &.active {
-        background-color: #007bff; // Active tab background (example: blue)
-        color: #fff; // Active tab text color
+        background-color: #007bff;
+        color: #fff;
         font-weight: bold;
       }
     }
@@ -64,39 +70,23 @@
 
 // Posts Scroll View
 .posts-scroll-view {
-  flex-grow: 1; // Take remaining vertical space
-  height: 0; // Necessary for flex-grow to work in ScrollView
+  flex: 1;
+  height: 0;
 }
 
-// Masonry container for post cards
-.post-list-masonry-container {
-  column-count: 2; // Display as two columns
-  column-gap: 20rpx; // Gap between columns
-  padding: 0 20rpx; // Add horizontal padding to the container itself
-}
-
-// Post Card Styling
+// Post Card Styling - 修复布局问题
 .post-card {
-  position: relative; // Needed for absolute positioning of the pin
+  position: relative;
   background-color: #fff;
-  margin-bottom: 20rpx; // Vertical gap between cards in the same column
   border-radius: 16rpx;
   box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
   overflow: hidden;
-  display: inline-block; // Necessary for column layout to respect card content height
-  width: 100%; // Make card take full width of its column
-  break-inside: avoid-column; // Prevent cards from breaking across columns
+  width: 100%;
 
-  // .post-card-image { // Original Image styles, can be removed or repurposed
-  //   width: 100%;
-  //   height: auto;
-  //   display: block;
-  // }
-
-  .post-card-image-placeholder {
+  .post-card-image {
     width: 100%;
-    display: block; // Ensures it takes up block space, good for layout
-    // Height and background-color are set via inline styles from props
+    display: block;
+    object-fit: cover;
   }
 
   .post-card-content {
@@ -107,28 +97,24 @@
       font-weight: bold;
       color: #333;
       margin-bottom: 10rpx;
-      // For text ellipsis (numberOfLines in component is preferred for multi-line)
+      line-height: 1.4;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
       text-overflow: ellipsis;
-      line-height: 1.4em; // Adjust line height for title
-      max-height: 2.8em; // Max height for 2 lines (line-height * 2)
     }
 
     .post-card-description {
       font-size: 26rpx;
       color: #666;
       margin-bottom: 15rpx;
-      line-height: 1.5em;
-      // For text ellipsis (numberOfLines in component is preferred for multi-line)
+      line-height: 1.5;
       display: -webkit-box;
-      -webkit-line-clamp: 2; // Assuming we stick to 2 lines for description as well
+      -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-height: 3em; // Max height for 2 lines (line-height * 2)
     }
 
     .post-card-footer {
@@ -140,18 +126,18 @@
       .post-card-tags {
         display: flex;
         align-items: center;
+        gap: 10rpx;
 
         .post-card-category-tag {
           font-size: 22rpx;
-          color: #fff; // Text color will be white for colored tags
+          color: #fff;
           padding: 6rpx 12rpx;
           border-radius: 20rpx;
-          margin-right: 10rpx;
         }
 
         .post-card-price-tag {
           font-size: 26rpx;
-          color: #ff5722; // Price color (example: orange)
+          color: #ff5722;
           font-weight: bold;
         }
       }
@@ -165,40 +151,49 @@
 
   .post-card-pin-indicator {
     position: absolute;
-    top: 8px; // Adjust as needed
-    left: 8px; // Adjust as needed
-    background-color: #ff4500; // Example: Orange-red background
+    top: 8rpx;
+    left: 8rpx;
+    background-color: #ff4500;
     color: white;
-    padding: 2px 6px;
-    font-size: 10px; // Adjust as needed
-    border-radius: 3px;
-    z-index: 1; // Ensure it's above other content
+    padding: 4rpx 12rpx;
+    font-size: 20rpx;
+    border-radius: 6rpx;
+    z-index: 1;
     font-weight: bold;
   }
 }
 
 // Skeleton Card Specific Styles
+.skeleton-container {
+  padding: 20rpx;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20rpx;
+}
+
 .skeleton-card {
-  margin-bottom: 20rpx; // Match post-card margin
-  break-inside: avoid-column; // If skeleton container were also masonry
+  background-color: #fff;
+  border-radius: 16rpx;
+  overflow: hidden;
 
   .skeleton-image {
-    background-color: #e0e0e0; // Placeholder color
+    background-color: #e0e0e0;
     width: 100%;
-    height: 360rpx; // Match PostCard image height
     animation: pulse 1.5s infinite ease-in-out;
   }
 
   .post-card-content {
+    padding: 20rpx;
+
     .skeleton-line {
       background-color: #e0e0e0;
-      height: 24rpx; // Base height for text lines
+      height: 24rpx;
       margin-bottom: 15rpx;
       border-radius: 4rpx;
       animation: pulse 1.5s infinite ease-in-out;
 
       &.title {
-        height: 32rpx; // Taller for title
+        height: 32rpx;
         width: 70%;
         margin-bottom: 20rpx;
       }
@@ -217,11 +212,12 @@
         height: 20rpx;
       }
     }
-  }
-  .skeleton-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+
+    .skeleton-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
   }
 }
 
@@ -252,8 +248,6 @@
 }
 
 .empty-state-container {
-  // TODO: Add styles for an empty state image if you have one
-  // .empty-state-image { ... }
   .empty-state-text {
     font-size: 28rpx;
     margin-bottom: 20rpx;
@@ -264,18 +258,11 @@
     background-color: #007bff;
     color: #fff;
     border-radius: 30rpx;
-    // Reset Taro button default styles
     &::after {
       border: none;
     }
   }
 }
-
-// Specific styling for active category tab based on its own color (optional)
-// You might need to adjust the .category-tab.active if you want the tab's own color
-// .category-tabs .category-tab.active {
-//    // Example: if you pass cat.color to a data-attribute or modify style directly for active
-// }
 
 // City Picker Popup Styles
 .city-picker-overlay {
@@ -284,16 +271,16 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5); // Semi-transparent black overlay
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
-  align-items: flex-end; // Align popup to the bottom
-  z-index: 1000; // Ensure it's above other content
+  align-items: flex-end;
+  z-index: 1000;
 
   .city-picker-content {
     background-color: #fff;
     width: 100%;
-    max-height: 70vh; // Limit height, e.g., 70% of viewport height
+    max-height: 70vh;
     border-top-left-radius: 20rpx;
     border-top-right-radius: 20rpx;
     display: flex;
@@ -323,8 +310,8 @@
     }
 
     .city-picker-list {
-      flex: 1; // Allow list to take available space and scroll, handles basis and shrink too
-      overflow-y: auto; // Ensure scrolling is enabled if content overflows
+      flex: 1;
+      overflow-y: auto;
 
       .city-picker-item {
         padding: 25rpx 30rpx;
@@ -339,7 +326,6 @@
         &.active {
           color: #007bff;
           font-weight: bold;
-          // background-color: #f0f8ff; // Optional: light blue background for active item
         }
       }
     }

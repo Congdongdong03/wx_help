@@ -54,13 +54,13 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   res.status(500).json({ error: "Internal Server Error" });
 });
 
-const PORT = config.port;
+const PORT = Number(config.port);
 
 // 在启动服务器之前初始化数据库
 initializeDatabase()
   .then(() => {
-    app.listen(PORT, () => {
-      console.log(`Server is running on port ${PORT}`);
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server is running on port ${PORT} (0.0.0.0)`);
     });
   })
   .catch((error) => {
