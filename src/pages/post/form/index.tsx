@@ -14,6 +14,9 @@ import BottomActionBar from "../../../components/BottomActionBar/index";
 import WechatIdInput from "../../../components/WechatIdInput/index";
 import "./index.scss";
 
+// Define the base API URL (adjust if your server runs elsewhere or in production)
+const BASE_API_URL = "http://localhost:3000/api";
+
 // Interfaces (ensure Post is defined if passed directly, or map from it)
 interface OriginalPostData {
   // Structure from my-posts.tsx
@@ -322,13 +325,9 @@ export default function PostFormPage() {
     return formDataChanged || imageFilesChanged;
   }, [formData, imageFiles, initialFormData, initialImageFiles, isLoadingData]);
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
     if (!category) {
       Taro.showToast({ title: "无法保存草稿", icon: "none" });
-      return;
-    }
-    if (!isDirty()) {
-      Taro.showToast({ title: "内容无修改", icon: "none" });
       return;
     }
     if (!formData.title && !formData.description && imageFiles.length === 0) {
@@ -337,20 +336,41 @@ export default function PostFormPage() {
     }
 
     setIsSavingDraft(true);
-    const draftId = `draft_${category}_${Date.now()}`;
-    const draftData: DraftPostData = {
-      formData,
-      imageFiles,
+
+    const payload = {
+      ...formData,
       category,
-      timestamp: Date.now(),
+      status: "draft",
+      images: imageFiles.map((file) => file.path),
     };
+
     try {
-      Taro.setStorageSync(draftId, draftData);
-      Taro.showToast({ title: "已存为草稿", icon: "success" });
-      setInitialFormData(formData);
-      setInitialImageFiles(imageFiles);
-    } catch (e) {
-      Taro.showToast({ title: "草稿保存失败", icon: "error" });
+      const res = await Taro.request({
+        url: `${BASE_API_URL}/posts`,
+        method: "POST",
+        data: payload,
+        header: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (res.statusCode === 201 && res.data && res.data.post) {
+        Taro.showToast({
+          title: res.data.message,
+          icon: "success",
+        });
+        setInitialFormData(formData);
+        setInitialImageFiles(imageFiles);
+      } else {
+        console.error("Save draft API error:", res);
+        Taro.showToast({
+          title: res.data?.error || "草稿保存失败",
+          icon: "error",
+        });
+      }
+    } catch (error) {
+      console.error("Save draft network error:", error);
+      Taro.showToast({ title: "草稿保存失败，请检查网络", icon: "error" });
     } finally {
       setIsSavingDraft(false);
     }
@@ -457,99 +477,92 @@ export default function PostFormPage() {
     }
 
     setIsPublishing(true);
+    Taro.showLoading({
+      title: editingPostOriginalId ? "更新中..." : "发布中...",
+      mask: true,
+    });
 
     try {
-      let currentImageFiles = [...imageFiles];
-      const { title, description } = formData;
+      let processedImagePaths = imageFiles.map((file) => file.path);
 
       if (
         category === "help" &&
-        (!description || description.trim() === "") &&
-        currentImageFiles.length === 0 &&
-        title
+        (!formData.description || formData.description.trim() === "") &&
+        processedImagePaths.length === 0 &&
+        formData.title
       ) {
-        Taro.showLoading({ title: "生成图片中..." });
-        try {
-          const generatedImage = await generateImageFromText(title);
-          currentImageFiles = [generatedImage];
-        } catch (error) {
-          console.error("Image generation failed:", error);
-          Taro.showToast({ title: "图片生成失败", icon: "error" });
-          setIsPublishing(false);
-          Taro.hideLoading();
-          return;
-        } finally {
-          Taro.hideLoading();
-        }
+        const generatedImageFile = await generateImageFromText(formData.title);
+        processedImagePaths = [generatedImageFile.path];
       }
 
       if (
         (category === "rent" || category === "used" || category === "jobs") &&
-        currentImageFiles.length === 0
+        processedImagePaths.length === 0
       ) {
         Taro.showToast({ title: "至少上传一张图片", icon: "none" });
         setIsPublishing(false);
+        Taro.hideLoading();
         return;
       }
-      if (
-        category === "help" &&
-        (!description || description.trim() === "") &&
-        currentImageFiles.length === 0
-      ) {
-        Taro.showToast({ title: "请填写文字描述或上传图片", icon: "none" });
-        setIsPublishing(false);
-        return;
-      }
-      if (currentImageFiles.length > 6) {
+      if (processedImagePaths.length > 6) {
         Taro.showToast({ title: "最多只能上传6张图", icon: "none" });
         setIsPublishing(false);
+        Taro.hideLoading();
         return;
       }
 
-      console.log("PostFormPage: Form Data to submit:", formData);
-      console.log(
-        "PostFormPage: Image files to submit:",
-        currentImageFiles.map((f) => f.path)
-      );
+      const payload = {
+        ...formData,
+        category: category,
+        status: "published",
+        images: processedImagePaths,
+      };
 
-      const draftId = router.params.draftId;
-      if (draftId) {
-        Taro.removeStorageSync(draftId);
-        console.log(`PostFormPage: Draft ${draftId} removed after submission.`);
+      console.log("Submitting to API:", payload);
+
+      const res = await Taro.request({
+        url: `${BASE_API_URL}/posts`,
+        method: "POST",
+        data: payload,
+        header: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      Taro.hideLoading();
+
+      if (res.statusCode === 201 && res.data && res.data.post) {
+        Taro.showToast({
+          title: res.data.message,
+          icon: "success",
+          duration: 1500,
+        });
+
+        if (router.params.draftId) {
+          Taro.removeStorageSync(router.params.draftId);
+        }
+        setInitialFormData({});
+        setInitialImageFiles([]);
+
+        setTimeout(() => {
+          Taro.navigateBack();
+        }, 1500);
+      } else {
+        console.error("Submit API error:", res);
+        Taro.showToast({
+          title:
+            res.data?.error ||
+            (editingPostOriginalId ? "更新失败" : "发布失败"),
+          icon: "error",
+        });
       }
-
-      const submissionMode = editingPostOriginalId
-        ? "Edit"
-        : draftId
-        ? "Draft-to-Post"
-        : "New Post";
-      console.log("Submitting data for mode:", submissionMode);
-
-      Taro.showLoading({
-        title: editingPostOriginalId ? "更新中..." : "发布中...",
-        mask: true,
-      });
-
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      Taro.hideLoading();
-      Taro.showToast({
-        title: editingPostOriginalId ? "更新成功" : "发布成功",
-        icon: "success",
-        duration: 1500,
-      });
-
-      setInitialFormData({});
-      setInitialImageFiles([]);
-
-      setTimeout(() => {
-        Taro.navigateBack();
-      }, 1500);
     } catch (error) {
-      console.error("handleSubmit error:", error);
       Taro.hideLoading();
+      console.error("handleSubmit network/unknown error:", error);
       Taro.showToast({
-        title: editingPostOriginalId ? "更新失败" : "发布失败",
+        title: editingPostOriginalId
+          ? "更新失败，请稍后重试"
+          : "发布失败，请稍后重试",
         icon: "error",
       });
     } finally {

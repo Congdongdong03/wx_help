@@ -7,6 +7,7 @@ export default defineAppConfig({
     "pages/detail/index",
     "pages/post/index",
     "pages/post/form/index",
+    "pages/my-posts/index",
     "pages/my/edit-nickname/index",
     "pages/my/favorites/index",
     "pages/settings/about/index",

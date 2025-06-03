@@ -1,46 +1,84 @@
 import Taro, { useRouter } from "@tarojs/taro";
-import { View, Text, Image, Button } from "@tarojs/components";
-import { useState, useEffect, useCallback } from "react"; // 引入 useCallback
-import "./index.scss"; // 引入样式文件，确保文件路径正确
+import { View, Text, Image, Button, ScrollView } from "@tarojs/components";
+import { useState, useEffect, useCallback } from "react";
+import "./index.scss";
 
-// 定义 Tab 的状态类型
-type Status = "all" | "published" | "draft" | "reviewing";
-// 定义帖子的审核状态类型
-type AuditStatus = "pending" | "approved" | "rejected" | "draft" | "taken_down";
+// --- API Integration START ---
+const BASE_API_URL = "http://localhost:3000/api"; // 确保这是您后端API的正确地址
+
+// 和后端 /api/posts/my 返回一致的 Post 结构
+interface ApiPost {
+  id: number; // API 返回的 ID 是数字
+  title: string;
+  content?: string; // 后端是 content 字段
+  category: string;
+  status: "draft" | "pending" | "published" | "failed"; // API 的状态类型
+  wechat_id?: string;
+  images?: string; // API 返回的是图片URL JSON字符串或null
+  created_at?: string;
+  updated_at?: string;
+  // 您可以根据需要添加其他从API返回的字段
+}
+
+interface ApiStats {
+  draftCount: number;
+  pendingCount: number;
+  publishedCount: number;
+  failedCount: number;
+  totalCount: number;
+}
+
+interface ApiPagination {
+  currentPage: number;
+  totalPages: number;
+  totalPosts: number;
+  limit: number;
+}
+
+interface FetchPostsApiResponse {
+  posts: ApiPost[];
+  pagination: ApiPagination;
+  stats: ApiStats;
+}
+// --- API Integration END ---
+
+// 定义 Tab 的状态类型 (保持现有，但我们会映射到API状态)
+type UITabStatus = "all" | "published" | "draft" | "reviewing" | "failed"; // Added 'failed' for potential future use
+
+// 定义帖子的前端展示状态类型 (可以逐步替换 auditStatus)
+type UIDisplayStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "draft"
+  | "taken_down"
+  | "published"
+  | "failed";
 
 // 定义 TabItem 接口
 interface TabItem {
   title: string;
-  status: Status;
+  status: UITabStatus; // 使用新的 UITabStatus
 }
 
-// Updated Post interface for editing capabilities
-interface Post {
-  id: number | string; // string for draftId, number for mock/API posts
-  image: string; // For mock/API posts, this is a URL. For drafts, might be local path.
-  description: string; // Main content/description
-  createTime: string; // Publish time or draft creation time
-  auditStatus: AuditStatus;
-  category: string; // IMPORTANT: Category of the post (e.g., "help", "rent")
-  title?: string; // Optional: Formal title, if different from description (for form mapping)
-  wechatId?: string; // Optional: WeChat ID, if applicable (e.g., for "help")
-  // Add other category-specific fields that might be needed for form repopulation
-  // For example, for "rent" posts:
-  roomType?: string;
-  rentAmount?: string;
-  address?: string;
-  // ... etc.
-  draftId?: string; // The storage key if it's a loaded draft
-  includesBills?: boolean;
-  itemCategory?: string;
-  price?: string;
-  condition?: string;
-  position?: string;
-  salaryRange?: string;
-  timeRequirement?: string;
+// Post 接口，尝试融合现有字段和API字段
+// 这个接口将主要用于UI展示，数据会从ApiPost转换而来
+interface UIPost {
+  id: number | string; // string for local draftId, number for API posts
+  image: string; // UI展示的图片URL
+  description: string; // UI展示的描述
+  title?: string; // UI展示的标题
+  createTime: string; // UI展示的创建时间
+  uiDisplayStatus: UIDisplayStatus; // UI展示的状态 (替代 auditStatus)
+  category: string;
+  wechatId?: string;
+
+  // 保留一些特定字段用于编辑/特定逻辑
+  originalApiPost?: ApiPost; // 存储原始API对象，方便后续操作
+  draftId?: string; // 本地草稿的ID
+  // ... 其他您在UI层面需要的字段，比如 roomType, rentAmount 等，可以从 originalApiPost.content 或特定字段解析
 }
 
-// Interface for DraftData stored in Taro.storage (from form page)
 interface DraftPostData {
   formData: {
     title?: string;
@@ -53,262 +91,379 @@ interface DraftPostData {
   timestamp: number;
 }
 
-// Updated Mock 数据数组 with category and potential form fields
-const mockPosts: Post[] = [
-  {
-    id: 1,
-    image: "https://picsum.photos/200/150?random=1",
-    title: "周末爬山活动",
-    description:
-      "周末一起去爬山，寻找秋天的落叶和美景，活动强度适中，欢迎报名。",
-    createTime: "2024-03-25 09:00",
-    auditStatus: "approved",
-    category: "help", // Example category
-    wechatId: "user1_wx",
-  },
-  {
-    id: 2,
-    image: "https://picsum.photos/200/150?random=2",
-    title: "急聘Java后端",
-    description: "急需一位有经验的Java后端开发者，参与电商平台项目，薪资面议。",
-    createTime: "2024-03-24 14:00",
-    auditStatus: "pending",
-    category: "jobs", // Example category
-    wechatId: "hr_helper_wx", // Assuming jobs might also have a contact
-  },
-  {
-    id: 3,
-    image: "https://picsum.photos/200/150?random=3",
-    title: "转MacBook Pro 14寸",
-    description:
-      "转让一台几乎全新的MacBook Pro 14寸，M1芯片，刚买半年，因工作需要换Windows。",
-    createTime: "2024-03-23 19:30",
-    auditStatus: "rejected",
-    category: "used", // Example category
-    wechatId: "seller123",
-  },
-  {
-    id: 4,
-    image: "https://picsum.photos/200/150?random=4",
-    title: "约羽毛球初学者",
-    description: "有没有附近的朋友一起约打羽毛球？初学者也可，重在参与！",
-    createTime: "2024-03-22 11:00",
-    auditStatus: "approved",
-    category: "help",
-    wechatId: "sportslover",
-  },
-];
+// mockPosts 将被API数据替代，暂时注释或后续删除
+// const mockPosts: UIPost[] = [ ... ];
 
-// 将 tabList 移到组件外部，确保引用稳定
 const tabList: TabItem[] = [
   { title: "全部", status: "all" },
-  { title: "已发布", status: "published" }, // 这个 Tab 对应 auditStatus 'approved'
-  { title: "草稿", status: "draft" }, // TODO: 如果 mock 数据有 draft 状态，需要实现过滤逻辑
-  { title: "审核中", status: "reviewing" }, // 这个 Tab 对应 auditStatus 'pending' 或 'rejected'
+  { title: "已发布", status: "published" },
+  { title: "审核中", status: "reviewing" },
+  { title: "未通过", status: "failed" }, // 新增 "未通过" 标签页
+  { title: "草稿", status: "draft" },
 ];
 
 // MyPosts 页面组件
 export default function MyPosts() {
-  // 获取路由信息，用于返回功能
   const router = useRouter();
-  // 当前选中 Tab 的索引状态，默认为第一个 Tab (全部)
-  const [current, setCurrent] = useState(0);
-  // 用于存储当前需要显示的帖子列表的状态，初始为空数组
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [currentTabIndex, setCurrentTabIndex] = useState(0); // Renamed from 'current' for clarity
+
+  // --- API Related State START ---
+  const [apiPosts, setApiPosts] = useState<ApiPost[]>([]); // 存储从API获取的原始帖子
+  const [displayedPosts, setDisplayedPosts] = useState<UIPost[]>([]); // 存储转换后用于UI展示的帖子
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState<ApiPagination>({
+    currentPage: 1,
+    totalPages: 1,
+    totalPosts: 0,
+    limit: 10, // 每页数量，可以设为可配置
+  });
+  const [stats, setStats] = useState<ApiStats | null>(null);
+  // --- API Related State END ---
+
   const [activeMenuPostId, setActiveMenuPostId] = useState<
     number | string | null
   >(null);
-
-  // *** 新增状态：存储当前 session 中已被擦亮的帖子 id ***
   const [boostedPostIds, setBoostedPostIds] = useState<Set<number | string>>(
     new Set()
   );
 
-  const fetchAndSetDrafts = useCallback(() => {
-    console.log("MyPosts: fetchAndSetDrafts called");
+  const getCurrentApiStatusFilter = useCallback(() => {
+    const selectedTab = tabList[currentTabIndex]; // tabList is in closure, currentTabIndex is state
+    let apiStatusFilter = "";
+    switch (selectedTab.status) {
+      case "published":
+        apiStatusFilter = "published";
+        break;
+      case "reviewing":
+        apiStatusFilter = "pending";
+        break;
+      case "failed":
+        apiStatusFilter = "failed";
+        break;
+      case "all":
+      default:
+        apiStatusFilter = "";
+        break;
+    }
+    return apiStatusFilter;
+  }, [currentTabIndex]); // Dependency on currentTabIndex
+
+  // 将 API Post 转换为 UIPost
+  const mapApiPostToUIPost = (apiPost: ApiPost): UIPost => {
+    let imageUrl = "https://via.placeholder.com/200x150.png?text=No+Image";
+    if (apiPost.images) {
+      try {
+        const imagesArray = JSON.parse(apiPost.images);
+        if (Array.isArray(imagesArray) && imagesArray.length > 0) {
+          imageUrl = imagesArray[0]; // 取第一张图作为封面
+        }
+      } catch (e) {
+        console.error("Error parsing images JSON:", e);
+      }
+    }
+
+    let uiStatus: UIDisplayStatus = "pending"; // Default
+    switch (apiPost.status) {
+      case "published":
+        uiStatus = "published";
+        break;
+      case "pending":
+        uiStatus = "pending";
+        break;
+      case "failed":
+        uiStatus = "rejected";
+        break; // API 'failed' -> UI 'rejected' (未通过)
+      case "draft":
+        uiStatus = "draft";
+        break;
+    }
+
+    return {
+      id: apiPost.id,
+      image: imageUrl,
+      title: apiPost.title,
+      description: apiPost.content || apiPost.title, // 如果没有content，用title
+      createTime: apiPost.created_at
+        ? new Date(apiPost.created_at).toLocaleString()
+        : "未知时间",
+      uiDisplayStatus: uiStatus,
+      category: apiPost.category,
+      wechatId: apiPost.wechat_id,
+      originalApiPost: apiPost, // 保存原始数据
+    };
+  };
+
+  // 将本地草稿转换为 UIPost
+  const mapLocalDraftToUIPost = (
+    draftData: DraftPostData,
+    draftKey: string
+  ): UIPost | null => {
+    if (draftData && typeof draftData === "object" && draftData.category) {
+      return {
+        id: draftKey, // 使用 draftKey 作为唯一ID
+        draftId: draftKey,
+        image:
+          draftData.imageFiles && draftData.imageFiles.length > 0
+            ? draftData.imageFiles[0].path
+            : "https://via.placeholder.com/200x150.png?text=No+Image",
+        title:
+          draftData.formData.title ||
+          draftData.formData.description ||
+          `草稿: ${draftData.category}`,
+        description:
+          draftData.formData.description ||
+          draftData.formData.title ||
+          "无描述内容",
+        createTime: new Date(draftData.timestamp).toLocaleString(),
+        uiDisplayStatus: "draft",
+        category: draftData.category,
+        wechatId: draftData.formData.wechatId,
+      };
+    }
+    return null;
+  };
+
+  const fetchAndSetLocalDrafts = useCallback(() => {
+    console.log("MyPosts: fetchAndSetLocalDrafts called");
+    setIsLoading(true); // 也为加载本地草稿设置loading
+    setError(null);
     try {
       const { keys } = Taro.getStorageInfoSync();
-      // Fetch all drafts, not just for 'help'
       const draftKeys = keys.filter((key) => key.startsWith("draft_"));
-
       let loadedDrafts = draftKeys
         .map((key) => {
-          const draftData = Taro.getStorageSync(key) as DraftPostData | "";
-          // Ensure draftData and category are valid before processing
+          const storedValue = Taro.getStorageSync(key);
+          // Ensure storedValue is a valid object structure before casting to DraftPostData
+          // and before calling mapLocalDraftToUIPost
           if (
-            draftData &&
-            typeof draftData === "object" &&
-            draftData.category
+            storedValue &&
+            typeof storedValue === "object" &&
+            typeof storedValue.category === "string" &&
+            typeof storedValue.timestamp === "number" &&
+            typeof storedValue.formData === "object" &&
+            Array.isArray(storedValue.imageFiles)
           ) {
-            return {
-              id: key,
-              draftId: key,
-              image:
-                draftData.imageFiles && draftData.imageFiles.length > 0
-                  ? draftData.imageFiles[0].path
-                  : "https://via.placeholder.com/200x150.png?text=No+Image",
-              title:
-                draftData.formData.title ||
-                draftData.formData.description ||
-                `草稿: ${draftData.category}`,
-              description:
-                draftData.formData.description ||
-                draftData.formData.title ||
-                "无描述内容",
-              createTime: new Date(draftData.timestamp).toLocaleString(),
-              auditStatus: "draft" as AuditStatus,
-              category: draftData.category,
-              wechatId: draftData.formData.wechatId,
-            } as Post;
+            return mapLocalDraftToUIPost(storedValue as DraftPostData, key);
           }
-          return null;
+          return null; // Will be filtered out by .filter(Boolean)
         })
-        .filter(Boolean) as Post[];
+        .filter(Boolean) as UIPost[];
 
       loadedDrafts.sort((a, b) => {
-        // Assuming timestamp is part of draftId (e.g., draft_category_timestamp)
         const tsA = parseInt(a.draftId?.split("_").pop() || "0");
         const tsB = parseInt(b.draftId?.split("_").pop() || "0");
         return tsB - tsA;
       });
 
-      console.log("MyPosts: Loaded all drafts:", loadedDrafts.length);
-      setPosts(loadedDrafts);
+      console.log("MyPosts: Loaded all local drafts:", loadedDrafts.length);
+      setDisplayedPosts(loadedDrafts);
+      setApiPosts([]); // 清空API帖子
+      setStats(null); // 本地草稿不从API获取统计
+      setPagination((prev) => ({
+        ...prev,
+        totalPages: 1,
+        currentPage: 1,
+        totalPosts: loadedDrafts.length,
+      }));
     } catch (e) {
-      console.error("MyPosts: Error loading drafts:", e);
-      setPosts([]);
+      console.error("MyPosts: Error loading local drafts:", e);
+      setError("加载草稿失败");
+      setDisplayedPosts([]);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
+  // 获取 API 帖子的函数
+  const fetchApiPosts = useCallback(
+    async (page = 1, statusFilter = "") => {
+      console.log(
+        `MyPosts: fetchApiPosts called for page: ${page}, status: ${statusFilter}`
+      );
+      setIsLoading(true);
+      setError(null);
+      try {
+        let url = `${BASE_API_URL}/posts/my?page=${page}&limit=${pagination.limit}`;
+        if (statusFilter) {
+          url += `&status=${statusFilter}`;
+        }
+        // TODO: Add Authorization header if needed
+        // const token = Taro.getStorageSync('token');
+        // headers: { 'Authorization': `Bearer ${token}` }
+
+        const response = await Taro.request<FetchPostsApiResponse>({
+          url,
+          method: "GET",
+        });
+
+        if (response.statusCode === 200 && response.data) {
+          setApiPosts(response.data.posts);
+          setDisplayedPosts(response.data.posts.map(mapApiPostToUIPost));
+          setPagination(response.data.pagination);
+          setStats(response.data.stats);
+        } else {
+          throw new Error(`请求失败，状态码: ${response.statusCode}`);
+        }
+      } catch (err: any) {
+        console.error("MyPosts: Error fetching API posts:", err);
+        setError(err.message || "获取帖子列表失败");
+        setApiPosts([]);
+        setDisplayedPosts([]);
+        setStats(null);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [pagination.limit]
+  ); // pagination.limit 作为依赖
+
+  // 根据当前选中的Tab加载数据
   const loadCurrentTabData = useCallback(() => {
+    const selectedTab = tabList[currentTabIndex];
     console.log(
       "MyPosts: loadCurrentTabData for tab:",
-      tabList[current].status
+      selectedTab.title,
+      selectedTab.status
     );
-    const selectedStatus = tabList[current].status;
-    if (selectedStatus === "draft") {
-      fetchAndSetDrafts();
+
+    setActiveMenuPostId(null); // 切换tab时关闭菜单
+
+    if (selectedTab.status === "draft") {
+      fetchAndSetLocalDrafts();
     } else {
-      // For non-draft tabs, filter from mockPosts
-      // This part needs to be aware that mockPosts itself might need updating if an edit is saved.
-      // For now, it just re-filters the static mockPosts.
-      let filteredPosts: Post[] = [];
-      if (selectedStatus === "all") {
-        filteredPosts = mockPosts.filter(
-          (post) => post.auditStatus !== "taken_down"
-        );
-      } else if (selectedStatus === "published") {
-        filteredPosts = mockPosts.filter(
-          (post) => post.auditStatus === "approved"
-        );
-      } else if (selectedStatus === "reviewing") {
-        filteredPosts = mockPosts.filter(
-          (post) =>
-            post.auditStatus === "pending" || post.auditStatus === "rejected"
-        );
+      let apiStatusFilter = "";
+      switch (selectedTab.status) {
+        case "published":
+          apiStatusFilter = "published";
+          break;
+        case "reviewing":
+          apiStatusFilter = "pending";
+          break;
+        case "failed":
+          apiStatusFilter = "failed";
+          break;
+        case "all": // "all" falls through to no filter
+        default:
+          apiStatusFilter = "";
+          break;
       }
-      setPosts(filteredPosts);
+      fetchApiPosts(1, apiStatusFilter); // 默认加载第一页
     }
-  }, [current, fetchAndSetDrafts]);
+  }, [currentTabIndex, fetchApiPosts, fetchAndSetLocalDrafts]);
 
   useEffect(() => {
     loadCurrentTabData();
-  }, [current, loadCurrentTabData]);
+  }, [currentTabIndex, loadCurrentTabData]); // currentTabIndex 变化时重新加载数据
 
   Taro.useDidShow(() => {
     console.log(
-      "MyPosts: useDidShow triggered. Current tab:",
-      tabList[current].status
+      "MyPosts: useDidShow triggered. Current tab index:",
+      currentTabIndex
     );
     const needsRefresh = Taro.getStorageSync("refreshMyPosts");
     if (needsRefresh === "true") {
       console.log(
         "MyPosts: Detected refreshMyPosts flag. Refreshing current tab data."
       );
-      Taro.removeStorageSync("refreshMyPosts"); // Clear the flag immediately
-      // Potentially, here you might want to re-fetch *all* data sources if an edit could affect any list.
-      // For now, just reload current tab's data.
-      loadCurrentTabData();
+      Taro.removeStorageSync("refreshMyPosts");
+      loadCurrentTabData(); // 重新加载当前tab数据
     } else {
-      // If no explicit refresh flag, only refresh drafts if that's the current tab
-      // (as other tabs are from static mock data for now)
-      if (tabList[current].status === "draft") {
-        fetchAndSetDrafts();
+      // 如果不是强制刷新，并且当前是草稿页，也刷新一下草稿列表，因为草稿可能在表单页被修改
+      if (tabList[currentTabIndex].status === "draft") {
+        fetchAndSetLocalDrafts();
       }
     }
-
-    const eventHandlerForPullRefresh = () => {
-      console.log("MyPosts: Pull refresh event caught by eventCenter");
-      loadCurrentTabData(); // Reload data for the current tab on pull refresh event
-    };
-    Taro.eventCenter.on("myPostsPullRefresh", eventHandlerForPullRefresh);
-    return () => {
-      Taro.eventCenter.off("myPostsPullRefresh", eventHandlerForPullRefresh);
-    };
+    // ... (保留您原有的 eventCenter 逻辑，如果还需要)
   });
 
   Taro.usePullDownRefresh(() => {
     console.log(
-      "MyPosts: usePullDownRefresh hook triggered for tab:",
-      tabList[current].status
+      "MyPosts: usePullDownRefresh hook triggered for tab index:",
+      currentTabIndex
     );
-    loadCurrentTabData(); // Reload data for the current tab
+    loadCurrentTabData(); // 重新加载当前tab数据
     setTimeout(() => {
       Taro.stopPullDownRefresh();
     }, 1000);
   });
 
   // Tab 点击处理函数
-  const handleClick = (value: number) => {
-    setCurrent(value); // 更新当前选中 Tab 的索引
-    setActiveMenuPostId(null); // Close any open menu when switching tabs
+  const handleTabClick = (index: number) => {
+    setCurrentTabIndex(index);
   };
 
-  // *** 修改函数：处理擦亮按钮点击事件 ***
+  const handlePageChange = (newPage: number) => {
+    if (
+      newPage >= 1 &&
+      newPage <= pagination.totalPages &&
+      tabList[currentTabIndex].status !== "draft"
+    ) {
+      const selectedTab = tabList[currentTabIndex];
+      let apiStatusFilter = ""; // Re-calculate filter for safety, or use getCurrentApiStatusFilter
+      switch (selectedTab.status) {
+        case "published":
+          apiStatusFilter = "published";
+          break;
+        case "reviewing":
+          apiStatusFilter = "pending";
+          break;
+        case "failed":
+          apiStatusFilter = "failed";
+          break;
+        case "all":
+        default:
+          apiStatusFilter = "";
+          break;
+      }
+      fetchApiPosts(newPage, apiStatusFilter);
+    }
+  };
+
+  // *** 修改函数：处理擦亮按钮点击事件 (占位符) ***
   const handleBoostClick = async (postId: number | string) => {
-    // Boost logic likely doesn't apply to drafts, so ensure post.auditStatus === 'approved'
-    const postToBoost = posts.find((p) => p.id === postId);
-    if (!postToBoost || postToBoost.auditStatus !== "approved") {
+    const postToBoost = displayedPosts.find((p) => p.id === postId);
+    if (
+      !postToBoost ||
+      typeof postToBoost.id !== "number" ||
+      postToBoost.uiDisplayStatus !== "published"
+    ) {
       Taro.showToast({ title: "只有已发布的帖子才能擦亮", icon: "none" });
       return;
     }
-    // ... (rest of the boost logic, ensure postId is handled if it's a number from mock)
-    // For now, we assume only numeric IDs from mockPosts can be boosted.
-    if (typeof postId !== "number") return;
 
+    const numericPostId = postToBoost.id as number;
+
+    setIsLoading(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const apiSaysBoostAllowed = true;
-
-      if (apiSaysBoostAllowed) {
-        setBoostedPostIds((prevBoostedIds) => {
-          const newSet = new Set(prevBoostedIds);
-          newSet.add(postId);
-          return newSet;
-        });
-        Taro.showToast({
-          title: "擦亮成功",
-          icon: "success",
-          duration: 2000,
-        });
-      } else {
-        Taro.showToast({
-          title: "一天只能擦亮一次",
-          icon: "none",
-          duration: 2000,
-        });
-      }
-    } catch (error) {
-      console.error(`Error boosting post ${postId}:`, error);
-      Taro.showToast({
-        title: "擦亮失败，请稍后再试",
-        icon: "none",
-        duration: 2000,
+      // const token = Taro.getStorageSync('token'); // Uncomment and use your token logic
+      const response = await Taro.request({
+        url: `${BASE_API_URL}/posts/${numericPostId}/refresh`,
+        method: "PUT",
+        // header: { 'Authorization': `Bearer ${token}` } // Add if auth is needed
       });
+
+      if (response.statusCode === 200 || response.statusCode === 204) {
+        Taro.showToast({ title: "擦亮成功", icon: "success" });
+        setBoostedPostIds((prev) => new Set(prev).add(numericPostId));
+        const currentFilter = getCurrentApiStatusFilter();
+        fetchApiPosts(pagination.currentPage, currentFilter);
+      } else {
+        const errorMessage =
+          response.data?.message ||
+          response.errMsg ||
+          `状态码 ${response.statusCode}`;
+        throw new Error(`擦亮失败: ${errorMessage}`);
+      }
+    } catch (e: any) {
+      Taro.showToast({ title: e.message || "擦亮失败", icon: "error" });
+      console.error("Error boosting post:", e);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleEdit = (postToEdit: Post) => {
+  const handleEdit = (postToEdit: UIPost) => {
     setActiveMenuPostId(null);
     console.log("Editing post:", postToEdit);
     if (!postToEdit.category) {
@@ -316,25 +471,29 @@ export default function MyPosts() {
       return;
     }
 
-    if (postToEdit.auditStatus === "draft" && postToEdit.draftId) {
+    if (postToEdit.draftId) {
+      // 是本地草稿
       Taro.navigateTo({
         url: `/pages/post/form/index?category=${postToEdit.category}&draftId=${postToEdit.draftId}`,
       });
+    } else if (
+      typeof postToEdit.id === "number" &&
+      postToEdit.originalApiPost
+    ) {
+      // 是API帖子
+      // 对于API帖子，导航到表单页，并传递ID和分类，表单页应能根据ID获取完整帖子信息
+      Taro.setStorageSync("editingPostData", postToEdit.originalApiPost); // 可以先存一份用于快速回填
+      Taro.navigateTo({
+        url: `/pages/post/form/index?editingPostId=${postToEdit.id}&category=${postToEdit.category}`,
+      });
+      // TODO: 后续表单页应实现根据 editingPostId 从API获取最新数据
     } else {
-      // For non-draft posts (approved, pending, rejected from mockPosts or API)
-      try {
-        Taro.setStorageSync("editingPostData", postToEdit); // Store the full post object
-        Taro.navigateTo({
-          url: `/pages/post/form/index?editingPostId=${postToEdit.id}&category=${postToEdit.category}`,
-        });
-      } catch (e) {
-        Taro.showToast({ title: "编辑准备失败，请稍后重试", icon: "error" });
-        console.error("Error preparing post for editing:", e);
-      }
+      Taro.showToast({ title: "无法确定帖子类型进行编辑", icon: "none" });
     }
   };
 
   const handleDeleteDraft = (draftIdToDelete: string) => {
+    // 这个函数保持不变，处理本地草稿删除
     setActiveMenuPostId(null);
     Taro.showModal({
       title: "确认删除",
@@ -344,189 +503,234 @@ export default function MyPosts() {
           try {
             Taro.removeStorageSync(draftIdToDelete);
             Taro.showToast({ title: "草稿已删除", icon: "success" });
-            // Refresh draft list
-            fetchAndSetDrafts();
+            fetchAndSetLocalDrafts(); // 重新加载草稿列表
           } catch (e) {
             Taro.showToast({ title: "删除失败", icon: "error" });
-            console.error("Failed to delete draft:", e);
           }
         }
       },
     });
   };
 
-  const handleTakedown = (postId: number | string) => {
-    // Takedown logic likely only applies to 'approved' posts from mock/API.
-    // Ensure this logic is robust if posts array can contain drafts.
-    const postToTakedown = mockPosts.find(
-      (p) => p.id === postId && typeof p.id === "number"
-    ); // Find in mockPosts
-    if (!postToTakedown || postToTakedown.auditStatus !== "approved") {
-      Taro.showToast({ title: "操作无效", icon: "none" });
-      return;
-    }
-
+  const handleDeleteApiPost = (postId: number) => {
     setActiveMenuPostId(null);
     Taro.showModal({
-      title: "确认操作",
-      content: "确认下架该信息吗？",
-      success: (res) => {
+      title: "确认删除",
+      content: "确定要删除此帖子吗？此操作不可撤销。",
+      success: async (res) => {
         if (res.confirm) {
-          // This part needs to correctly update the source of truth (mockPosts)
-          // and then trigger a re-render/re-filter.
-          const postIndex = mockPosts.findIndex((p) => p.id === postId);
-          if (postIndex !== -1) {
-            mockPosts[postIndex].auditStatus = "taken_down";
+          setIsLoading(true);
+          try {
+            // const token = Taro.getStorageSync('token'); // Uncomment and use your token logic
+            const response = await Taro.request({
+              url: `${BASE_API_URL}/posts/${postId}`,
+              method: "DELETE",
+              // header: { 'Authorization': `Bearer ${token}` } // Add if auth is needed
+            });
 
-            // Force a re-filter by making current effect re-run or manually setting posts
-            // Easiest might be to re-trigger the effect logic:
-            const selectedStatus = tabList[current].status;
-            let refreshedPosts: Post[] = [];
-            if (selectedStatus === "all") {
-              refreshedPosts = mockPosts.filter(
-                (p) => p.auditStatus !== "taken_down"
-              );
-            } else if (selectedStatus === "published") {
-              refreshedPosts = mockPosts.filter(
-                (p) => p.auditStatus === "approved"
-              );
-            } else if (selectedStatus === "reviewing") {
-              refreshedPosts = mockPosts.filter(
-                (p) =>
-                  p.auditStatus === "pending" || p.auditStatus === "rejected"
-              );
+            if (response.statusCode === 200 || response.statusCode === 204) {
+              Taro.showToast({ title: "删除成功", icon: "success" });
+              const currentFilter = getCurrentApiStatusFilter();
+              fetchApiPosts(1, currentFilter); // Refresh list, go to page 1
+            } else {
+              const errorMessage =
+                response.data?.message ||
+                response.errMsg ||
+                `状态码 ${response.statusCode}`;
+              throw new Error(`删除失败: ${errorMessage}`);
             }
-            // Drafts are handled by fetchAndSetDrafts, so no change here for them
-            setPosts(refreshedPosts);
-
-            Taro.showToast({ title: "下架成功", icon: "success" });
-          } else {
-            Taro.showToast({ title: "操作失败", icon: "error" });
+          } catch (e: any) {
+            Taro.showToast({ title: e.message || "删除失败", icon: "error" });
+            console.error("Error deleting API post:", e);
+          } finally {
+            setIsLoading(false);
           }
         }
       },
     });
   };
 
-  // 辅助函数：将英文的审核状态转换为中文显示
-  const displayAuditStatus = (status: AuditStatus) => {
+  const handleRepublish = async (postId: number) => {
+    setActiveMenuPostId(null);
+
+    Taro.showModal({
+      title: "确认重新发布",
+      content: "确定要重新发布此帖子吗？",
+      success: async (res) => {
+        if (res.confirm) {
+          setIsLoading(true);
+          try {
+            // const token = Taro.getStorageSync('token'); // Uncomment and use your token logic
+            const response = await Taro.request({
+              url: `${BASE_API_URL}/posts/${postId}/publish`, // Assuming this endpoint for republishing
+              method: "PUT",
+              // header: { 'Authorization': `Bearer ${token}` } // Add if auth is needed
+            });
+
+            if (response.statusCode === 200 || response.statusCode === 204) {
+              Taro.showToast({ title: "重新发布成功", icon: "success" });
+              const currentFilter = getCurrentApiStatusFilter();
+              fetchApiPosts(pagination.currentPage, currentFilter); // Refresh current page
+            } else {
+              const errorMessage =
+                response.data?.message ||
+                response.errMsg ||
+                `状态码 ${response.statusCode}`;
+              throw new Error(`重新发布失败: ${errorMessage}`);
+            }
+          } catch (e: any) {
+            Taro.showToast({
+              title: e.message || "重新发布失败",
+              icon: "error",
+            });
+            console.error("Error republishing post:", e);
+          } finally {
+            setIsLoading(false);
+          }
+        }
+      },
+    });
+  };
+
+  // 辅助函数：将 UI 展示状态转换为中文显示
+  const displayUiStatus = (status: UIDisplayStatus) => {
     switch (status) {
       case "pending":
         return "审核中";
+      case "published": // Fallthrough
       case "approved":
-        return "已发布"; // Tab 显示"已发布"，状态显示"已发布"保持一致
-      case "rejected":
+        return "已发布";
+      case "rejected": // Fallthrough
+      case "failed":
         return "未通过";
       case "taken_down":
         return "已下架";
       case "draft":
-        return "草稿"; // Added display for draft
+        return "草稿";
       default:
-        return "未知状态";
+        return "未知";
     }
   };
 
   // 组件渲染结构
   return (
     <View className="my-posts">
-      {/* Tabs 切换标签栏 */}
       <View className="tabs">
-        {/* 遍历 Tab 列表，渲染每个 Tab */}
         {tabList.map((tab, index) => (
           <View
-            key={tab.status} // 使用状态作为 key
-            // 根据是否当前选中应用不同的类名
-            className={`tab-item ${current === index ? "active" : ""}`}
-            onClick={() => handleClick(index)} // 点击时调用 handleClick 更新选中状态
+            key={tab.status}
+            className={`tab-item ${currentTabIndex === index ? "active" : ""}`}
+            onClick={() => handleTabClick(index)}
           >
-            <Text>{tab.title}</Text> {/* Tab 标题文本 */}
+            <Text>{tab.title}</Text>
           </View>
         ))}
       </View>
-      {/* Posts List with Cards 帖子列表内容区域 */}
-      {/* 外层 View 用于给列表内容提供顶部边距 */}
-      <View className="tab-content">
-        {/* 帖子列表容器 */}
-        <View className="post-list">
-          {/* 遍历当前需要显示的 posts 数组，渲染每个帖子卡片 */}
-          {posts.map((post) => {
-            const isBoosted =
-              post.auditStatus === "approved" &&
-              typeof post.id === "number" &&
-              boostedPostIds.has(post.id);
-            // Ensure post.id is string for draftId key in activeMenuPostId
-            const currentPostId = post.draftId || post.id;
 
-            return (
-              <View key={currentPostId} className="post-card">
-                <View
-                  className="post-main"
-                  onClick={() => {
-                    // If it's a draft, clicking the main card area can also trigger edit
-                    if (post.auditStatus === "draft" || post.category) {
-                      handleEdit(post);
-                    }
-                    // For other types, no action on card click, only on menu/buttons
-                  }}
-                >
-                  <Image
-                    className="post-image"
-                    src={post.image}
-                    mode="aspectFill"
-                  />
-                  <View className="post-details">
-                    <Text className="post-description">
-                      {post.title || post.description}
-                    </Text>
-                    <View className="post-footer-row">
-                      {/* New container for meta and actions */}
-                      <View className="post-meta">
-                        <Text className="post-time">{post.createTime}</Text>
-                        <Text
-                          className={`post-status status-${post.auditStatus}`}
-                        >
-                          {displayAuditStatus(post.auditStatus)}
-                        </Text>
+      {/* 统计信息显示 */}
+      {stats && tabList[currentTabIndex].status !== "draft" && (
+        <View className="stats-container">
+          <Text>总 {stats.totalCount} |</Text>
+          <Text>发布 {stats.publishedCount} |</Text>
+          <Text>审核中 {stats.pendingCount} |</Text>
+          <Text>未通过 {stats.failedCount} |</Text>
+          <Text>草稿(服务) {stats.draftCount}</Text>
+        </View>
+      )}
+
+      <View className="tab-content">
+        {isLoading && <View className="loading-message">加载中...</View>}
+        {error && <View className="error-message">错误: {error}</View>}
+
+        {!isLoading && !error && displayedPosts.length === 0 && (
+          <View className="no-posts-message">
+            {tabList[currentTabIndex].status === "draft"
+              ? "你还没有任何本地草稿～"
+              : "没有找到相关帖子～"}
+          </View>
+        )}
+
+        {!isLoading && !error && displayedPosts.length > 0 && (
+          // 使用 ScrollView 替代直接的 View 来实现滚动
+          <ScrollView scrollY className="post-list-scroll">
+            {displayedPosts.map((post) => {
+              const isApiPost = typeof post.id === "number";
+              const isBoostable =
+                isApiPost && post.uiDisplayStatus === "published"; // API帖子且已发布
+              const isBoosted = isBoostable && boostedPostIds.has(post.id);
+              const currentPostIdForMenu = post.draftId || post.id;
+
+              return (
+                <View key={currentPostIdForMenu} className="post-card">
+                  <View
+                    className="post-main"
+                    onClick={() => {
+                      if (post.category) {
+                        handleEdit(post);
+                      }
+                    }}
+                  >
+                    <Image
+                      className="post-image"
+                      src={post.image}
+                      mode="aspectFill"
+                    />
+                    <View className="post-details">
+                      <Text className="post-description">
+                        {post.title || post.description}
+                      </Text>
+                      <View className="post-footer-row">
+                        <View className="post-meta">
+                          <Text className="post-time">{post.createTime}</Text>
+                          <Text
+                            className={`post-status status-${post.uiDisplayStatus}`}
+                          >
+                            {displayUiStatus(post.uiDisplayStatus)}
+                          </Text>
+                        </View>
                       </View>
                     </View>
                   </View>
-                </View>
-                {/* 底部操作按钮，移出 post-details 外部 */}
-                <View className="post-actions">
-                  {post.auditStatus !== "taken_down" && (
+
+                  <View className="post-actions">
+                    {/* 右上角三点菜单 */}
                     <View className="post-options-menu-container">
                       <Text
                         className="three-dots-icon"
                         onClick={() =>
                           setActiveMenuPostId(
-                            activeMenuPostId === currentPostId
+                            activeMenuPostId === currentPostIdForMenu
                               ? null
-                              : currentPostId
+                              : currentPostIdForMenu
                           )
                         }
                       >
                         ···
                       </Text>
-                      {activeMenuPostId === currentPostId && (
+                      {activeMenuPostId === currentPostIdForMenu && (
                         <View className="options-menu">
                           <Button
                             className="menu-button"
                             onClick={() => handleEdit(post)}
                           >
-                            {post.auditStatus === "draft" ? "编辑草稿" : "编辑"}
+                            {post.draftId ? "编辑草稿" : "编辑"}
                           </Button>
-                          {post.auditStatus === "approved" &&
-                            typeof post.id === "number" && (
+
+                          {isApiPost &&
+                            post.uiDisplayStatus === "published" && (
                               <Button
                                 className="menu-button takedown"
-                                onClick={() =>
-                                  handleTakedown(post.id as number)
+                                onClick={
+                                  () =>
+                                    handleDeleteApiPost(
+                                      post.id as number
+                                    ) /* TODO: 改为下架接口 */
                                 }
                               >
-                                下架
+                                删除 {/* 暂时用删除替代下架 */}
                               </Button>
                             )}
-                          {post.auditStatus === "draft" && post.draftId && (
+                          {post.draftId && ( // 本地草稿的删除
                             <Button
                               className="menu-button takedown"
                               onClick={() => handleDeleteDraft(post.draftId!)}
@@ -534,25 +738,37 @@ export default function MyPosts() {
                               删除草稿
                             </Button>
                           )}
+                          {/* 重新发布按钮 (针对API草稿或可重新提交的帖子) */}
+                          {isApiPost &&
+                            (post.uiDisplayStatus === "draft" ||
+                              post.uiDisplayStatus === "rejected") && (
+                              <Button
+                                className="menu-button"
+                                onClick={() =>
+                                  handleRepublish(post.id as number)
+                                }
+                              >
+                                重新发布
+                              </Button>
+                            )}
                         </View>
                       )}
                     </View>
-                  )}
-                  {post.auditStatus === "approved" &&
-                    typeof post.id === "number" && (
+
+                    {/* 擦亮按钮 */}
+                    {isBoostable && (
                       <View
                         className={`boost-button-container ${
                           isBoosted ? "is-boosted" : ""
                         }`}
                         onClick={() => {
-                          if (isBoosted) {
+                          if (!isBoosted && typeof post.id === "number") {
+                            handleBoostClick(post.id);
+                          } else if (isBoosted) {
                             Taro.showToast({
                               title: "一天只能擦亮一次",
                               icon: "none",
-                              duration: 2000,
                             });
-                          } else {
-                            handleBoostClick(post.id as number);
                           }
                         }}
                       >
@@ -561,30 +777,51 @@ export default function MyPosts() {
                         </Button>
                       </View>
                     )}
+                  </View>
                 </View>
-              </View>
-            );
-          })}
-          {/* 如果 posts 数组为空，可以显示一个提示 */}
-          {posts.length === 0 && (
-            <View className="no-posts-message">
-              {tabList[current].status === "draft"
-                ? "你还没有任何草稿～"
-                : "你还没有发布任何信息～"}
-            </View>
-          )}
-        </View>{" "}
-        {/* post-list 结束 */}
-      </View>{" "}
-      {/* tab-content 结束 */}
-    </View> // my-posts 结束
+              );
+            })}
+          </ScrollView>
+        )}
+      </View>
+
+      {/* 分页控件 */}
+      {!isLoading &&
+        !error &&
+        displayedPosts.length > 0 &&
+        tabList[currentTabIndex].status !== "draft" &&
+        pagination.totalPages > 1 && (
+          <View className="pagination-controls">
+            <Button
+              onClick={() => handlePageChange(pagination.currentPage - 1)}
+              disabled={pagination.currentPage <= 1}
+            >
+              上一页
+            </Button>
+            <Text>
+              {pagination.currentPage} / {pagination.totalPages}
+            </Text>
+            <Button
+              onClick={() => handlePageChange(pagination.currentPage + 1)}
+              disabled={pagination.currentPage >= pagination.totalPages}
+            >
+              下一页
+            </Button>
+          </View>
+        )}
+    </View>
   );
 }
 
-// 页面配置，通常用于设置原生导航栏等
 definePageConfig({
-  navigationBarTitleText: "我的发布", // 页面标题，可能被自定义 header 覆盖
-  // 注意：如果使用了自定义 header，原生导航栏通常会被隐藏或不需要显示标题
-  enablePullDownRefresh: true, // Enable pull down to refresh drafts
-  // onPullDownRefresh function is removed from here
+  navigationBarTitleText: "我的发布",
+  enablePullDownRefresh: true,
 });
+
+// 注意：
+// 1. CSS 类名如 .stats-container, .loading-message, .error-message, .post-list-scroll, .pagination-controls 等
+//    需要在对应的 .scss 文件中定义样式。
+// 2. "下架" 功能暂时映射为删除API帖子的操作，后续可以根据您的API设计调整。
+// 3. "擦亮"、"删除API帖子"、"重新发布" 的真实API调用逻辑已用 TODO 标记，并提供了注释掉的示例代码框架。
+// 4. 确保您的后端API `/api/posts/my` 支持 `page`, `limit`, `status` 参数，并返回与 FetchPostsApiResponse 结构一致的数据。
+// 5. 认证（Authorization header）部分也用 TODO 标记。
