@@ -6,7 +6,7 @@ import userRoutes from "./routes/user";
 import postRoutes from "./routes/post";
 import homeRoutes from "./routes/home";
 import { initializeDatabase } from "./config/database";
-
+import adminRoutes from "./routes/admin"; // 👈 新增这行
 const app = express();
 // const logtail = new Logtail(config.logtailToken);
 
@@ -20,9 +20,16 @@ const log = (
 };
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: "*", // 允许所有域名，生产环境建议指定具体域名
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use("/api/admin", adminRoutes); // 👈 新增这行
 
 // Logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {

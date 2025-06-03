@@ -9,7 +9,6 @@ router.use(express.urlencoded({ extended: true }));
 
 router.get("/my", PostController.getMyPosts);
 router.post("/", PostController.createPost);
-
 // TODO: Add routes for updating (e.g., PUT /:id), deleting posts (e.g., DELETE /:id)
 
 export default router;

@@ -17,6 +17,12 @@ const log = (
 };
 
 export class PostController {
+  static getPendingPosts(arg0: string, getPendingPosts: any) {
+    throw new Error("Method not implemented.");
+  }
+  static reviewPost(arg0: string, reviewPost: any) {
+    throw new Error("Method not implemented.");
+  }
   static async getMyPosts(req: Request, res: Response) {
     log("info", "PostController.getMyPosts: Received request", {
       query: req.query,
