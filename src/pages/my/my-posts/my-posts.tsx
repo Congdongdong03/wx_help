@@ -652,7 +652,7 @@ export default function MyPosts() {
 
         {!isLoading && !error && displayedPosts.length > 0 && (
           // 使用 ScrollView 替代直接的 View 来实现滚动
-          <ScrollView scrollY className="post-list-scroll">
+          <ScrollView scrollY className="post-list">
             {displayedPosts.map((post) => {
               const isApiPost = typeof post.id === "number";
               const isBoostable =
