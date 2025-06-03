@@ -10,6 +10,8 @@ import {
   Textarea,
   Image,
 } from "@tarojs/components";
+import BottomActionBar from "../../../components/BottomActionBar/index";
+import WechatIdInput from "../../../components/WechatIdInput/index";
 import "./index.scss";
 
 // Interfaces (ensure Post is defined if passed directly, or map from it)
@@ -148,6 +150,8 @@ export default function PostFormPage() {
   const [editingPostOriginalId, setEditingPostOriginalId] = useState<
     string | number | null
   >(null);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const getPageTitle = (catName: string | null, isEditing = false) => {
     const prefix = isEditing ? "编辑" : "发布";
@@ -331,6 +335,8 @@ export default function PostFormPage() {
       Taro.showToast({ title: "内容为空", icon: "none" });
       return;
     }
+
+    setIsSavingDraft(true);
     const draftId = `draft_${category}_${Date.now()}`;
     const draftData: DraftPostData = {
       formData,
@@ -345,6 +351,8 @@ export default function PostFormPage() {
       setInitialImageFiles(imageFiles);
     } catch (e) {
       Taro.showToast({ title: "草稿保存失败", icon: "error" });
+    } finally {
+      setIsSavingDraft(false);
     }
   };
 
@@ -447,81 +455,106 @@ export default function PostFormPage() {
       Taro.showToast({ title: "请完善必填信息后再发布", icon: "none" });
       return;
     }
-    let currentImageFiles = [...imageFiles];
-    const { title, description } = formData;
-    if (
-      category === "help" &&
-      (!description || description.trim() === "") &&
-      currentImageFiles.length === 0 &&
-      title
-    ) {
-      Taro.showLoading({ title: "生成图片中..." });
-      try {
-        const generatedImage = await generateImageFromText(title);
-        currentImageFiles = [generatedImage];
-        Taro.hideLoading();
-      } catch (error) {
-        Taro.hideLoading();
-        Taro.showToast({ title: "图片生成失败", icon: "error" });
-        console.error("Image generation failed:", error);
+
+    setIsPublishing(true);
+
+    try {
+      let currentImageFiles = [...imageFiles];
+      const { title, description } = formData;
+
+      if (
+        category === "help" &&
+        (!description || description.trim() === "") &&
+        currentImageFiles.length === 0 &&
+        title
+      ) {
+        Taro.showLoading({ title: "生成图片中..." });
+        try {
+          const generatedImage = await generateImageFromText(title);
+          currentImageFiles = [generatedImage];
+        } catch (error) {
+          console.error("Image generation failed:", error);
+          Taro.showToast({ title: "图片生成失败", icon: "error" });
+          setIsPublishing(false);
+          Taro.hideLoading();
+          return;
+        } finally {
+          Taro.hideLoading();
+        }
+      }
+
+      if (
+        (category === "rent" || category === "used" || category === "jobs") &&
+        currentImageFiles.length === 0
+      ) {
+        Taro.showToast({ title: "至少上传一张图片", icon: "none" });
+        setIsPublishing(false);
         return;
       }
-    }
-    if (
-      (category === "rent" || category === "used" || category === "jobs") &&
-      currentImageFiles.length === 0
-    ) {
-      Taro.showToast({ title: "至少上传一张图片", icon: "none" });
-      return;
-    }
-    if (
-      category === "help" &&
-      (!description || description.trim() === "") &&
-      currentImageFiles.length === 0
-    ) {
-      Taro.showToast({ title: "请填写文字描述或上传图片", icon: "none" });
-      return;
-    }
-    if (currentImageFiles.length > 6) {
-      Taro.showToast({ title: "最多只能上传6张图", icon: "none" });
-      return;
-    }
+      if (
+        category === "help" &&
+        (!description || description.trim() === "") &&
+        currentImageFiles.length === 0
+      ) {
+        Taro.showToast({ title: "请填写文字描述或上传图片", icon: "none" });
+        setIsPublishing(false);
+        return;
+      }
+      if (currentImageFiles.length > 6) {
+        Taro.showToast({ title: "最多只能上传6张图", icon: "none" });
+        setIsPublishing(false);
+        return;
+      }
 
-    console.log("PostFormPage: Form Data to submit:", formData);
-    console.log(
-      "PostFormPage: Image files to submit:",
-      currentImageFiles.map((f) => f.path)
-    );
-    const draftId = router.params.draftId;
-    if (draftId) {
-      Taro.removeStorageSync(draftId);
-      console.log(`PostFormPage: Draft ${draftId} removed after submission.`);
-    }
+      console.log("PostFormPage: Form Data to submit:", formData);
+      console.log(
+        "PostFormPage: Image files to submit:",
+        currentImageFiles.map((f) => f.path)
+      );
 
-    const submissionMode = editingPostOriginalId
-      ? "Edit"
-      : draftId
-      ? "Draft-to-Post"
-      : "New Post";
-    console.log("Submitting data for mode:", submissionMode);
+      const draftId = router.params.draftId;
+      if (draftId) {
+        Taro.removeStorageSync(draftId);
+        console.log(`PostFormPage: Draft ${draftId} removed after submission.`);
+      }
 
-    Taro.showLoading({
-      title: editingPostOriginalId ? "更新中..." : "发布中...",
-    });
-    setTimeout(() => {
-      Taro.hideLoading();
-      Taro.showModal({
-        title: editingPostOriginalId ? "更新成功" : "发布成功",
-        content: editingPostOriginalId
-          ? "内容已更新，等待后台审核～"
-          : "发布成功，等待后台审核～",
-        showCancel: false,
-        success: () => {
-          Taro.setStorageSync("refreshMyPosts", "true");
-          Taro.redirectTo({ url: "/pages/my/my-posts/my-posts" });
-        },
+      const submissionMode = editingPostOriginalId
+        ? "Edit"
+        : draftId
+        ? "Draft-to-Post"
+        : "New Post";
+      console.log("Submitting data for mode:", submissionMode);
+
+      Taro.showLoading({
+        title: editingPostOriginalId ? "更新中..." : "发布中...",
+        mask: true,
       });
-    }, 1500);
+
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      Taro.hideLoading();
+      Taro.showToast({
+        title: editingPostOriginalId ? "更新成功" : "发布成功",
+        icon: "success",
+        duration: 1500,
+      });
+
+      setInitialFormData({});
+      setInitialImageFiles([]);
+
+      setTimeout(() => {
+        Taro.navigateBack();
+      }, 1500);
+    } catch (error) {
+      console.error("handleSubmit error:", error);
+      Taro.hideLoading();
+      Taro.showToast({
+        title: editingPostOriginalId ? "更新失败" : "发布失败",
+        icon: "error",
+      });
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   // Input handlers and render functions (ensure formData fields are accessed with || '' for safety in value prop)
@@ -676,16 +709,11 @@ export default function PostFormPage() {
           </Button>
         </View>
       </View>
-      <View className="form-item">
-        <Text className="form-label required">微信号</Text>
-        <Input
-          className="form-input"
-          type="text"
-          placeholder="填写你的微信号"
-          value={formData.wechatId || ""}
-          onInput={(e) => handleInputChange("wechatId", e.detail.value)}
-        />
-      </View>
+      <WechatIdInput
+        value={formData.wechatId}
+        onInput={(value) => handleInputChange("wechatId", value)}
+        placeholder="填写你的微信号"
+      />
       <View className="form-item">
         <Text className="form-label required">描述</Text>
         <Textarea
@@ -751,16 +779,11 @@ export default function PostFormPage() {
           </View>
         </Picker>
       </View>
-      <View className="form-item">
-        <Text className="form-label required">微信号</Text>
-        <Input
-          className="form-input"
-          type="text"
-          placeholder="填写你的微信号"
-          value={formData.wechatId || ""}
-          onInput={(e) => handleInputChange("wechatId", e.detail.value)}
-        />
-      </View>
+      <WechatIdInput
+        value={formData.wechatId}
+        onInput={(value) => handleInputChange("wechatId", value)}
+        placeholder="填写你的微信号"
+      />
       <View className="form-item">
         <Text className="form-label required">描述</Text>
         <Textarea
@@ -829,16 +852,11 @@ export default function PostFormPage() {
           </View>
         </Picker>
       </View>
-      <View className="form-item">
-        <Text className="form-label required">微信号</Text>
-        <Input
-          className="form-input"
-          type="text"
-          placeholder="填写招聘联系微信号"
-          value={formData.wechatId || ""}
-          onInput={(e) => handleInputChange("wechatId", e.detail.value)}
-        />
-      </View>
+      <WechatIdInput
+        value={formData.wechatId}
+        onInput={(value) => handleInputChange("wechatId", value)}
+        placeholder="填写招聘联系微信号"
+      />
       <View className="form-item">
         <Text className="form-label required">描述</Text>
         <Textarea
@@ -876,16 +894,11 @@ export default function PostFormPage() {
           autoHeight
         />
       </View>
-      <View className="form-item">
-        <Text className="form-label required">微信号</Text>
-        <Input
-          className="form-input"
-          type="text"
-          placeholder="填写你的微信号"
-          value={formData.wechatId || ""}
-          onInput={(e) => handleInputChange("wechatId", e.detail.value)}
-        />
-      </View>
+      <WechatIdInput
+        value={formData.wechatId}
+        onInput={(value) => handleInputChange("wechatId", value)}
+        placeholder="填写你的微信号"
+      />
     </View>
   );
 
@@ -933,24 +946,13 @@ export default function PostFormPage() {
         </View>
       </View>
 
-      <View className="form-actions-container">
-        {category && (
-          <Button
-            className="save-draft-button"
-            onClick={handleSaveDraft}
-            disabled={!isDirty()}
-          >
-            存为草稿
-          </Button>
-        )}
-        <Button
-          className="submit-button"
-          disabled={!isFormValid}
-          onClick={handleSubmit}
-        >
-          {editingPostOriginalId ? "更新" : "发布"}
-        </Button>
-      </View>
+      <BottomActionBar
+        onSaveDraft={handleSaveDraft}
+        onPublish={handleSubmit}
+        isSavingDraft={isSavingDraft}
+        isPublishing={isPublishing}
+        publishText={editingPostOriginalId ? "更新" : "发布"}
+      />
     </View>
   );
 }
