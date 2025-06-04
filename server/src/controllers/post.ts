@@ -243,6 +243,8 @@ export class PostController {
         });
       }
 
+      // Temporarily commented out for development to allow editing posts in any status
+      /*
       if (
         !existingPost.status ||
         !["draft", "failed"].includes(existingPost.status)
@@ -252,6 +254,7 @@ export class PostController {
           error: "当前状态的帖子不允许编辑",
         });
       }
+      */
 
       const { title, description, images, category, city, status } = req.body;
 
@@ -346,6 +349,8 @@ export class PostController {
         });
       }
 
+      // Temporarily commented out for development to allow deleting any post status
+      /*
       if (
         !existingPost.status ||
         !["draft", "failed"].includes(existingPost.status)
@@ -355,6 +360,7 @@ export class PostController {
           error: "只能删除草稿或审核失败的帖子",
         });
       }
+      */
 
       const success = await PostService.delete(postId);
 

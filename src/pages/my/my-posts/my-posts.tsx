@@ -297,20 +297,20 @@ export default function MyPosts() {
           data?: FetchPostsApiResponse; // The expected data structure for success
         }
 
+        const tokenForRequest = "FAKE_DEV_AUTH_TOKEN"; // TODO: Replace with real token logic for production
         const response = await Taro.request<RawApiResponse>({
-          // Use RawApiResponse here
           url,
           method: "GET",
+          header: { Authorization: `Bearer ${tokenForRequest}` },
         });
 
-        // Check for successful business logic (e.g., code === 0)
         if (
           response.statusCode === 200 &&
           response.data &&
           response.data.code === 0 &&
           response.data.data
         ) {
-          const apiData = response.data.data; // Actual data is in response.data.data
+          const apiData = response.data.data; // Corrected: Actual data is in response.data.data
           const postsFromApi = apiData.posts;
           const safePosts = Array.isArray(postsFromApi) ? postsFromApi : [];
 
@@ -524,10 +524,11 @@ export default function MyPosts() {
     setIsLoading(true);
     try {
       // const token = Taro.getStorageSync('token'); // Uncomment and use your token logic
+      const token = "FAKE_DEV_AUTH_TOKEN"; // TODO: Replace with real token logic for production
       const response = await Taro.request({
         url: `${BASE_API_URL}/posts/${numericPostId}/refresh`,
         method: "PUT",
-        // header: { 'Authorization': `Bearer ${token}` } // Add if auth is needed
+        header: { Authorization: `Bearer ${token}` }, // Add if auth is needed
       });
 
       if (response.statusCode === 200 || response.statusCode === 204) {
@@ -609,10 +610,11 @@ export default function MyPosts() {
           setIsLoading(true);
           try {
             // const token = Taro.getStorageSync('token'); // Uncomment and use your token logic
+            const token = "FAKE_DEV_AUTH_TOKEN"; // TODO: Replace with real token logic for production
             const response = await Taro.request({
               url: `${BASE_API_URL}/posts/${postId}`,
               method: "DELETE",
-              // header: { 'Authorization': `Bearer ${token}` } // Add if auth is needed
+              header: { Authorization: `Bearer ${token}` }, // Add if auth is needed
             });
 
             if (response.statusCode === 200 || response.statusCode === 204) {
@@ -648,10 +650,11 @@ export default function MyPosts() {
           setIsLoading(true);
           try {
             // const token = Taro.getStorageSync('token'); // Uncomment and use your token logic
+            const token = "FAKE_DEV_AUTH_TOKEN"; // TODO: Replace with real token logic for production
             const response = await Taro.request({
               url: `${BASE_API_URL}/posts/${postId}/publish`, // Assuming this endpoint for republishing
               method: "PUT",
-              // header: { 'Authorization': `Bearer ${token}` } // Add if auth is needed
+              header: { Authorization: `Bearer ${token}` }, // Add if auth is needed
             });
 
             if (response.statusCode === 200 || response.statusCode === 204) {
@@ -803,20 +806,18 @@ export default function MyPosts() {
                             {post.draftId ? "编辑草稿" : "编辑"}
                           </Button>
 
-                          {isApiPost &&
-                            post.uiDisplayStatus === "published" && (
-                              <Button
-                                className="menu-button takedown"
-                                onClick={
-                                  () =>
-                                    handleDeleteApiPost(
-                                      post.id as number
-                                    ) /* TODO: 改为下架接口 */
-                                }
-                              >
-                                删除 {/* 暂时用删除替代下架 */}
-                              </Button>
-                            )}
+                          {/* Universal Delete Button for all API Posts */}
+                          {isApiPost && (
+                            <Button
+                              className="menu-button takedown"
+                              onClick={() =>
+                                handleDeleteApiPost(post.id as number)
+                              }
+                            >
+                              删除
+                            </Button>
+                          )}
+
                           {post.draftId && ( // 本地草稿的删除
                             <Button
                               className="menu-button takedown"
@@ -825,9 +826,10 @@ export default function MyPosts() {
                               删除草稿
                             </Button>
                           )}
+
                           {/* 重新发布按钮 (针对API草稿或可重新提交的帖子) */}
                           {isApiPost &&
-                            (post.uiDisplayStatus === "draft" ||
+                            (post.uiDisplayStatus === "draft" || // API Draft
                               post.uiDisplayStatus === "rejected") && (
                               <Button
                                 className="menu-button"
