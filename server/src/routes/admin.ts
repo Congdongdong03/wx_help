@@ -1,13 +1,27 @@
 import express, { Router } from "express";
-import { AdminPostController } from "../controllers/adminPost"; // 重命名导入
+import { AdminPostController } from "../controllers/adminPost";
 
 const router = Router();
 
 router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
 
-// 管理员专用路由
+// 获取待审核帖子
 router.get("/posts/pending", AdminPostController.getPendingPosts);
-router.put("/posts/:id/review", AdminPostController.reviewPost);
+
+// 审核单个帖子 - 注意这里是 POST，不是 PUT
+router.post("/posts/:id/review", AdminPostController.reviewPost);
+
+// 批量审核帖子
+router.post("/posts/batch-review", AdminPostController.batchReviewPosts);
+
+// 获取所有帖子（管理员视图）
+router.get("/posts", AdminPostController.getAllPosts);
+
+// 管理员删除帖子
+router.delete("/posts/:id", AdminPostController.deletePost);
+
+// 获取统计数据
+router.get("/posts/stats", AdminPostController.getReviewStats);
 
 export default router;

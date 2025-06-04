@@ -150,7 +150,7 @@ export default function MyPosts() {
   }, [currentTabIndex]); // Dependency on currentTabIndex
 
   // 将 API Post 转换为 UIPost
-  const mapApiPostToUIPost = (apiPost: ApiPost): UIPost => {
+  const mapApiPostToUIPost = useCallback((apiPost: ApiPost): UIPost => {
     let imageUrl = "https://via.placeholder.com/200x150.png?text=No+Image";
     if (apiPost.images) {
       try {
@@ -192,37 +192,37 @@ export default function MyPosts() {
       wechatId: apiPost.wechat_id,
       originalApiPost: apiPost, // 保存原始数据
     };
-  };
+  }, []); // Empty dependency array as it doesn't depend on component state/props
 
   // 将本地草稿转换为 UIPost
-  const mapLocalDraftToUIPost = (
-    draftData: DraftPostData,
-    draftKey: string
-  ): UIPost | null => {
-    if (draftData && typeof draftData === "object" && draftData.category) {
-      return {
-        id: draftKey, // 使用 draftKey 作为唯一ID
-        draftId: draftKey,
-        image:
-          draftData.imageFiles && draftData.imageFiles.length > 0
-            ? draftData.imageFiles[0].path
-            : "https://via.placeholder.com/200x150.png?text=No+Image",
-        title:
-          draftData.formData.title ||
-          draftData.formData.description ||
-          `草稿: ${draftData.category}`,
-        description:
-          draftData.formData.description ||
-          draftData.formData.title ||
-          "无描述内容",
-        createTime: new Date(draftData.timestamp).toLocaleString(),
-        uiDisplayStatus: "draft",
-        category: draftData.category,
-        wechatId: draftData.formData.wechatId,
-      };
-    }
-    return null;
-  };
+  const mapLocalDraftToUIPost = useCallback(
+    (draftData: DraftPostData, draftKey: string): UIPost | null => {
+      if (draftData && typeof draftData === "object" && draftData.category) {
+        return {
+          id: draftKey, // 使用 draftKey 作为唯一ID
+          draftId: draftKey,
+          image:
+            draftData.imageFiles && draftData.imageFiles.length > 0
+              ? draftData.imageFiles[0].path
+              : "https://via.placeholder.com/200x150.png?text=No+Image",
+          title:
+            draftData.formData.title ||
+            draftData.formData.description ||
+            `草稿: ${draftData.category}`,
+          description:
+            draftData.formData.description ||
+            draftData.formData.title ||
+            "无描述内容",
+          createTime: new Date(draftData.timestamp).toLocaleString(),
+          uiDisplayStatus: "draft",
+          category: draftData.category,
+          wechatId: draftData.formData.wechatId,
+        };
+      }
+      return null;
+    },
+    [] // Empty dependency array
+  );
 
   const fetchAndSetLocalDrafts = useCallback(() => {
     console.log("MyPosts: fetchAndSetLocalDrafts called");
@@ -273,7 +273,7 @@ export default function MyPosts() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [mapLocalDraftToUIPost]); // Added mapLocalDraftToUIPost
 
   // 获取 API 帖子的函数
   const fetchApiPosts = useCallback(
@@ -288,35 +288,117 @@ export default function MyPosts() {
         if (statusFilter) {
           url += `&status=${statusFilter}`;
         }
-        // TODO: Add Authorization header if needed
-        // const token = Taro.getStorageSync('token');
-        // headers: { 'Authorization': `Bearer ${token}` }
 
-        const response = await Taro.request<FetchPostsApiResponse>({
+        // Define a more generic type for the raw API response that includes code and message
+        interface RawApiResponse {
+          code?: number;
+          message?: string;
+          error?: string; // Some APIs might use error instead of message for errors
+          data?: FetchPostsApiResponse; // The expected data structure for success
+        }
+
+        const response = await Taro.request<RawApiResponse>({
+          // Use RawApiResponse here
           url,
           method: "GET",
         });
 
-        if (response.statusCode === 200 && response.data) {
-          setApiPosts(response.data.posts);
-          setDisplayedPosts(response.data.posts.map(mapApiPostToUIPost));
-          setPagination(response.data.pagination);
-          setStats(response.data.stats);
+        // Check for successful business logic (e.g., code === 0)
+        if (
+          response.statusCode === 200 &&
+          response.data &&
+          response.data.code === 0 &&
+          response.data.data
+        ) {
+          const apiData = response.data.data; // Actual data is in response.data.data
+          const postsFromApi = apiData.posts;
+          const safePosts = Array.isArray(postsFromApi) ? postsFromApi : [];
+
+          console.log("MyPosts: Posts from API after safety check:", safePosts);
+          setApiPosts(safePosts);
+          const uiPosts = safePosts.map(mapApiPostToUIPost);
+          console.log("MyPosts: Posts mapped to UI Posts:", uiPosts);
+          setDisplayedPosts(uiPosts);
+
+          if (apiData.pagination) {
+            setPagination(apiData.pagination);
+          } else {
+            console.warn(
+              "MyPosts: Pagination data missing from API response. Setting default."
+            );
+            setPagination({
+              currentPage: page,
+              totalPages: page, // Or 1 if no posts
+              totalPosts: safePosts.length,
+              limit: pagination.limit,
+            });
+          }
+
+          if (apiData.stats) {
+            setStats(apiData.stats);
+          } else {
+            console.warn(
+              "MyPosts: Stats data missing from API response. Setting default based on posts."
+            );
+            setStats({
+              draftCount: 0, // Simplified default
+              pendingCount: 0,
+              publishedCount: 0,
+              failedCount: 0,
+              totalCount: safePosts.length,
+            });
+          }
         } else {
-          throw new Error(`请求失败，状态码: ${response.statusCode}`);
+          // Handle business logic errors (e.g., code !== 0) or other HTTP errors
+          let errorMessage = `请求失败`;
+          if (response.data && (response.data.message || response.data.error)) {
+            errorMessage =
+              response.data.message || response.data.error || errorMessage;
+          } else if (response.statusCode) {
+            errorMessage += `，状态码: ${response.statusCode}`;
+          }
+          console.error(
+            "MyPosts: API business logic error or non-200 response:",
+            errorMessage,
+            response
+          );
+          throw new Error(errorMessage);
         }
       } catch (err: any) {
-        console.error("MyPosts: Error fetching API posts:", err);
-        setError(err.message || "获取帖子列表失败");
+        let detailedErrorMessage = "获取帖子列表失败";
+        // Try to get message from error object itself first
+        if (err.message) {
+          detailedErrorMessage = err.message;
+        } else if (
+          err.response &&
+          err.response.data &&
+          (err.response.data.message || err.response.data.error)
+        ) {
+          // Fallback for certain error structures (less common with Taro.request typical errors)
+          detailedErrorMessage =
+            err.response.data.message || err.response.data.error;
+        }
+        console.error(
+          "MyPosts: Error fetching API posts (catch block):",
+          detailedErrorMessage,
+          err
+        );
+        setError(detailedErrorMessage);
         setApiPosts([]);
         setDisplayedPosts([]);
         setStats(null);
+        setPagination((prev) => ({
+          ...prev,
+          currentPage: 1,
+          totalPages: 1,
+          totalPosts: 0,
+        }));
       } finally {
         setIsLoading(false);
       }
     },
-    [pagination.limit]
-  ); // pagination.limit 作为依赖
+    [pagination.limit, mapApiPostToUIPost] // Added mapApiPostToUIPost as it's used directly
+  );
 
   // 根据当前选中的Tab加载数据
   const loadCurrentTabData = useCallback(() => {
@@ -350,7 +432,12 @@ export default function MyPosts() {
       }
       fetchApiPosts(1, apiStatusFilter); // 默认加载第一页
     }
-  }, [currentTabIndex, fetchApiPosts, fetchAndSetLocalDrafts]);
+  }, [
+    currentTabIndex,
+    fetchApiPosts,
+    fetchAndSetLocalDrafts,
+    mapLocalDraftToUIPost,
+  ]); // Added mapLocalDraftToUIPost
 
   useEffect(() => {
     loadCurrentTabData();

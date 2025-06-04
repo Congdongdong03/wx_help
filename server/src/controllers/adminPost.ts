@@ -1,7 +1,8 @@
+// src/controllers/adminPost.ts
 import { Request, Response } from "express";
-import { getDb } from "../config/database"; // Assuming getDb is here
+import { AdminPostService } from "../services/adminPostService";
 
-// Define a log function (if you have a shared one, import it)
+// 统一的日志函数
 const log = (
   level: "info" | "error" | "warn" | "debug",
   message: string,
@@ -9,174 +10,326 @@ const log = (
 ) => {
   const timestamp = new Date().toISOString();
   console[level](
-    `[${timestamp}] [PostController] ${message}`,
+    `[${timestamp}] [AdminPostController] ${message}`,
     data !== undefined ? JSON.stringify(data) : ""
   );
 };
 
 export class AdminPostController {
-  // (在这里可以放回之前 PostController 中的其他方法，如果需要的话)
-  // static async updatePostStatus(req: Request, res: Response) { ... }
-  // static async syncRecommendations(req: Request, res: Response) { ... }
-
-  // 获取待审核帖子
+  /**
+   * 获取待审核帖子列表
+   * GET /api/admin/posts/pending?page=1&limit=20&category=rent&keyword=搜索词
+   */
   static async getPendingPosts(req: Request, res: Response) {
-    try {
-      log("info", "getPendingPosts: Fetching pending posts.");
-      const db = getDb();
-      const [posts]: any = await db.execute(`
-        SELECT p.id, p.title, p.category, p.wechat_id, u.nickname as author_nickname, p.created_at 
-        FROM posts p
-        LEFT JOIN users u ON p.user_id = u.id
-        WHERE p.status = 'pending' 
-        ORDER BY p.created_at ASC
-      `);
-      // 注意：posts 查询结果是数组，即使只有一个结果也是数组包对象。
-      // 如果 posts 表中的 city 和 recommendations 表中的 city 含义不同，确保这里使用的是正确的 city 字段。
-      // 同样，content 可能也需要从 posts 表中获取，而不是依赖 recommendations 表。
+    log("info", "getPendingPosts: Received request", { query: req.query });
 
-      log("info", "getPendingPosts: Successfully fetched pending posts.", {
-        count: posts.length,
+    try {
+      const { page = "1", limit = "20", category, keyword } = req.query;
+
+      // 参数验证
+      const pageNumber = parseInt(page as string, 10);
+      const limitNumber = parseInt(limit as string, 10);
+
+      if (isNaN(pageNumber) || pageNumber < 1) {
+        return res.status(400).json({
+          code: 1,
+          error: "页码必须是大于0的数字",
+        });
+      }
+
+      if (isNaN(limitNumber) || limitNumber < 1 || limitNumber > 100) {
+        return res.status(400).json({
+          code: 1,
+          error: "每页数量必须是1-100之间的数字",
+        });
+      }
+
+      const result = await AdminPostService.getPendingPosts({
+        category: category as string,
+        keyword: keyword as string,
+        page: pageNumber,
+        limit: limitNumber,
       });
-      res.json({ posts }); // 直接返回查询结果，前端需要适配
+
+      log("info", "getPendingPosts: Success", {
+        count: result.posts.length,
+        total: result.pagination.total,
+        page: pageNumber,
+      });
+
+      res.json({
+        code: 0,
+        message: "获取成功",
+        data: result,
+      });
     } catch (error: any) {
-      log("error", "getPendingPosts: Error fetching pending posts.", {
-        errorMessage: error.message,
+      log("error", "getPendingPosts: Error", {
+        message: error.message,
         stack: error.stack,
+        query: req.query,
       });
-      res.status(500).json({ error: "获取待审核帖子失败" }); // 更具体的错误信息
+      res.status(500).json({
+        code: 1,
+        error: "获取待审核帖子失败",
+      });
     }
   }
 
-  // 审核帖子
+  /**
+   * 审核单个帖子
+   * POST /api/admin/posts/:id/review
+   */
   static async reviewPost(req: Request, res: Response) {
+    log("info", "reviewPost: Received request", {
+      postId: req.params.id,
+      body: req.body,
+    });
+
     try {
       const { id } = req.params;
-      const { action } = req.body; // action: 'approve' or 'reject'
+      const { action, reason, adminId } = req.body;
       const postId = parseInt(id, 10);
 
       if (isNaN(postId)) {
-        log("warn", "reviewPost: Invalid post ID provided.", { id });
-        return res.status(400).json({ error: "无效的帖子ID" });
+        return res.status(400).json({
+          code: 1,
+          error: "无效的帖子ID",
+        });
       }
 
       if (!["approve", "reject"].includes(action)) {
-        log("warn", "reviewPost: Invalid action provided.", { action });
-        return res.status(400).json({ error: "无效的操作类型" });
+        return res.status(400).json({
+          code: 1,
+          error: "无效的操作类型",
+        });
       }
 
-      log("info", "reviewPost: Processing review action.", { postId, action });
-      const db = getDb();
+      const result = await AdminPostService.reviewPost(postId, action, adminId);
 
-      if (action === "approve") {
-        // 1. 更新状态为published
-        const [updateResult]: any = await db.execute(
-          "UPDATE posts SET status = 'published', updated_at = NOW() WHERE id = ?",
-          [postId]
-        );
-        if (updateResult.affectedRows === 0) {
-          log(
-            "warn",
-            "reviewPost: Post not found or status already published during approval.",
-            { postId }
-          );
-          return res.status(404).json({ error: "帖子不存在或无法更新状态" });
-        }
+      log("info", "reviewPost: Success", { postId, action, adminId });
 
-        // 2. 获取帖子信息 (确保获取的是最新的，或者必须的字段)
-        const [postRows]: any = await db.execute(
-          "SELECT * FROM posts WHERE id = ?",
-          [postId]
-        );
-        if (postRows.length === 0) {
-          log(
-            "error",
-            "reviewPost: Post not found after update for recommendation.",
-            { postId }
-          );
-          return res.status(404).json({ error: "更新后找不到帖子信息" });
-        }
-        const post = postRows[0];
+      const message =
+        action === "approve" ? "审核通过，已加入推荐" : "审核拒绝";
 
-        // 3. 加入推荐表 (确保字段匹配 recommendations 表结构)
-        // 您可能需要从 post 对象中获取 image_url (如果存在且需要)
-        let imageUrl = null;
-        if (post.images) {
-          try {
-            const imagesArray = JSON.parse(post.images);
-            if (Array.isArray(imagesArray) && imagesArray.length > 0) {
-              imageUrl = imagesArray[0]; // Assuming first image is used for recommendation
-            }
-          } catch (e) {
-            log(
-              "warn",
-              "reviewPost: Failed to parse images for recommendation.",
-              { postId, images: post.images }
-            );
-          }
-        }
-
-        // 使用 ON DUPLICATE KEY UPDATE 来避免重复插入或处理已存在推荐的情况
-        await db.execute(
-          `
-          INSERT INTO recommendations (post_id, title, description, category, city, image_url, is_active, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
-          ON DUPLICATE KEY UPDATE
-            title = VALUES(title),
-            description = VALUES(description),
-            category = VALUES(category),
-            city = VALUES(city),
-            image_url = VALUES(image_url),
-            is_active = 1,
-            updated_at = NOW()
-        `,
-          [
-            postId,
-            post.title,
-            post.content || post.title, // Ensure content field exists or fallback
-            post.category,
-            post.city || "通用", // Ensure city field exists or fallback
-            imageUrl,
-          ]
-        );
-
-        log(
-          "info",
-          "reviewPost: Post approved and added/updated in recommendations.",
-          { postId }
-        );
-        res.json({ message: "审核通过，已加入推荐" });
-      } else if (action === "reject") {
-        // 拒绝
-        const [updateResult]: any = await db.execute(
-          "UPDATE posts SET status = 'failed', updated_at = NOW() WHERE id = ?",
-          [postId]
-        );
-        if (updateResult.affectedRows === 0) {
-          log("warn", "reviewPost: Post not found during rejection.", {
-            postId,
-          });
-          return res.status(404).json({ error: "帖子不存在或无法更新状态" });
-        }
-        // 如果帖子曾被推荐，也应该从推荐中移除或标记为不活跃
-        await db.execute(
-          "UPDATE recommendations SET is_active = 0, updated_at = NOW() WHERE post_id = ?",
-          [postId]
-        );
-
-        log("info", "reviewPost: Post rejected.", { postId });
-        res.json({ message: "审核拒绝" });
-      } else {
-        //理论上不会到这里，因为前面有 action 校验
-        log("warn", "reviewPost: Unknown action.", { action });
-        return res.status(400).json({ error: "未知的操作类型" });
-      }
+      res.json({
+        code: 0,
+        message,
+        data: result,
+      });
     } catch (error: any) {
-      log("error", "reviewPost: Error during review process.", {
-        errorMessage: error.message,
+      log("error", "reviewPost: Error", {
+        message: error.message,
+        stack: error.stack,
+        postId: req.params.id,
+        action: req.body.action,
+      });
+      res.status(500).json({
+        code: 1,
+        error: error.message || "审核操作失败",
+      });
+    }
+  }
+
+  /**
+   * 批量审核帖子
+   * POST /api/admin/posts/batch-review
+   */
+  static async batchReviewPosts(req: Request, res: Response) {
+    log("info", "batchReviewPosts: Received request", { body: req.body });
+
+    try {
+      const { postIds, action, reason, adminId } = req.body;
+
+      if (!Array.isArray(postIds) || postIds.length === 0) {
+        return res.status(400).json({
+          code: 1,
+          error: "请选择要操作的帖子",
+        });
+      }
+
+      if (postIds.length > 50) {
+        return res.status(400).json({
+          code: 1,
+          error: "单次批量操作不能超过50个帖子",
+        });
+      }
+
+      if (!["approve", "reject"].includes(action)) {
+        return res.status(400).json({
+          code: 1,
+          error: "无效的操作类型",
+        });
+      }
+
+      const result = await AdminPostService.batchReviewPosts(
+        postIds,
+        action,
+        adminId
+      );
+
+      log("info", "batchReviewPosts: Completed", {
+        total: postIds.length,
+        success: result.summary.success,
+        action,
+      });
+
+      res.json({
+        code: 0,
+        message: `批量操作完成，成功处理 ${result.summary.success}/${postIds.length} 个帖子`,
+        data: result,
+      });
+    } catch (error: any) {
+      log("error", "batchReviewPosts: Error", {
+        message: error.message,
         stack: error.stack,
       });
-      res.status(500).json({ error: "审核操作失败" });
+      res.status(500).json({
+        code: 1,
+        error: "批量操作失败",
+      });
+    }
+  }
+
+  /**
+   * 获取所有帖子（管理员视图）
+   * GET /api/admin/posts?status=published&page=1&limit=20
+   */
+  static async getAllPosts(req: Request, res: Response) {
+    log("info", "getAllPosts: Received request", { query: req.query });
+
+    try {
+      const {
+        status,
+        category,
+        city,
+        keyword,
+        page = "1",
+        limit = "20",
+        startDate,
+        endDate,
+        userId,
+      } = req.query;
+
+      // 参数验证
+      const pageNumber = parseInt(page as string, 10);
+      const limitNumber = parseInt(limit as string, 10);
+
+      if (isNaN(pageNumber) || pageNumber < 1) {
+        return res.status(400).json({
+          code: 1,
+          error: "页码必须是大于0的数字",
+        });
+      }
+
+      if (isNaN(limitNumber) || limitNumber < 1 || limitNumber > 100) {
+        return res.status(400).json({
+          code: 1,
+          error: "每页数量必须是1-100之间的数字",
+        });
+      }
+
+      const result = await AdminPostService.getAllPosts({
+        status: status as any,
+        category: category as string,
+        city: city as string,
+        keyword: keyword as string,
+        page: pageNumber,
+        limit: limitNumber,
+        startDate: startDate as string,
+        endDate: endDate as string,
+        userId: userId ? parseInt(userId as string) : undefined,
+      });
+
+      log("info", "getAllPosts: Success", {
+        count: result.posts.length,
+        total: result.pagination.total,
+        page: pageNumber,
+        filters: { status, category, city, keyword },
+      });
+
+      res.json({
+        code: 0,
+        message: "获取成功",
+        data: result,
+      });
+    } catch (error: any) {
+      log("error", "getAllPosts: Error", {
+        message: error.message,
+        stack: error.stack,
+        query: req.query,
+      });
+      res.status(500).json({
+        code: 1,
+        error: "获取帖子列表失败",
+      });
+    }
+  }
+
+  /**
+   * 管理员删除帖子
+   * DELETE /api/admin/posts/:id
+   */
+  static async deletePost(req: Request, res: Response) {
+    log("info", "deletePost: Received request", { postId: req.params.id });
+
+    try {
+      const postId = parseInt(req.params.id);
+      const { reason, adminId } = req.body;
+
+      if (isNaN(postId)) {
+        return res.status(400).json({
+          code: 1,
+          error: "无效的帖子ID",
+        });
+      }
+
+      await AdminPostService.deletePost(postId, adminId);
+
+      log("info", "deletePost: Success", { postId, adminId });
+
+      res.json({
+        code: 0,
+        message: "删除成功",
+      });
+    } catch (error: any) {
+      log("error", "deletePost: Error", {
+        message: error.message,
+        stack: error.stack,
+        postId: req.params.id,
+      });
+      res.status(500).json({
+        code: 1,
+        error: error.message || "删除失败",
+      });
+    }
+  }
+
+  /**
+   * 获取审核统计数据
+   * GET /api/admin/posts/stats
+   */
+  static async getReviewStats(req: Request, res: Response) {
+    log("info", "getReviewStats: Received request");
+
+    try {
+      const stats = await AdminPostService.getReviewStats();
+
+      log("info", "getReviewStats: Success");
+
+      res.json({
+        code: 0,
+        message: "获取成功",
+        data: stats,
+      });
+    } catch (error: any) {
+      log("error", "getReviewStats: Error", {
+        message: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({
+        code: 1,
+        error: "获取统计数据失败",
+      });
     }
   }
 }

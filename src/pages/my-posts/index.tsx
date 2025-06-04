@@ -46,45 +46,41 @@ const MyPostsPage: React.FC = () => {
   const [currentStatus, setCurrentStatus] = useState<string>(""); // Empty string means all
   const [stats, setStats] = useState<Stats | null>(null);
 
-  const fetchPosts = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      let url = `${BASE_API_URL}/posts/my?page=${currentPage}&limit=${limit}`;
-      if (currentStatus) {
-        url += `&status=${currentStatus}`;
-      }
-
-      const response = await Taro.request<FetchPostsResponse>({
-        url: url,
-        method: "GET",
-        // header: {
-        //   'Authorization': `Bearer YOUR_AUTH_TOKEN`, // Add if auth is needed
-        // },
-      });
-
-      if (response.statusCode === 200 && response.data) {
-        setPosts(response.data.posts);
-        setTotalPages(response.data.pagination.totalPages);
-        setCurrentPage(response.data.pagination.currentPage);
-        setStats(response.data.stats);
-      } else {
-        throw new Error(
-          `Failed to fetch posts. Status: ${response.statusCode}`
-        );
-      }
-    } catch (err: any) {
-      setError(err.message || "An unknown error occurred");
-      setPosts([]); // Clear posts on error
-      setStats(null);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentPage, limit, currentStatus]);
-
   useEffect(() => {
+    const fetchPosts = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        let url = `${BASE_API_URL}/posts/my?page=${currentPage}&limit=${limit}`;
+        if (currentStatus) {
+          url += `&status=${currentStatus}`;
+        }
+
+        const response = await Taro.request<FetchPostsResponse>({
+          url,
+          method: "GET",
+        });
+
+        if (response.statusCode === 200 && response.data) {
+          setPosts(response.data.posts);
+          setTotalPages(response.data.pagination.totalPages);
+          setStats(response.data.stats);
+        } else {
+          throw new Error(
+            `Failed to fetch posts. Status: ${response.statusCode}`
+          );
+        }
+      } catch (err: any) {
+        setError(err.message || "An unknown error occurred");
+        setPosts([]);
+        setStats(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     fetchPosts();
-  }, [fetchPosts]);
+  }, [currentPage, limit, currentStatus]);
 
   const handleStatusFilterChange = (status: string) => {
     setCurrentStatus(status);

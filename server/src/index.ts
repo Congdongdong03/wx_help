@@ -5,8 +5,13 @@ import { config } from "./config";
 import userRoutes from "./routes/user";
 import postRoutes from "./routes/post";
 import homeRoutes from "./routes/home";
-import { initializeDatabase } from "./config/database";
-import adminRoutes from "./routes/admin"; // 👈 新增这行
+import adminRoutes from "./routes/admin";
+// 移除旧的数据库初始化
+// import { initializeDatabase } from "./config/database";
+
+// 添加 Prisma 优雅关闭处理
+import { disconnectPrisma } from "./lib/prisma";
+
 const app = express();
 // const logtail = new Logtail(config.logtailToken);
 
@@ -29,7 +34,6 @@ app.use(
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/api/admin", adminRoutes); // 👈 新增这行
 
 // Logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -46,14 +50,11 @@ app.get("/", (req: Request, res: Response) => {
   res.json({ message: "Welcome to the API" });
 });
 
-// User routes
+// API Routes
 app.use("/api/users", userRoutes);
-
-// Post routes
 app.use("/api/posts", postRoutes);
-
-// Home routes
 app.use("/api/home", homeRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Error handling
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
@@ -63,14 +64,25 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 
 const PORT = Number(config.port);
 
-// 在启动服务器之前初始化数据库
-initializeDatabase()
-  .then(() => {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server is running on port ${PORT} (0.0.0.0)`);
-    });
-  })
-  .catch((error) => {
-    console.error("Failed to initialize database and start server:", error);
+// 优雅关闭处理
+const gracefulShutdown = async (signal: string) => {
+  console.log(`Received ${signal}. Graceful shutdown...`);
+  try {
+    await disconnectPrisma();
+    console.log("Database connections closed.");
+    process.exit(0);
+  } catch (error) {
+    console.error("Error during shutdown:", error);
     process.exit(1);
-  });
+  }
+};
+
+// 监听关闭信号
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
+// 直接启动服务器（不需要数据库初始化）
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server is running on port ${PORT} (0.0.0.0)`);
+  console.log("Using Prisma for database connections");
+});

@@ -38,11 +38,13 @@ interface OriginalPostData {
   position?: string;
   salaryRange?: string;
   timeRequirement?: string;
+  city?: string; // Added for consistency if backend sends city name
+  cityCode?: string; // Added for city code
   [key: string]: any; // Allow other fields
 }
 
 interface DraftPostData {
-  formData: PostFormData;
+  formData: PostFormData & { cityCode?: string }; // Ensure cityCode can be in draft
   imageFiles: Taro.chooseImage.ImageFile[];
   category: string | null;
   timestamp: number;
@@ -57,6 +59,7 @@ interface RentFormData {
   includesBills: boolean;
   wechatId: string;
   description: string;
+  cityCode?: string; // Add cityCode
   // images are handled by imageFiles state
 }
 
@@ -67,6 +70,7 @@ interface UsedGoodFormData {
   condition: string; // e.g., 全新, 九成新, 八成新
   description: string;
   wechatId: string;
+  cityCode?: string; // Add cityCode
 }
 
 interface JobFormData {
@@ -76,6 +80,7 @@ interface JobFormData {
   timeRequirement: string; // e.g., Full-time, Part-time, Casual
   description: string;
   wechatId: string;
+  cityCode?: string; // Add cityCode
 }
 
 interface HelpFormData {
@@ -83,11 +88,15 @@ interface HelpFormData {
   description?: string; // 文字 (Optional, max 100 chars)
   // images are handled by imageFiles state (Optional)
   wechatId: string; // 微信号 (Required, assuming it's needed for contact)
+  cityCode?: string; // Add cityCode
 }
 
 // Union type for all possible form data structures
 type PostFormData = Partial<
-  RentFormData & UsedGoodFormData & JobFormData & HelpFormData
+  RentFormData &
+    UsedGoodFormData &
+    JobFormData &
+    HelpFormData & { cityCode?: string }
 >;
 
 const ROOM_TYPES = ["主卧", "次卧", "整租", "床位"];
@@ -156,6 +165,12 @@ export default function PostFormPage() {
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
 
+  // New states for city picker
+  const [citiesApiList, setCitiesApiList] = useState<
+    { label: string; value: string }[]
+  >([]);
+  const [selectedCityCode, setSelectedCityCode] = useState<string | null>(null);
+
   const getPageTitle = (catName: string | null, isEditing = false) => {
     const prefix = isEditing ? "编辑" : "发布";
     if (catName === "rent") return `${prefix}租房信息`;
@@ -168,14 +183,17 @@ export default function PostFormPage() {
   const initializeFormForCategory = useCallback(
     (
       cat: string | null | undefined,
-      existingData?: PostFormData,
+      existingData?: PostFormData, // existingData will now potentially include cityCode
       existingImages?: Taro.chooseImage.ImageFile[]
     ) => {
       if (!cat) return;
       setCategory(cat);
-      let baseData: PostFormData = {};
+      let baseData: PostFormData = {
+        cityCode: selectedCityCode || citiesApiList[0]?.value,
+      }; // Default cityCode
       if (cat === "rent") {
         baseData = {
+          ...baseData,
           roomType: ROOM_TYPES[0],
           rentPeriod: RENT_PERIODS[0],
           includesBills: true,
@@ -187,6 +205,7 @@ export default function PostFormPage() {
         };
       } else if (cat === "used") {
         baseData = {
+          ...baseData,
           itemCategory: ITEM_CATEGORIES[0],
           condition: ITEM_CONDITIONS[0],
           title: "",
@@ -196,6 +215,7 @@ export default function PostFormPage() {
         };
       } else if (cat === "jobs") {
         baseData = {
+          ...baseData,
           position: JOB_POSITIONS[0],
           salaryRange: SALARY_RANGES[0],
           timeRequirement: TIME_REQUIREMENTS[0],
@@ -204,7 +224,7 @@ export default function PostFormPage() {
           description: "",
         };
       } else if (cat === "help") {
-        baseData = { title: "", description: "", wechatId: "" };
+        baseData = { ...baseData, title: "", description: "", wechatId: "" };
       }
 
       const finalData = { ...baseData, ...(existingData || {}) };
@@ -214,13 +234,75 @@ export default function PostFormPage() {
       );
       setFormData(finalData);
       setInitialFormData(finalData);
+      if (finalData.cityCode) {
+        // If cityCode is in finalData (from existing or base)
+        setSelectedCityCode(finalData.cityCode);
+      }
       const finalImages = existingImages || [];
       setImageFiles(finalImages);
       setInitialImageFiles(finalImages);
       setPageTitle(getPageTitle(cat, !!existingData));
     },
-    []
+    [selectedCityCode, citiesApiList] // Add dependencies
   );
+
+  // Fetch cities from API
+  useEffect(() => {
+    const fetchCities = async () => {
+      try {
+        console.log("PostFormPage: Fetching cities list...");
+        const res = await Taro.request<{
+          code: number;
+          data: Array<{ name: string; code: string }>;
+        }>({
+          url: `${BASE_API_URL}/home/cities`,
+          method: "GET",
+          timeout: 10000,
+        });
+        if (res.data && res.data.code === 0 && Array.isArray(res.data.data)) {
+          const cityOptions = res.data.data.map((city) => ({
+            label: city.name,
+            value: city.code,
+          }));
+          setCitiesApiList(cityOptions);
+          console.log("PostFormPage: Cities loaded:", cityOptions);
+          // Set default city for NEW posts if not already set and cities are available
+          // For existing drafts/edits, city will be handled by the main useEffect below
+          if (
+            cityOptions.length > 0 &&
+            !formData.cityCode &&
+            !editingPostOriginalId &&
+            !router.params.draftId
+          ) {
+            const defaultCityValue = cityOptions[0].value;
+            setSelectedCityCode(defaultCityValue);
+            // Directly update formData here ONLY IF it's a truly new form.
+            // Otherwise, let the main useEffect handle initialization from draft/edit data.
+            if (!category) {
+              // Check if category has been set yet; if not, it's likely a very early stage
+              setFormData((prev) => ({ ...prev, cityCode: defaultCityValue }));
+              setInitialFormData((prev) => ({
+                ...prev,
+                cityCode: defaultCityValue,
+              }));
+            }
+            console.log(
+              "PostFormPage: Default city for new post tentatively set to:",
+              defaultCityValue
+            );
+          }
+        } else {
+          console.warn(
+            "PostFormPage: Cities API response format incorrect or error",
+            res.data
+          );
+        }
+      } catch (error) {
+        console.error("PostFormPage: Failed to load cities:", error);
+      }
+    };
+    fetchCities();
+  }, []); // Fetch cities once on mount
 
   useEffect(() => {
     const params = router.params;
@@ -241,12 +323,15 @@ export default function PostFormPage() {
           draft.category === catFromParam
         ) {
           initializeFormForCategory(
+            // cityCode should be part of draft.formData
             draft.category,
             draft.formData,
             draft.imageFiles
           );
+          if (draft.formData.cityCode)
+            setSelectedCityCode(draft.formData.cityCode);
         } else {
-          initializeFormForCategory(catFromParam);
+          initializeFormForCategory(catFromParam); // Will use default city from initializeFormForCategory
         }
       } catch (e) {
         console.error("Error loading draft:", e);
@@ -269,6 +354,7 @@ export default function PostFormPage() {
         ) {
           console.log("PostFormPage: Found editingPostData:", postDataToEdit);
           const formDataSource: PostFormData = {
+            // No need for & { cityCode?: string } here, PostFormData includes it
             title: postDataToEdit.title || postDataToEdit.description,
             description: postDataToEdit.description,
             wechatId: postDataToEdit.wechatId,
@@ -282,11 +368,14 @@ export default function PostFormPage() {
             position: postDataToEdit.position,
             salaryRange: postDataToEdit.salaryRange,
             timeRequirement: postDataToEdit.timeRequirement,
+            cityCode: postDataToEdit.cityCode || postDataToEdit.city, // Prioritize cityCode
           };
           const images: Taro.chooseImage.ImageFile[] = postDataToEdit.image
             ? [{ path: postDataToEdit.image, size: 0 }]
             : [];
           initializeFormForCategory(catFromParam, formDataSource, images);
+          if (formDataSource.cityCode)
+            setSelectedCityCode(formDataSource.cityCode);
         } else {
           console.warn("editingPostData not found or invalid.");
           initializeFormForCategory(catFromParam);
@@ -302,6 +391,7 @@ export default function PostFormPage() {
         "PostFormPage: Initializing NEW form for category",
         catFromParam
       );
+      // For a brand new form, initializeFormForCategory will use the selectedCityCode (which might be the default from citiesApiList)
       initializeFormForCategory(catFromParam);
       setIsLoadingData(false);
     } else {
@@ -309,7 +399,8 @@ export default function PostFormPage() {
       Taro.navigateBack();
       setIsLoadingData(false);
     }
-  }, [router.params, initializeFormForCategory]);
+    // Add citiesApiList to dependency array if initializeFormForCategory depends on it for default city
+  }, [router.params, initializeFormForCategory, citiesApiList]);
 
   const isDirty = useCallback(() => {
     if (isLoadingData) return false;
@@ -325,11 +416,64 @@ export default function PostFormPage() {
     return formDataChanged || imageFilesChanged;
   }, [formData, imageFiles, initialFormData, initialImageFiles, isLoadingData]);
 
+  useEffect(() => {
+    let isValid = false;
+    const { title, wechatId, description, cityCode } = formData;
+
+    if (
+      !category ||
+      !title ||
+      title.trim() === "" ||
+      !cityCode ||
+      cityCode.trim() === ""
+    ) {
+      setIsFormValid(false);
+      return;
+    }
+
+    switch (category) {
+      case "help":
+        if (wechatId && wechatId.trim() !== "") isValid = true;
+        break;
+      case "rent":
+        const rf = formData as RentFormData;
+        if (
+          rf.roomType &&
+          rf.rentAmount &&
+          rf.address &&
+          rf.wechatId &&
+          imageFiles.length > 0
+        )
+          isValid = true;
+        break;
+      case "used":
+        const uf = formData as UsedGoodFormData;
+        if (uf.itemCategory && uf.price && uf.wechatId && imageFiles.length > 0)
+          isValid = true;
+        break;
+      case "jobs":
+        const jf = formData as JobFormData;
+        if (
+          jf.position &&
+          jf.salaryRange &&
+          jf.timeRequirement &&
+          jf.wechatId &&
+          imageFiles.length > 0
+        )
+          isValid = true;
+        break;
+      default:
+        isValid = false;
+    }
+    setIsFormValid(isValid);
+  }, [formData, imageFiles, category]);
+
   const handleSaveDraft = async () => {
     if (!category) {
       Taro.showToast({ title: "无法保存草稿", icon: "none" });
       return;
     }
+    // For drafts, title or description or image is enough. City might not be mandatory for a draft.
     if (!formData.title && !formData.description && imageFiles.length === 0) {
       Taro.showToast({ title: "内容为空", icon: "none" });
       return;
@@ -338,7 +482,7 @@ export default function PostFormPage() {
     setIsSavingDraft(true);
 
     const payload = {
-      ...formData,
+      ...formData, // formData now contains cityCode if selected
       category,
       status: "draft",
       images: imageFiles.map((file) => file.path),
@@ -346,25 +490,29 @@ export default function PostFormPage() {
 
     try {
       const res = await Taro.request({
-        url: `${BASE_API_URL}/posts`,
+        url: `${BASE_API_URL}/posts`, // Assuming this endpoint handles drafts too
         method: "POST",
         data: payload,
         header: {
           "Content-Type": "application/json",
+          // TODO: Add Authorization header if needed
         },
       });
 
       if (res.statusCode === 201 && res.data && res.data.post) {
         Taro.showToast({
-          title: res.data.message,
+          title: res.data.message || "草稿已保存", // Use API message or default
           icon: "success",
         });
+        // Update initial state to prevent "dirty" check from prompting again immediately
         setInitialFormData(formData);
         setInitialImageFiles(imageFiles);
+        // Potentially navigate back or update editingPostOriginalId if draft has an ID from backend
+        // For now, just show success and allow user to continue editing or leave
       } else {
         console.error("Save draft API error:", res);
         Taro.showToast({
-          title: res.data?.error || "草稿保存失败",
+          title: res.data?.error || "草稿保存至服务器失败",
           icon: "error",
         });
       }
@@ -426,50 +574,6 @@ export default function PostFormPage() {
     return () => clearTimeout(timer);
   }, [resetPageState]);
 
-  useEffect(() => {
-    let isValid = false;
-    const { title, wechatId, description } = formData;
-    if (!category || !title || title.trim() === "") {
-      setIsFormValid(false);
-      return;
-    }
-    switch (category) {
-      case "help":
-        if (wechatId && wechatId.trim() !== "") isValid = true;
-        break;
-      case "rent":
-        const rf = formData as RentFormData;
-        if (
-          rf.roomType &&
-          rf.rentAmount &&
-          rf.address &&
-          rf.wechatId &&
-          imageFiles.length > 0
-        )
-          isValid = true;
-        break;
-      case "used":
-        const uf = formData as UsedGoodFormData;
-        if (uf.itemCategory && uf.price && uf.wechatId && imageFiles.length > 0)
-          isValid = true;
-        break;
-      case "jobs":
-        const jf = formData as JobFormData;
-        if (
-          jf.position &&
-          jf.salaryRange &&
-          jf.timeRequirement &&
-          jf.wechatId &&
-          imageFiles.length > 0
-        )
-          isValid = true;
-        break;
-      default:
-        isValid = false;
-    }
-    setIsFormValid(isValid);
-  }, [formData, imageFiles, category]);
-
   const handleSubmit = async () => {
     if (!isFormValid) {
       Taro.showToast({ title: "请完善必填信息后再发布", icon: "none" });
@@ -512,37 +616,63 @@ export default function PostFormPage() {
       }
 
       const payload = {
-        ...formData,
+        ...formData, // formData now includes cityCode
         category: category,
-        status: "published",
+        status: "publish", // Or dynamic if also handling updates for non-published posts
         images: processedImagePaths,
+        // If your backend expects 'city' (name) instead of 'cityCode', map it here:
+        // cityName: citiesApiList.find(c => c.value === formData.cityCode)?.label,
       };
+      // Remove cityCode if backend expects cityName, or send both if backend handles it
+      // if (payload.cityCode && payload.cityName) delete payload.cityCode;
 
       console.log("Submitting to API:", payload);
 
+      // Determine API endpoint and method based on whether it's an edit or new post
+      let apiUrl = `${BASE_API_URL}/posts`;
+      let apiMethod: "POST" | "PUT" = "POST";
+
+      if (editingPostOriginalId) {
+        apiUrl = `${BASE_API_URL}/posts/${editingPostOriginalId}`;
+        apiMethod = "PUT";
+      }
+
       const res = await Taro.request({
-        url: `${BASE_API_URL}/posts`,
-        method: "POST",
+        url: apiUrl,
+        method: apiMethod,
         data: payload,
         header: {
           "Content-Type": "application/json",
+          // TODO: Add Authorization header if needed
         },
       });
 
       Taro.hideLoading();
 
-      if (res.statusCode === 201 && res.data && res.data.post) {
+      const successMessage = editingPostOriginalId ? "更新成功" : "发布成功";
+      const failureMessageBase = editingPostOriginalId
+        ? "更新失败"
+        : "发布失败";
+
+      if (
+        (apiMethod === "POST" && res.statusCode === 201) ||
+        (apiMethod === "PUT" && res.statusCode === 200)
+      ) {
         Taro.showToast({
-          title: res.data.message,
+          title: res.data?.message || successMessage,
           icon: "success",
           duration: 1500,
         });
 
-        if (router.params.draftId) {
+        if (router.params.draftId && apiMethod === "POST") {
+          // Only remove local draft if it was published
           Taro.removeStorageSync(router.params.draftId);
         }
-        setInitialFormData({});
+        setInitialFormData({}); // Reset dirty check
         setInitialImageFiles([]);
+
+        // Tell MyPosts page to refresh
+        Taro.setStorageSync("refreshMyPosts", "true");
 
         setTimeout(() => {
           Taro.navigateBack();
@@ -550,19 +680,18 @@ export default function PostFormPage() {
       } else {
         console.error("Submit API error:", res);
         Taro.showToast({
-          title:
-            res.data?.error ||
-            (editingPostOriginalId ? "更新失败" : "发布失败"),
+          title: res.data?.error || failureMessageBase,
           icon: "error",
         });
       }
     } catch (error) {
       Taro.hideLoading();
       console.error("handleSubmit network/unknown error:", error);
+      const failureMessageBase = editingPostOriginalId
+        ? "更新失败"
+        : "发布失败";
       Taro.showToast({
-        title: editingPostOriginalId
-          ? "更新失败，请稍后重试"
-          : "发布失败，请稍后重试",
+        title: `${failureMessageBase}，请稍后重试`,
         icon: "error",
       });
     } finally {
@@ -918,6 +1047,35 @@ export default function PostFormPage() {
   return (
     <View className="post-form-page">
       <Text className="page-title-form">{pageTitle}</Text>
+
+      {/* City Picker - Common for all forms */}
+      {citiesApiList.length > 0 && (
+        <View className="form-item">
+          <Text className="form-label required">所在城市</Text>
+          <Picker
+            mode="selector"
+            range={citiesApiList.map((city) => city.label)} // Display city names
+            value={citiesApiList.findIndex(
+              (city) => city.value === selectedCityCode
+            )}
+            onChange={(e) => {
+              const selectedIndex = Number(e.detail.value);
+              const cityValue = citiesApiList[selectedIndex]?.value;
+              if (cityValue) {
+                setSelectedCityCode(cityValue);
+                handleInputChange("cityCode", cityValue); // Store city CODE in formData
+              }
+            }}
+          >
+            <View className="picker-display">
+              {selectedCityCode
+                ? citiesApiList.find((city) => city.value === selectedCityCode)
+                    ?.label
+                : "请选择城市"}
+            </View>
+          </Picker>
+        </View>
+      )}
 
       {category === "rent" && renderRentForm()}
       {category === "used" && renderUsedGoodForm()}

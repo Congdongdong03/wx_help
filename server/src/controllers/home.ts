@@ -1,17 +1,14 @@
+// src/controllers/home.ts
 import { Request, Response } from "express";
-import { CityModel } from "../models/city";
-import { RecommendationModel } from "../models/recommendation";
+import { HomeService } from "../services/homeService";
 
 export const getCities = async (req: Request, res: Response) => {
   try {
-    const cities = await CityModel.findAll();
+    const cities = await HomeService.getAllCities();
+
     res.json({
       code: 0,
-      data: cities.map((city) => ({
-        name: city.name,
-        code: city.code,
-        is_hot: city.is_hot,
-      })),
+      data: cities,
       message: "获取城市列表成功",
     });
   } catch (error) {
@@ -22,6 +19,7 @@ export const getCities = async (req: Request, res: Response) => {
     });
   }
 };
+
 export const getRecommendations = async (req: Request, res: Response) => {
   try {
     const { category, city } = req.query;
@@ -36,12 +34,12 @@ export const getRecommendations = async (req: Request, res: Response) => {
     }
 
     let pinnedPosts: any[] = [];
-    let normalPosts = [];
+    let normalPosts: any[] = [];
 
     if (category && category !== "recommend") {
       // 具体分类页面：按城市和分类过滤，不显示置顶
       console.log(`具体分类查询: 城市=${city}, 分类=${category}`);
-      normalPosts = await RecommendationModel.findByCityAndCategory(
+      normalPosts = await HomeService.getRecommendationsByCityAndCategory(
         city as string,
         category as string
       );
@@ -51,10 +49,10 @@ export const getRecommendations = async (req: Request, res: Response) => {
       console.log(`推荐页面查询: 城市=${city}`);
 
       // 获取所有置顶帖子（不受城市限制）
-      pinnedPosts = await RecommendationModel.findPinned();
+      pinnedPosts = await HomeService.getPinnedRecommendations();
 
       // 获取该城市的普通帖子（非置顶）
-      normalPosts = await RecommendationModel.findNormalPostsByCity(
+      normalPosts = await HomeService.getNormalRecommendationsByCity(
         city as string
       );
     }
@@ -80,11 +78,12 @@ export const getRecommendations = async (req: Request, res: Response) => {
     });
   }
 };
+
 // 新增：调试API - 查看数据库状态
 export const debugDatabase = async (req: Request, res: Response) => {
   try {
-    const cities = await RecommendationModel.getCitiesInDatabase();
-    const allData = await RecommendationModel.findAll();
+    const cities = await HomeService.getAllCitiesInDatabase();
+    const allData = await HomeService.getAllRecommendations();
 
     res.json({
       code: 0,
@@ -92,14 +91,7 @@ export const debugDatabase = async (req: Request, res: Response) => {
       data: {
         cities,
         totalRecords: allData.length,
-        records: allData.map((item) => ({
-          id: item.id,
-          title: item.title,
-          city: item.city,
-          category: item.category,
-          is_pinned: item.is_pinned,
-          is_active: item.is_active,
-        })),
+        records: allData,
       },
     });
   } catch (error) {
