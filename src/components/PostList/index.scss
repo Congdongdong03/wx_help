@@ -1,0 +1,18 @@
+.post-list {
+  padding: 20rpx;
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.post-list-loading {
+  display: flex;
+  justify-content: center;
+  padding: 20rpx 0;
+}
+
+.post-list-end {
+  text-align: center;
+  color: #999;
+  font-size: 24rpx;
+  padding: 20rpx 0;
+}

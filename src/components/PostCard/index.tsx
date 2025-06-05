@@ -1,5 +1,8 @@
 import Taro from "@tarojs/taro";
-import { View, Text, Image } from "@tarojs/components";
+import { View } from "@tarojs/components";
+import { useState } from "react";
+import PostImage from "./PostImage";
+import PostContent from "./PostContent";
 import "./index.scss"; // We will create this SCSS file
 
 // Define a common interface for data the PostCard expects
@@ -8,7 +11,7 @@ export interface PostCardData {
   id: string;
   mockImagePlaceholderHeight?: number;
   mockImagePlaceholderColor?: string;
-  // coverImage?: string; // Uncomment if using real images
+  coverImage?: string;
   title: string;
   description?: string; // Description might be optional for some card uses
   category: {
@@ -33,61 +36,55 @@ interface PostCardProps {
 // const formatRelativeTime = (date: Date): string => { ... }; // Removed as we expect pre-formatted displayTimeText
 
 const PostCard: React.FC<PostCardProps> = ({ post, onCardClick }) => {
-  const handleCardClick = () => {
-    if (onCardClick) {
-      onCardClick(post.id);
-    } else {
-      // Default navigation if no specific handler is passed
-      Taro.navigateTo({ url: `/pages/detail/index?id=${post.id}` });
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleCardClick = async () => {
+    if (isLoading) return;
+
+    try {
+      setIsLoading(true);
+      if (onCardClick) {
+        await onCardClick(post.id);
+      } else {
+        await Taro.navigateTo({ url: `/pages/detail/index?id=${post.id}` });
+      }
+    } catch (error) {
+      Taro.showToast({
+        title: "操作失败，请重试",
+        icon: "none",
+        duration: 2000,
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <View
-      className="post-card-component" // Use a distinct class for the component
+      className={`post-card-component ${isLoading ? "loading" : ""}`}
       onClick={handleCardClick}
+      role="button"
+      tabIndex={0}
+      aria-label={`查看帖子：${post.title}`}
+      onKeyPress={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          handleCardClick();
+        }
+      }}
     >
-      {post.mockImagePlaceholderHeight && post.mockImagePlaceholderColor && (
-        <View
-          className="pcc-image-placeholder" // Prefixed to avoid collision
-          style={{
-            height: `${post.mockImagePlaceholderHeight}rpx`,
-            backgroundColor: post.mockImagePlaceholderColor,
-          }}
-        />
-      )}
-      {/* Uncomment if using real images
-      {post.coverImage && (
-        <Image
-          className="pcc-image"
-          src={post.coverImage}
-          mode="aspectFill"
-          lazyLoad
-        />
-      )}
-      */}
-      <View className="pcc-content">
-        <Text className="pcc-title" numberOfLines={2}>
-          {post.title}
-        </Text>
-        {post.description && (
-          <Text className="pcc-description" numberOfLines={2}>
-            {post.description.substring(0, 50)}...
-          </Text>
-        )}
-        <View className="pcc-footer">
-          <View className="pcc-tags">
-            <Text
-              className="pcc-category-tag"
-              style={{ backgroundColor: post.category.color }}
-            >
-              {post.category.name}
-            </Text>
-            {post.price && <Text className="pcc-price-tag">{post.price}</Text>}
-          </View>
-          <Text className="pcc-time">{post.displayTimeText}</Text>
-        </View>
-      </View>
+      <PostImage
+        mockImagePlaceholderHeight={post.mockImagePlaceholderHeight}
+        mockImagePlaceholderColor={post.mockImagePlaceholderColor}
+        coverImage={post.coverImage}
+        alt={post.title}
+      />
+      <PostContent
+        title={post.title}
+        description={post.description}
+        category={post.category}
+        price={post.price}
+        displayTimeText={post.displayTimeText}
+      />
     </View>
   );
 };

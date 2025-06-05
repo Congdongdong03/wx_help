@@ -1,157 +1,196 @@
 .my-posts {
   min-height: 100vh;
-  background-color: #f7f7f7;
-  padding-bottom: 40rpx;
+  background: #f5f5f5;
+  display: flex;
+  flex-direction: column;
+}
 
-  .tabs {
-    position: fixed;
-    left: 0;
-    right: 0;
-    z-index: 99;
+.tabs {
+  display: flex;
+  background: #fff;
+  padding: 20rpx;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+}
+
+.tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  font-size: 28rpx;
+  color: #666;
+  position: relative;
+
+  &.active {
+    color: #007aff;
+    font-weight: 500;
+
+    &::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 40rpx;
+      height: 4rpx;
+      background: #007aff;
+      border-radius: 2rpx;
+    }
+  }
+}
+
+.stats-container {
+  background: #fff;
+  padding: 20rpx;
+  font-size: 24rpx;
+  color: #666;
+  display: flex;
+  justify-content: space-around;
+  border-bottom: 1rpx solid #eee;
+}
+
+.tab-content {
+  flex: 1;
+  position: relative;
+}
+
+.loading-message,
+.error-message,
+.no-posts-message {
+  text-align: center;
+  padding: 40rpx;
+  color: #999;
+  font-size: 28rpx;
+}
+
+.error-message {
+  color: #ff4d4f;
+}
+
+.post-list {
+  height: calc(100vh - 180rpx);
+  box-sizing: border-box;
+}
+
+.loading-more,
+.no-more {
+  text-align: center;
+  padding: 20rpx;
+  color: #999;
+  font-size: 24rpx;
+}
+
+.post-card {
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  display: flex;
+  flex-direction: column; // 添加：确保竖向排列
+  gap: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+
+  .post-main {
     display: flex;
-    justify-content: space-around;
-    align-items: center;
-    height: 80rpx;
-    background-color: #fff;
-    border-bottom: 1rpx solid #eee;
+    flex-direction: row;
+    gap: 24rpx;
+  }
 
-    .tab-item {
-      padding: 0 20rpx;
+  .post-image {
+    width: 200rpx;
+    height: 150rpx;
+    border-radius: 8rpx;
+    background-color: #f5f5f5;
+    flex-shrink: 0;
+  }
+
+  .post-details {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-width: 0;
+
+    .post-description {
       font-size: 28rpx;
-      color: #666;
-      height: 100%;
+      color: #333;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      -webkit-line-clamp: 2;
+      text-overflow: ellipsis;
+      margin-bottom: 16rpx;
+    }
+
+    .post-footer-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .post-meta {
       display: flex;
       align-items: center;
-      border-bottom: 4rpx solid transparent;
-      box-sizing: border-box;
+      font-size: 24rpx;
+      color: #999;
+      gap: 10rpx;
 
-      &.active {
-        color: #007bff;
+      .post-time {
+        white-space: nowrap;
+      }
+      .post-status {
         font-weight: 500;
-        border-bottom-color: #007bff;
+        &.status-pending {
+          color: #ff9900;
+        }
+        &.status-approved {
+          color: #1aad19;
+        }
+        &.status-rejected {
+          color: #e51c23;
+        }
+        &.status-taken_down {
+          color: #999999;
+        }
       }
     }
   }
+  .post-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10rpx;
 
-  .tab-content {
-    padding: 24rpx;
-    .post-list {
-      display: flex;
-      flex-direction: column;
-      gap: 24rpx;
-      margin-top: 80rpx;
-      .post-card {
-        background-color: #fff;
-        border-radius: 16rpx;
-        padding: 24rpx;
-        display: flex;
-        flex-direction: column; // 添加：确保竖向排列
-        gap: 24rpx;
-        box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
-
-        .post-main {
-          display: flex;
-          flex-direction: row;
-          gap: 24rpx;
-        }
-
-        .post-image {
-          width: 200rpx;
-          height: 150rpx;
-          border-radius: 8rpx;
-          background-color: #f5f5f5;
-          flex-shrink: 0;
-        }
-
-        .post-details {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          min-width: 0;
-
-          .post-description {
-            font-size: 28rpx;
-            color: #333;
-            line-height: 1.4;
-            display: -webkit-box;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            -webkit-line-clamp: 2;
-            text-overflow: ellipsis;
-            margin-bottom: 16rpx;
-          }
-
-          .post-footer-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-          }
-
-          .post-meta {
-            display: flex;
-            align-items: center;
-            font-size: 24rpx;
-            color: #999;
-            gap: 10rpx;
-
-            .post-time {
-              white-space: nowrap;
-            }
-            .post-status {
-              font-weight: 500;
-              &.status-pending {
-                color: #ff9900;
-              }
-              &.status-approved {
-                color: #1aad19;
-              }
-              &.status-rejected {
-                color: #e51c23;
-              }
-              &.status-taken_down {
-                color: #999999;
-              }
-            }
-          }
-        }
-        .post-actions {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 10rpx;
-
-          .boost-button-container {
-            &.is-boosted {
-              .boost-button {
-                background-color: #cccccc;
-                color: #666666;
-              }
-            }
-          }
-
-          .boost-button {
-            font-size: 24rpx;
-            padding: 8rpx 16rpx;
-            height: auto;
-            line-height: 1;
-            border-radius: 20rpx;
-            background-color: #007bff;
-            color: #fff;
-            border: none;
-            margin: 0;
-            &::after {
-              border: none;
-            }
-          }
-
-          .post-options-menu-container {
-            position: relative;
-            display: flex;
-            align-items: center;
-          }
+    .boost-button-container {
+      &.is-boosted {
+        .boost-button {
+          background-color: #cccccc;
+          color: #666666;
         }
       }
+    }
+
+    .boost-button {
+      font-size: 24rpx;
+      padding: 8rpx 16rpx;
+      height: auto;
+      line-height: 1;
+      border-radius: 20rpx;
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      margin: 0;
+      &::after {
+        border: none;
+      }
+    }
+
+    .post-options-menu-container {
+      position: relative;
+      display: flex;
+      align-items: center;
     }
   }
 }

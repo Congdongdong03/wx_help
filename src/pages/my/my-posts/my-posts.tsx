@@ -277,9 +277,9 @@ export default function MyPosts() {
 
   // 获取 API 帖子的函数
   const fetchApiPosts = useCallback(
-    async (page = 1, statusFilter = "") => {
+    async (page = 1, statusFilter = "", isLoadMore = false) => {
       console.log(
-        `MyPosts: fetchApiPosts called for page: ${page}, status: ${statusFilter}`
+        `MyPosts: fetchApiPosts called for page: ${page}, status: ${statusFilter}, isLoadMore: ${isLoadMore}`
       );
       setIsLoading(true);
       setError(null);
@@ -310,15 +310,19 @@ export default function MyPosts() {
           response.data.code === 0 &&
           response.data.data
         ) {
-          const apiData = response.data.data; // Corrected: Actual data is in response.data.data
+          const apiData = response.data.data;
           const postsFromApi = apiData.posts;
           const safePosts = Array.isArray(postsFromApi) ? postsFromApi : [];
 
           console.log("MyPosts: Posts from API after safety check:", safePosts);
-          setApiPosts(safePosts);
+          setApiPosts((prev) =>
+            isLoadMore ? [...prev, ...safePosts] : safePosts
+          );
           const uiPosts = safePosts.map(mapApiPostToUIPost);
           console.log("MyPosts: Posts mapped to UI Posts:", uiPosts);
-          setDisplayedPosts(uiPosts);
+          setDisplayedPosts((prev) =>
+            isLoadMore ? [...prev, ...uiPosts] : uiPosts
+          );
 
           if (apiData.pagination) {
             setPagination(apiData.pagination);
@@ -328,7 +332,7 @@ export default function MyPosts() {
             );
             setPagination({
               currentPage: page,
-              totalPages: page, // Or 1 if no posts
+              totalPages: page,
               totalPosts: safePosts.length,
               limit: pagination.limit,
             });
@@ -341,7 +345,7 @@ export default function MyPosts() {
               "MyPosts: Stats data missing from API response. Setting default based on posts."
             );
             setStats({
-              draftCount: 0, // Simplified default
+              draftCount: 0,
               pendingCount: 0,
               publishedCount: 0,
               failedCount: 0,
@@ -349,7 +353,6 @@ export default function MyPosts() {
             });
           }
         } else {
-          // Handle business logic errors (e.g., code !== 0) or other HTTP errors
           let errorMessage = `请求失败`;
           if (response.data && (response.data.message || response.data.error)) {
             errorMessage =
@@ -366,7 +369,6 @@ export default function MyPosts() {
         }
       } catch (err: any) {
         let detailedErrorMessage = "获取帖子列表失败";
-        // Try to get message from error object itself first
         if (err.message) {
           detailedErrorMessage = err.message;
         } else if (
@@ -374,7 +376,6 @@ export default function MyPosts() {
           err.response.data &&
           (err.response.data.message || err.response.data.error)
         ) {
-          // Fallback for certain error structures (less common with Taro.request typical errors)
           detailedErrorMessage =
             err.response.data.message || err.response.data.error;
         }
@@ -384,20 +385,22 @@ export default function MyPosts() {
           err
         );
         setError(detailedErrorMessage);
-        setApiPosts([]);
-        setDisplayedPosts([]);
-        setStats(null);
-        setPagination((prev) => ({
-          ...prev,
-          currentPage: 1,
-          totalPages: 1,
-          totalPosts: 0,
-        }));
+        if (!isLoadMore) {
+          setApiPosts([]);
+          setDisplayedPosts([]);
+          setStats(null);
+          setPagination((prev) => ({
+            ...prev,
+            currentPage: 1,
+            totalPages: 1,
+            totalPosts: 0,
+          }));
+        }
       } finally {
         setIsLoading(false);
       }
     },
-    [pagination.limit, mapApiPostToUIPost] // Added mapApiPostToUIPost as it's used directly
+    [pagination.limit, mapApiPostToUIPost]
   );
 
   // 根据当前选中的Tab加载数据
@@ -469,42 +472,35 @@ export default function MyPosts() {
       "MyPosts: usePullDownRefresh hook triggered for tab index:",
       currentTabIndex
     );
-    loadCurrentTabData(); // 重新加载当前tab数据
+    const selectedTab = tabList[currentTabIndex];
+    if (selectedTab.status === "draft") {
+      fetchAndSetLocalDrafts();
+    } else {
+      const apiStatusFilter = getCurrentApiStatusFilter();
+      fetchApiPosts(1, apiStatusFilter, false); // 重置到第一页
+    }
     setTimeout(() => {
       Taro.stopPullDownRefresh();
     }, 1000);
   });
 
+  // 添加触底加载更多功能
+  Taro.useReachBottom(() => {
+    console.log("MyPosts: Reached bottom, loading more...");
+    const selectedTab = tabList[currentTabIndex];
+    if (
+      selectedTab.status !== "draft" &&
+      !isLoading &&
+      pagination.currentPage < pagination.totalPages
+    ) {
+      const apiStatusFilter = getCurrentApiStatusFilter();
+      fetchApiPosts(pagination.currentPage + 1, apiStatusFilter, true);
+    }
+  });
+
   // Tab 点击处理函数
   const handleTabClick = (index: number) => {
     setCurrentTabIndex(index);
-  };
-
-  const handlePageChange = (newPage: number) => {
-    if (
-      newPage >= 1 &&
-      newPage <= pagination.totalPages &&
-      tabList[currentTabIndex].status !== "draft"
-    ) {
-      const selectedTab = tabList[currentTabIndex];
-      let apiStatusFilter = ""; // Re-calculate filter for safety, or use getCurrentApiStatusFilter
-      switch (selectedTab.status) {
-        case "published":
-          apiStatusFilter = "published";
-          break;
-        case "reviewing":
-          apiStatusFilter = "pending";
-          break;
-        case "failed":
-          apiStatusFilter = "failed";
-          break;
-        case "all":
-        default:
-          apiStatusFilter = "";
-          break;
-      }
-      fetchApiPosts(newPage, apiStatusFilter);
-    }
   };
 
   // *** 修改函数：处理擦亮按钮点击事件 (占位符) ***
@@ -717,17 +713,6 @@ export default function MyPosts() {
         ))}
       </View>
 
-      {/* 统计信息显示 */}
-      {stats && tabList[currentTabIndex].status !== "draft" && (
-        <View className="stats-container">
-          <Text>总 {stats.totalCount} |</Text>
-          <Text>发布 {stats.publishedCount} |</Text>
-          <Text>审核中 {stats.pendingCount} |</Text>
-          <Text>未通过 {stats.failedCount} |</Text>
-          <Text>草稿(服务) {stats.draftCount}</Text>
-        </View>
-      )}
-
       <View className="tab-content">
         {isLoading && <View className="loading-message">加载中...</View>}
         {error && <View className="error-message">错误: {error}</View>}
@@ -741,8 +726,24 @@ export default function MyPosts() {
         )}
 
         {!isLoading && !error && displayedPosts.length > 0 && (
-          // 使用 ScrollView 替代直接的 View 来实现滚动
-          <ScrollView scrollY className="post-list">
+          <ScrollView
+            scrollY
+            className="post-list"
+            onScrollToLower={() => {
+              if (
+                tabList[currentTabIndex].status !== "draft" &&
+                !isLoading &&
+                pagination.currentPage < pagination.totalPages
+              ) {
+                const apiStatusFilter = getCurrentApiStatusFilter();
+                fetchApiPosts(
+                  pagination.currentPage + 1,
+                  apiStatusFilter,
+                  true
+                );
+              }
+            }}
+          >
             {displayedPosts.map((post) => {
               const isApiPost = typeof post.id === "number";
               const isBoostable =
@@ -870,34 +871,19 @@ export default function MyPosts() {
                 </View>
               );
             })}
+            {isLoading && (
+              <View className="loading-more">
+                <Text>加载更多...</Text>
+              </View>
+            )}
+            {!isLoading && pagination.currentPage >= pagination.totalPages && (
+              <View className="no-more">
+                <Text>没有更多内容了</Text>
+              </View>
+            )}
           </ScrollView>
         )}
       </View>
-
-      {/* 分页控件 */}
-      {!isLoading &&
-        !error &&
-        displayedPosts.length > 0 &&
-        tabList[currentTabIndex].status !== "draft" &&
-        pagination.totalPages > 1 && (
-          <View className="pagination-controls">
-            <Button
-              onClick={() => handlePageChange(pagination.currentPage - 1)}
-              disabled={pagination.currentPage <= 1}
-            >
-              上一页
-            </Button>
-            <Text>
-              {pagination.currentPage} / {pagination.totalPages}
-            </Text>
-            <Button
-              onClick={() => handlePageChange(pagination.currentPage + 1)}
-              disabled={pagination.currentPage >= pagination.totalPages}
-            >
-              下一页
-            </Button>
-          </View>
-        )}
     </View>
   );
 }
