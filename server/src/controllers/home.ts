@@ -24,8 +24,6 @@ export const getRecommendations = async (req: Request, res: Response) => {
   try {
     const { category, city } = req.query;
 
-    console.log("API接收参数:", { category, city });
-
     if (!city) {
       return res.status(400).json({
         code: 400,
@@ -33,40 +31,45 @@ export const getRecommendations = async (req: Request, res: Response) => {
       });
     }
 
-    let pinnedPosts: any[] = [];
-    let normalPosts: any[] = [];
-
+    // 查询所有推荐（按 sort_order, created_at 排序）
+    let allRecs: any[] = [];
     if (category && category !== "recommend") {
-      // 具体分类页面：按城市和分类过滤，不显示置顶
-      console.log(`具体分类查询: 城市=${city}, 分类=${category}`);
-      normalPosts = await HomeService.getRecommendationsByCityAndCategory(
+      allRecs = await HomeService.getRecommendationsByCityAndCategory(
         city as string,
         category as string
       );
-      pinnedPosts = []; // 具体分类页面不显示置顶
     } else {
-      // 推荐页面：置顶不受城市限制，普通帖子按城市过滤
-      console.log(`推荐页面查询: 城市=${city}`);
-
-      // 获取所有置顶帖子（不受城市限制）
-      pinnedPosts = await HomeService.getPinnedRecommendations();
-
-      // 获取该城市的普通帖子（非置顶）
-      normalPosts = await HomeService.getNormalRecommendationsByCity(
-        city as string
-      );
+      allRecs = await HomeService.getAllRecommendations();
     }
 
-    console.log("查询结果:", {
-      pinnedCount: pinnedPosts.length,
-      normalCount: normalPosts.length,
+    // pinned 只放第一条，list 放剩下的
+    const pinned = allRecs.length > 0 ? [allRecs[0]] : [];
+    const list = allRecs.slice(1);
+
+    // 格式化函数
+    const formatRec = (rec: any) => ({
+      id: rec.id,
+      isPinned: rec.is_pinned,
+      sortOrder: rec.sort_order,
+      post: rec.posts && {
+        id: rec.posts.id,
+        title: rec.posts.title,
+        city: rec.posts.city,
+        category: rec.posts.category,
+        price: rec.posts.price,
+        wechatId: rec.posts.wechat_id,
+        user: rec.posts.users && {
+          nickname: rec.posts.users.nickname,
+          avatar_url: rec.posts.users.avatar_url,
+        },
+      },
     });
 
     res.json({
       code: 0,
       data: {
-        pinned: pinnedPosts,
-        list: normalPosts,
+        pinned: pinned.map(formatRec),
+        list: list.map(formatRec),
       },
       message: "获取推荐内容成功",
     });

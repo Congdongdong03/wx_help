@@ -138,22 +138,14 @@ export class AdminPostService {
         await tx.recommendations.upsert({
           where: { post_id: postId },
           update: {
-            title: post.title,
-            description: post.content || post.title,
-            category: post.category || "help",
-            city: post.city || "通用",
-            image_url: imageUrl,
-            is_active: true,
+            is_pinned: false,
+            sort_order: 0,
             updated_at: new Date(),
           },
           create: {
             post_id: postId,
-            title: post.title,
-            description: post.content || post.title,
-            category: post.category || "help",
-            city: post.city || "通用",
-            image_url: imageUrl,
-            is_active: true,
+            is_pinned: false,
+            sort_order: 0,
           },
         });
 
@@ -168,13 +160,9 @@ export class AdminPostService {
           },
         });
 
-        // 如果之前在推荐中，标记为不活跃
-        await tx.recommendations.updateMany({
+        // 如果之前在推荐中，删除推荐记录
+        await tx.recommendations.deleteMany({
           where: { post_id: postId },
-          data: {
-            is_active: false,
-            updated_at: new Date(),
-          },
         });
 
         return { id: postId, status: "failed" };

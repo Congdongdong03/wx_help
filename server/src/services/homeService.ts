@@ -29,7 +29,6 @@ export class HomeService {
   static async getPinnedRecommendations() {
     return await prisma.recommendations.findMany({
       where: {
-        is_active: true,
         is_pinned: true,
       },
       include: {
@@ -38,6 +37,9 @@ export class HomeService {
             id: true,
             title: true,
             wechat_id: true,
+            city: true,
+            category: true,
+            price: true,
             users: {
               select: {
                 nickname: true,
@@ -57,9 +59,10 @@ export class HomeService {
   static async getNormalRecommendationsByCity(city: string) {
     return await prisma.recommendations.findMany({
       where: {
-        is_active: true,
         is_pinned: false,
-        OR: [{ city: city }, { city: "通用" }],
+        posts: {
+          OR: [{ city: city }, { city: "通用" }],
+        },
       },
       include: {
         posts: {
@@ -67,6 +70,9 @@ export class HomeService {
             id: true,
             title: true,
             wechat_id: true,
+            city: true,
+            category: true,
+            price: true,
             users: {
               select: {
                 nickname: true,
@@ -89,9 +95,10 @@ export class HomeService {
   ) {
     return await prisma.recommendations.findMany({
       where: {
-        is_active: true,
-        category: category,
-        OR: [{ city: city }, { city: "通用" }],
+        posts: {
+          category: category,
+          OR: [{ city: city }, { city: "通用" }],
+        },
       },
       include: {
         posts: {
@@ -99,6 +106,9 @@ export class HomeService {
             id: true,
             title: true,
             wechat_id: true,
+            city: true,
+            category: true,
+            price: true,
             users: {
               select: {
                 nickname: true,
@@ -120,13 +130,15 @@ export class HomeService {
    * 获取数据库中所有城市（调试用）
    */
   static async getAllCitiesInDatabase() {
-    const cities = await prisma.recommendations.findMany({
+    const cities = await prisma.posts.findMany({
       select: {
         city: true,
       },
       distinct: ["city"],
       where: {
-        is_active: true,
+        recommendations: {
+          isNot: null,
+        },
       },
     });
 
@@ -138,13 +150,16 @@ export class HomeService {
    */
   static async getAllRecommendations() {
     return await prisma.recommendations.findMany({
-      select: {
-        id: true,
-        title: true,
-        city: true,
-        category: true,
-        is_pinned: true,
-        is_active: true,
+      include: {
+        posts: {
+          select: {
+            id: true,
+            title: true,
+            city: true,
+            category: true,
+            price: true,
+          },
+        },
       },
       orderBy: [{ is_pinned: "desc" }, { created_at: "desc" }],
     });

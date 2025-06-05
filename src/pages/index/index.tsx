@@ -199,26 +199,39 @@ export default function Index() {
           const mapToFeedPost = (item: any): FeedPost => {
             const feedPost = {
               id: String(
-                item.id || item.post_id || `temp-${Date.now()}-${Math.random()}`
+                item.post?.id ||
+                  item.id ||
+                  `temp-${Date.now()}-${Math.random()}`
               ),
-              title: item.title || "无标题",
-              description: item.description || "暂无描述",
+              title: item.post?.title || "无标题",
+              description: item.post?.content || "暂无描述",
               category:
                 CATEGORIES.find(
-                  (c) => c.id === (item.category || "recommend")
+                  (c) => c.id === (item.post?.category || "recommend")
                 ) || CATEGORIES[0],
-              price: item.price || undefined,
+              price: item.post?.price || undefined,
               updateTime: new Date(
                 item.updated_at || item.created_at || Date.now()
               ),
               boostTime: item.is_pinned ? new Date() : undefined,
-              city: item.city || city,
-              auditStatus: (item.is_active ? "approved" : "pending") as
+              city: item.post?.city || city,
+              auditStatus: "approved" as
                 | "approved"
                 | "pending"
                 | "rejected"
                 | "draft",
-              image_url: item.image_url || undefined,
+              image_url: item.post?.images
+                ? (() => {
+                    try {
+                      const imgs = JSON.parse(item.post.images);
+                      return Array.isArray(imgs) && imgs.length > 0
+                        ? imgs[0]
+                        : undefined;
+                    } catch {
+                      return undefined;
+                    }
+                  })()
+                : undefined,
               mockImagePlaceholderHeight:
                 Math.floor(Math.random() * (550 - 200 + 1)) + 200,
               mockImagePlaceholderColor:
@@ -607,7 +620,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, isPinned }) => {
               {post.category.name}
             </Text>
             {post.price && (
-              <Text className="post-card-price-tag">{post.price}</Text>
+              <Text className="post-card-price-tag">￥{post.price}</Text>
             )}
           </View>
           <Text className="post-card-time">

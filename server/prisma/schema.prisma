@@ -84,6 +84,7 @@ model posts {
   updated_at      DateTime?        @default(now()) @db.Timestamp(0)
   wechat_id       String           @default("") @db.VarChar(50)
   images          String?          @db.Text
+  price           String?          @db.VarChar(50)
   favorite        favorite[]
   polish_log      polish_log[]
   users           users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "posts_ibfk_1")
@@ -94,19 +95,13 @@ model posts {
 
 model recommendations {
   id          Int       @id @default(autoincrement())
-  post_id     Int?      @unique(map: "unique_post_recommendation")
-  title       String    @db.VarChar(255)
-  description String?   @db.Text
-  category    String    @db.VarChar(50)
-  city        String?   @default("通用") @db.VarChar(50)
-  price       String?   @db.VarChar(50)
-  image_url   String?   @db.VarChar(255)
-  is_active   Boolean?  @default(true)
+  post_id     Int       @unique(map: "unique_post_recommendation")
   is_pinned   Boolean?  @default(false)
   sort_order  Int?      @default(0)
   created_at  DateTime? @default(now()) @db.Timestamp(0)
   updated_at  DateTime? @default(now()) @db.Timestamp(0)
-  posts       posts?    @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_recommendations_post")
+  price       String?   @db.VarChar(50)
+  posts       posts     @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_recommendations_post")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
