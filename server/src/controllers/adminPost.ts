@@ -1,5 +1,6 @@
 // src/controllers/adminPost.ts
 import { Request, Response } from "express";
+import { prisma } from "../lib/prisma"; // 添加这行
 import { AdminPostService } from "../services/adminPostService";
 
 // 统一的日志函数
@@ -329,6 +330,80 @@ export class AdminPostController {
       res.status(500).json({
         code: 1,
         error: "获取统计数据失败",
+      });
+    }
+  }
+
+  /**
+   * 获取目录图片
+   * GET /api/admin/catalogue-images?postId=1
+   */
+  static async getCatalogueImages(req: Request, res: Response) {
+    log("info", "getCatalogueImages: Received request", { query: req.query });
+
+    try {
+      const { postId } = req.query;
+
+      // 验证postId是否为置顶帖子
+      if (postId) {
+        const post = await prisma.posts.findUnique({
+          where: { id: parseInt(postId as string) },
+          select: { is_pinned: true },
+        });
+
+        if (!post || !post.is_pinned) {
+          return res.json({
+            code: 1,
+            message: "该帖子不是目录帖子",
+            data: [],
+          });
+        }
+      }
+
+      // 获取最新的目录图片，按商店和页码排序
+      const images = await prisma.catalogue_images.findMany({
+        orderBy: [
+          { store_name: "asc" }, // coles在前，woolworths在后
+          { page_number: "asc" }, // 页码从小到大
+        ],
+        select: {
+          id: true,
+          store_name: true,
+          page_number: true,
+          image_data: true,
+          week_date: true,
+        },
+      });
+
+      log("info", "getCatalogueImages: Success", {
+        count: images.length,
+        postId,
+      });
+
+      // 只返回图片数据数组，按顺序排列
+      const imageDataArray = images.map((img) => img.image_data);
+
+      res.json({
+        code: 0,
+        message: "获取目录图片成功",
+        data: imageDataArray,
+        meta: {
+          total: images.length,
+          stores: [...new Set(images.map((img) => img.store_name))],
+          lastUpdate: images.length > 0 ? images[0].week_date : null,
+        },
+      });
+    } catch (error: any) {
+      log("error", "getCatalogueImages: Error", {
+        message: error.message,
+        stack: error.stack,
+        query: req.query,
+      });
+      res.status(500).json({
+        code: 1,
+        error: "获取目录图片失败",
+        message: error.message,
+        data: [],
       });
     }
   }

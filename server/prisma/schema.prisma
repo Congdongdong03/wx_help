@@ -83,8 +83,9 @@ model posts {
   created_at      DateTime?        @default(now()) @db.Timestamp(0)
   updated_at      DateTime?        @default(now()) @db.Timestamp(0)
   wechat_id       String           @default("") @db.VarChar(50)
+  price           String?          @db.VarChar(50)    
+  is_pinned       Boolean?         @default(false)   
   images          String?          @db.Text
-  price           String?          @db.VarChar(50)
   favorite        favorite[]
   polish_log      polish_log[]
   users           users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "posts_ibfk_1")
@@ -100,7 +101,6 @@ model recommendations {
   sort_order  Int?      @default(0)
   created_at  DateTime? @default(now()) @db.Timestamp(0)
   updated_at  DateTime? @default(now()) @db.Timestamp(0)
-  price       String?   @db.VarChar(50)
   posts       posts     @relation(fields: [post_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_recommendations_post")
 }
 
@@ -151,4 +151,16 @@ enum users_status {
   active
   inactive
   banned
+}
+model catalogue_images {
+  id          Int      @id @default(autoincrement())
+  store_name  String   @db.VarChar(50)
+  page_number Int
+  image_data  String   @db.LongText
+  week_date   DateTime @db.Date
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now()) @updatedAt
+
+  @@index([store_name, week_date], map: "idx_store_week")
+  @@map("catalogue_images")
 }

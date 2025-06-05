@@ -3,6 +3,31 @@
   background-color: #f8f8f8; // Light background for the whole page
   height: 100vh; // Ensure it takes full height for scrolling
 
+  &.pinned-post {
+    background-color: #000;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+
+    .image-swiper {
+      height: 100vh;
+      width: 100vw;
+      background-color: #000;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+
+    .swiper-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+  }
+
   .image-swiper {
     width: 100%;
     height: 500rpx; // Adjust as needed, common aspect ratio for hero images

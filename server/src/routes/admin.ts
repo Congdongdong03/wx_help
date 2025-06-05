@@ -23,5 +23,6 @@ router.delete("/posts/:id", AdminPostController.deletePost);
 
 // 获取统计数据
 router.get("/posts/stats", AdminPostController.getReviewStats);
-
+// 获取目录图片
+router.get("/catalogue-images", AdminPostController.getCatalogueImages);
 export default router;

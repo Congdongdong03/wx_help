@@ -209,8 +209,8 @@ export class PostService {
   /**
    * 根据ID查找帖子
    */
-  static async findById(id: number): Promise<posts | null> {
-    return await prisma.posts.findUnique({
+  static async findById(id: number): Promise<any | null> {
+    const post = await prisma.posts.findUnique({
       where: { id },
       include: {
         users: {
@@ -220,8 +220,18 @@ export class PostService {
             avatar_url: true,
           },
         },
+        recommendations: {
+          select: {
+            is_pinned: true,
+          },
+        },
       },
     });
+    if (!post) return null;
+    return {
+      ...post,
+      is_pinned: !!post.recommendations?.is_pinned,
+    };
   }
 
   /**

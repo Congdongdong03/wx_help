@@ -10,6 +10,7 @@ import {
   ScrollView,
 } from "@tarojs/components";
 import "./index.scss";
+import { API_CONFIG } from "../../config/api";
 
 // Define PostDetail interface based on requirements
 interface PostDetail {
@@ -22,6 +23,7 @@ interface PostDetail {
   description: string;
   wechatId?: string;
   status: "normal" | "taken_down" | "rejected"; // normal, taken_down, rejected etc.
+  isPinned?: boolean; // 是否为置顶帖子
   // Potentially other fields like publisher_avatar, user_id etc.
 }
 
@@ -60,6 +62,7 @@ export default function PostDetailPage() {
   const [post, setPost] = useState<PostDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [catalogueImages, setCatalogueImages] = useState<string[]>([]);
 
   useEffect(() => {
     const postId = router.params.id;
@@ -67,7 +70,7 @@ export default function PostDetailPage() {
     setError(false);
 
     Taro.request({
-      url: `http://localhost:3000/api/posts/${postId}`,
+      url: API_CONFIG.getApiUrl(`/posts/${postId}`),
       method: "GET",
     })
       .then((res) => {
@@ -75,7 +78,11 @@ export default function PostDetailPage() {
           const apiPost = res.data.data;
           setPost({
             id: String(apiPost.id),
-            images: apiPost.images ? JSON.parse(apiPost.images) : [],
+            images: apiPost.images
+              ? JSON.parse(apiPost.images).map((img: string) =>
+                  API_CONFIG.getImageUrl(img)
+                )
+              : [],
             title: apiPost.title,
             category: apiPost.category,
             publishTime: apiPost.created_at || "",
@@ -83,7 +90,34 @@ export default function PostDetailPage() {
             description: apiPost.content,
             wechatId: apiPost.wechat_id,
             status: apiPost.status === "published" ? "normal" : apiPost.status,
+            isPinned: apiPost.recommendations?.is_pinned === true,
           });
+          if (apiPost.recommendations?.is_pinned === true) {
+            Taro.request({
+              url: API_CONFIG.getApiUrl(
+                `/admin/catalogue-images?postId=${apiPost.id}`
+              ),
+              method: "GET",
+            })
+              .then((imgRes) => {
+                if (
+                  imgRes.data &&
+                  imgRes.data.code === 0 &&
+                  Array.isArray(imgRes.data.data)
+                ) {
+                  setCatalogueImages(
+                    imgRes.data.data.map((img: string) =>
+                      API_CONFIG.getImageUrl(img)
+                    )
+                  );
+                } else {
+                  setCatalogueImages([]);
+                }
+              })
+              .catch(() => setCatalogueImages([]));
+          } else {
+            setCatalogueImages([]);
+          }
         } else {
           setError(true);
         }
@@ -158,92 +192,101 @@ export default function PostDetailPage() {
     );
   }
 
+  const imagesToShow = post.isPinned ? catalogueImages : post.images;
+
   return (
-    <ScrollView scrollY className="detail-page">
+    <ScrollView
+      scrollY
+      className={`detail-page ${post.isPinned ? "pinned-post" : ""}`}
+    >
       {/* 1. Top Swiper */}
-      {post.images && post.images.length > 0 && (
+      {imagesToShow && imagesToShow.length > 0 && (
         <Swiper
-          className="image-swiper"
+          className={`image-swiper ${post.isPinned ? "fullscreen-swiper" : ""}`}
           indicatorColor="#999"
           indicatorActiveColor="#333"
           circular
           indicatorDots
-          autoplay={false} // Usually users prefer manual control for detail view
+          autoplay={false}
         >
-          {post.images.map((imageUrl, index) => (
+          {imagesToShow.map((imageUrl, index) => (
             <SwiperItem key={index} onClick={() => handleImageClick(index)}>
               <Image
-                className="swiper-image"
+                className={`swiper-image ${
+                  post.isPinned ? "fullscreen-image" : ""
+                }`}
                 src={imageUrl}
-                mode="aspectFill"
+                mode={post.isPinned ? "aspectFit" : "aspectFill"}
               />
             </SwiperItem>
           ))}
         </Swiper>
       )}
 
-      {/* 2. Title */}
-      <View className="content-padding">
-        <Text className="title-text" selectable>
-          {post.title}
-        </Text>
-
-        {/* 3. Category + Publish Time */}
-        <View className="meta-info">
-          <Text className="category-tag">{post.category}</Text>
-          <Text className="publish-time">{post.publishTime}</Text>
-        </View>
-
-        {/* 4. Price */}
-        {post.price && (
-          <Text className="price-text" selectable>
-            {post.price}
+      {/* 2. 非置顶帖子才显示其他内容 */}
+      {!post.isPinned && (
+        <View className="content-padding">
+          <Text className="title-text" selectable>
+            {post.title}
           </Text>
-        )}
 
-        {/* 5. Description */}
-        {/* Wrap description in a ScrollView if it needs its own scroll, 
-            otherwise the main page ScrollView will handle it. 
-            For "展开更多", JS would be needed to toggle height/class 
-        */}
-        <Text className="description-text" selectable>
-          {post.description}
-        </Text>
+          {/* 3. Category + Publish Time */}
+          <View className="meta-info">
+            <Text className="category-tag">{post.category}</Text>
+            <Text className="publish-time">{post.publishTime}</Text>
+          </View>
 
-        {/* 6. WeChat ID + Copy Button */}
-        {post.wechatId && (
-          <View className="wechat-section">
-            <Text className="wechat-id-text" selectable>
-              微信号: {post.wechatId}
+          {/* 4. Price */}
+          {post.price && (
+            <Text className="price-text" selectable>
+              {post.price}
             </Text>
-            <Button
-              className="copy-button"
-              size="mini"
-              onClick={handleCopyWechatId}
-            >
-              复制
-            </Button>
-          </View>
-        )}
-        {!post.wechatId && (
-          <View className="wechat-section">
-            <Text className="wechat-id-text muted">暂无微信号</Text>
-            <Button
-              className="copy-button disabled"
-              size="mini"
-              disabled
-              onClick={handleCopyWechatId}
-            >
-              复制
-            </Button>
-          </View>
-        )}
+          )}
 
-        {/* 7. Warm Reminder */}
-        <Text className="reminder-text">
-          请勿私下转账，平台不承担担保责任。
-        </Text>
-      </View>
+          {/* 5. Description */}
+          {/* Wrap description in a ScrollView if it needs its own scroll, 
+              otherwise the main page ScrollView will handle it. 
+              For "展开更多", JS would be needed to toggle height/class 
+          */}
+          <Text className="description-text" selectable>
+            {post.description}
+          </Text>
+
+          {/* 6. WeChat ID + Copy Button */}
+          {post.wechatId && (
+            <View className="wechat-section">
+              <Text className="wechat-id-text" selectable>
+                微信号: {post.wechatId}
+              </Text>
+              <Button
+                className="copy-button"
+                size="mini"
+                onClick={handleCopyWechatId}
+              >
+                复制
+              </Button>
+            </View>
+          )}
+          {!post.wechatId && (
+            <View className="wechat-section">
+              <Text className="wechat-id-text muted">暂无微信号</Text>
+              <Button
+                className="copy-button disabled"
+                size="mini"
+                disabled
+                onClick={handleCopyWechatId}
+              >
+                复制
+              </Button>
+            </View>
+          )}
+
+          {/* 7. Warm Reminder */}
+          <Text className="reminder-text">
+            请勿私下转账，平台不承担担保责任。
+          </Text>
+        </View>
+      )}
 
       {/* 8. Taken Down / Rejected (handled at the top) */}
     </ScrollView>
