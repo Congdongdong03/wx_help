@@ -63,21 +63,36 @@ export default function PostDetailPage() {
 
   useEffect(() => {
     const postId = router.params.id;
-    console.log("Loading detail for postId:", postId);
-    // Simulate API call to fetch post details
     setLoading(true);
     setError(false);
-    setTimeout(() => {
-      // In a real app, you would fetch data based on postId
-      // For now, we'll use mock data. We can switch based on a mock ID or always show normal.
-      if (postId === "456") {
-        // Simulate loading a taken_down post
-        setPost(MOCK_POST_DETAIL_TAKEN_DOWN);
-      } else {
-        setPost(MOCK_POST_DETAIL_NORMAL);
-      }
-      setLoading(false);
-    }, 1000); // Simulate network delay
+
+    Taro.request({
+      url: `http://localhost:3000/api/posts/${postId}`,
+      method: "GET",
+    })
+      .then((res) => {
+        if (res.data && res.data.code === 0) {
+          const apiPost = res.data.data;
+          setPost({
+            id: String(apiPost.id),
+            images: apiPost.images ? JSON.parse(apiPost.images) : [],
+            title: apiPost.title,
+            category: apiPost.category,
+            publishTime: apiPost.created_at || "",
+            price: apiPost.price,
+            description: apiPost.content,
+            wechatId: apiPost.wechat_id,
+            status: apiPost.status === "published" ? "normal" : apiPost.status,
+          });
+        } else {
+          setError(true);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setError(true);
+        setLoading(false);
+      });
   }, [router.params.id]);
 
   const handleImageClick = (index: number) => {
