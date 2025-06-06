@@ -1,16 +1,18 @@
 import { View } from "@tarojs/components";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Taro from "@tarojs/taro";
-import PostList from "../../components/PostList";
-import { PostCardData } from "../../components/PostCard";
+import { OptimizedPostList } from "../../components/OptimizedPostList";
+import { Post } from "../../types";
 import { handlePostError } from "../../utils/postUtils";
 import "./index.scss";
 
 const PostsPage = () => {
-  const [refreshing, setRefreshing] = useState(false);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const fetchPosts = async (page: number): Promise<PostCardData[]> => {
+  const fetchPosts = useCallback(async (page: number) => {
     try {
+      setLoading(true);
       const response = await Taro.request({
         url: `${process.env.API_BASE_URL}/api/posts`,
         method: "GET",
@@ -24,26 +26,23 @@ const PostsPage = () => {
       });
 
       if (response.statusCode === 200) {
-        return response.data.posts.map((post: any) => ({
+        const newPosts = response.data.posts.map((post: any) => ({
           id: post._id,
           title: post.title,
           description: post.description,
-          category: {
-            name: post.category,
-            color: "#007AFF",
-          },
+          category: post.category,
           price: post.price,
-          displayTimeText: new Date(post.createdAt).toLocaleDateString(),
-          mockImagePlaceholderHeight: 300,
-          mockImagePlaceholderColor: "#f0f0f0",
+          images: post.images || [],
+          createdAt: post.createdAt,
         }));
+        setPosts((prev) => [...prev, ...newPosts]);
       }
-      return [];
     } catch (error) {
       handlePostError(error);
-      return [];
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
   const handlePostClick = (id: string) => {
     Taro.navigateTo({
@@ -53,7 +52,11 @@ const PostsPage = () => {
 
   return (
     <View className="posts-page">
-      <PostList fetchPosts={fetchPosts} onPostClick={handlePostClick} />
+      <OptimizedPostList
+        posts={posts}
+        onPostClick={handlePostClick}
+        loading={loading}
+      />
     </View>
   );
 };

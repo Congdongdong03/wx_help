@@ -1,11 +1,7 @@
 // API configuration
 const getBaseUrl = () => {
-  if (process.env.TARO_ENV === "weapp") {
-    // In WeChat Mini Program, use the development server URL
-    return "http://localhost:3000";
-  }
-  // For other environments (H5, etc.)
-  return "http://localhost:3000";
+  // 优先用局域网地址，兜底用 localhost
+  return "http://192.168.1.243:3000" || "http://localhost:3000";
 };
 
 export const API_CONFIG = {

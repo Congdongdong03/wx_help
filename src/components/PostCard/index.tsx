@@ -1,92 +1,62 @@
-import Taro from "@tarojs/taro";
-import { View } from "@tarojs/components";
-import { useState } from "react";
-import PostImage from "./PostImage";
-import PostContent from "./PostContent";
-import "./index.scss"; // We will create this SCSS file
-
-// Define a common interface for data the PostCard expects
-// This should be general enough for both FeedPost and FavoritePost (or any other source)
-export interface PostCardData {
-  id: string;
-  mockImagePlaceholderHeight?: number;
-  mockImagePlaceholderColor?: string;
-  coverImage?: string;
-  title: string;
-  description?: string; // Description might be optional for some card uses
-  category: {
-    // Assuming category will always have a name and color
-    name: string;
-    color: string;
-  };
-  price?: string | number;
-  // Instead of specific updateTime or collectedTime, use a general displayTime
-  displayTimeText: string; // This will be pre-formatted time string
-  // Add any other fields that PostCard strictly needs to display
-}
+import React, { memo } from "react";
+import { View, Text } from "@tarojs/components";
+import LazyImage from "../LazyImage";
+import "./index.scss";
 
 interface PostCardProps {
-  post: PostCardData;
-  onCardClick?: (id: string) => void; // Optional click handler for the whole card
+  post: {
+    id: string;
+    title: string;
+    content: string;
+    images?: string[];
+    author: {
+      name: string;
+      avatar: string;
+    };
+    createdAt: string;
+  };
+  onClick?: () => void;
 }
 
-// Helper function to format time - can be moved to a utils file
-// For now, keeping it here if PostCard is the only consumer.
-// Or, better, ensure time is pre-formatted before passing to PostCard.
-// const formatRelativeTime = (date: Date): string => { ... }; // Removed as we expect pre-formatted displayTimeText
-
-const PostCard: React.FC<PostCardProps> = ({ post, onCardClick }) => {
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleCardClick = async () => {
-    if (isLoading) return;
-
-    try {
-      setIsLoading(true);
-      if (onCardClick) {
-        await onCardClick(post.id);
-      } else {
-        await Taro.navigateTo({ url: `/pages/detail/index?id=${post.id}` });
-      }
-    } catch (error) {
-      Taro.showToast({
-        title: "操作失败，请重试",
-        icon: "none",
-        duration: 2000,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+const PostCard: React.FC<PostCardProps> = memo(({ post, onClick }) => {
+  const { title, content, images, author, createdAt } = post;
 
   return (
-    <View
-      className={`post-card-component ${isLoading ? "loading" : ""}`}
-      onClick={handleCardClick}
-      role="button"
-      tabIndex={0}
-      aria-label={`查看帖子：${post.title}`}
-      onKeyPress={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          handleCardClick();
-        }
-      }}
-    >
-      <PostImage
-        mockImagePlaceholderHeight={post.mockImagePlaceholderHeight}
-        mockImagePlaceholderColor={post.mockImagePlaceholderColor}
-        coverImage={post.coverImage}
-        alt={post.title}
-      />
-      <PostContent
-        title={post.title}
-        description={post.description}
-        category={post.category}
-        price={post.price}
-        displayTimeText={post.displayTimeText}
-      />
+    <View className="post-card" onClick={onClick}>
+      <View className="post-header">
+        <LazyImage
+          src={author.avatar}
+          alt={author.name}
+          className="author-avatar"
+          width={40}
+          height={40}
+        />
+        <View className="author-info">
+          <Text className="author-name">{author.name}</Text>
+          <Text className="post-time">{createdAt}</Text>
+        </View>
+      </View>
+
+      <View className="post-content">
+        <Text className="post-title">{title}</Text>
+        <Text className="post-text">{content}</Text>
+        {images && images.length > 0 && (
+          <View className="post-images">
+            {images.map((image, index) => (
+              <LazyImage
+                key={index}
+                src={image}
+                alt={`图片 ${index + 1}`}
+                className="post-image"
+                width="100%"
+                height={200}
+              />
+            ))}
+          </View>
+        )}
+      </View>
     </View>
   );
-};
+});
 
 export default PostCard;

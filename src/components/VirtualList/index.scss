@@ -1,0 +1,20 @@
+.virtual-list {
+  position: relative;
+  width: 100%;
+
+  .virtual-list-phantom {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    z-index: -1;
+  }
+
+  .virtual-list-content {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    will-change: transform;
+  }
+}

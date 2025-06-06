@@ -1,6 +1,8 @@
-import Taro, { chooseImage } from "@tarojs/taro";
+import Taro from "@tarojs/taro";
 import { useState } from "react";
 import { View, Text, Textarea, Button, Image } from "@tarojs/components";
+import { debounce, throttle } from "../../../utils/debounce";
+import { request, uploadFile } from "../../../utils/request";
 import "./index.scss";
 
 interface FAQItem {
@@ -43,11 +45,11 @@ export default function HelpFeedbackPage() {
     setExpandedFAQ(expandedFAQ === id ? null : id);
   };
 
-  const handleFeedbackTextChange = (e) => {
+  const handleFeedbackTextChange = debounce((e) => {
     setFeedbackText(e.detail.value);
-  };
+  }, 300);
 
-  const handleChooseImage = () => {
+  const handleChooseImage = throttle(() => {
     Taro.chooseImage({
       count: 1,
       sizeType: ["original", "compressed"],
@@ -60,36 +62,82 @@ export default function HelpFeedbackPage() {
         Taro.showToast({ title: "选择图片失败", icon: "none" });
       },
     });
-  };
+  }, 1000);
 
   const handleRemoveImage = () => {
     setFeedbackImage(null);
   };
 
-  const handleSubmitFeedback = () => {
+  const handleSubmitFeedback = throttle(async () => {
     if (!feedbackText.trim()) {
       Taro.showToast({ title: "请填写反馈内容后再提交", icon: "none" });
       return;
     }
 
-    // TODO: Implement actual feedback submission logic (API call)
-    // This would involve uploading feedbackImage if present
-    console.log("Feedback Text:", feedbackText);
-    console.log("Feedback Image:", feedbackImage);
-
     Taro.showLoading({ title: "提交中..." });
-    setTimeout(() => {
+
+    try {
+      let imageUrl = null;
+
+      if (feedbackImage) {
+        try {
+          const uploadResult = await uploadFile<{ url: string }>(
+            "/api/upload",
+            feedbackImage,
+            {
+              name: "file",
+              retryCount: 3,
+              retryDelay: 1000,
+            }
+          );
+          imageUrl = uploadResult.url;
+        } catch (error) {
+          console.error("图片上传失败:", error);
+          Taro.showToast({
+            title: "图片上传失败，是否继续提交？",
+            icon: "none",
+            duration: 2000,
+          });
+        }
+      }
+
+      await request("/api/feedback", {
+        method: "POST",
+        data: {
+          content: feedbackText.trim(),
+          imageUrl,
+        },
+        retryCount: 3,
+        retryDelay: 1000,
+        retryableStatusCodes: [408, 429, 500, 502, 503, 504],
+      });
+
       Taro.hideLoading();
       Taro.showToast({
         title: "反馈已提交，我们会尽快查看～",
         icon: "success",
         duration: 2000,
       });
+
       setFeedbackText("");
       setFeedbackImage(null);
-      // Potentially navigate back or clear form
-    }, 1500); // Simulate API call
-  };
+    } catch (error) {
+      Taro.hideLoading();
+
+      let errorMessage = "提交失败，请稍后重试";
+      if (error.message?.includes("HTTP 429")) {
+        errorMessage = "提交过于频繁，请稍后再试";
+      } else if (error.message?.includes("HTTP 5")) {
+        errorMessage = "服务器暂时不可用，请稍后再试";
+      }
+
+      Taro.showToast({
+        title: errorMessage,
+        icon: "none",
+        duration: 2000,
+      });
+    }
+  }, 2000);
 
   return (
     <View className="help-feedback-page">

@@ -1,6 +1,7 @@
 import Taro, { useRouter } from "@tarojs/taro";
 import { useState, useEffect } from "react";
 import { View, Input, Button, Text } from "@tarojs/components";
+import { debounce } from "../../../utils/debounce";
 import "./index.scss";
 
 const USER_INFO_STORAGE_KEY = "my_app_user_info"; // Should be consistent with my/index.tsx
@@ -37,11 +38,13 @@ export default function EditNicknamePage() {
     }
   }, [currentNickname, originalNickname]);
 
-  const handleInputChange = (e) => {
+  // 使用防抖处理输入变化
+  const handleInputChange = debounce((e) => {
     setCurrentNickname(e.detail.value);
-  };
+  }, 300);
 
-  const handleSave = () => {
+  // 使用节流处理保存操作
+  const handleSave = throttle(() => {
     if (isSaveDisabled || errorText) {
       // Double check with errorText as well
       Taro.showToast({ title: errorText || "昵称无效", icon: "none" });
@@ -72,7 +75,7 @@ export default function EditNicknamePage() {
         Taro.showToast({ title: "保存失败，请稍后再试", icon: "none" });
       }
     }, 1000);
-  };
+  }, 1000);
 
   return (
     <View className="edit-nickname-page">

@@ -1,12 +1,24 @@
 import Taro from "@tarojs/taro";
 import { View, Text, Button, Image } from "@tarojs/components";
 import { useState, useEffect } from "react";
-import { UserInfo, storeLoggedInUser, loginModalEventBus } from "../../app"; // Assuming app.tsx is in src
+import { UserInfo, storeLoggedInUser, loginModalEventBus } from "../../app";
+import { throttle } from "../../utils/debounce";
+import { request } from "../../utils/request";
 import "./index.scss";
 
 interface LoginModalProps {
   // Props will be passed by the page/layout that renders this
   // For now, its visibility is controlled by listening to loginModalEventBus
+}
+
+interface WechatUserInfo {
+  nickName: string;
+  avatarUrl: string;
+  gender: number;
+  country: string;
+  province: string;
+  city: string;
+  language: string;
 }
 
 // Mock API for login simulation (copied from app.tsx for standalone use if needed, or import)
@@ -58,47 +70,27 @@ export default function LoginModal(props: LoginModalProps) {
   });
 
   useEffect(() => {
-    console.log("🔧 LoginModal: Setting up event listeners");
-
-    const showHandler = (options: { type: "initial" | "overlay" }) => {
-      console.log(
-        "📨 LoginModal: Received showLogin event with options:",
-        options
-      );
-      console.log("📨 LoginModal: Current state before update:", {
-        isVisible,
-        modalType,
-      });
-
-      const newType = options.type || "initial";
-      console.log(
-        `📨 LoginModal: Setting modalType to '${newType}' and isVisible to true`
-      );
-
-      setModalType(newType);
+    console.log("🔌 LoginModal: Setting up event listeners");
+    loginModalEventBus.on("show", () => {
+      console.log("📢 LoginModal: Received show event");
       setIsVisible(true);
-    };
+      setModalType("initial");
+    });
 
-    const hideHandler = () => {
-      console.log("📨 LoginModal: Received hideLogin event");
-      console.log("📨 LoginModal: Current isVisible state:", isVisible);
-      console.log("📨 LoginModal: Setting isVisible to false");
+    loginModalEventBus.on("hide", () => {
+      console.log("📢 LoginModal: Received hide event");
       setIsVisible(false);
-    };
-
-    loginModalEventBus.on("showLogin", showHandler);
-    loginModalEventBus.on("hideLogin", hideHandler);
-    console.log("✅ LoginModal: Event listeners registered successfully");
+    });
 
     return () => {
-      console.log("🧹 LoginModal: Cleaning up event listeners");
-      loginModalEventBus.off("showLogin", showHandler);
-      loginModalEventBus.off("hideLogin", hideHandler);
-      console.log("✅ LoginModal: Event listeners cleaned up");
+      console.log("🔌 LoginModal: Cleaning up event listeners");
+      loginModalEventBus.off("show");
+      loginModalEventBus.off("hide");
     };
   }, []);
 
-  const handleAuthorize = async () => {
+  // 使用节流处理授权操作
+  const handleAuthorize = throttle(async () => {
     console.log("🔘 LoginModal: Authorize button clicked");
     console.log("🔘 LoginModal: Current modal type:", modalType);
     console.log("🔘 LoginModal: Setting loading state to true");
@@ -106,19 +98,44 @@ export default function LoginModal(props: LoginModalProps) {
     setIsLoading(true);
 
     try {
+      // 1. 获取用户信息
       console.log("📱 LoginModal: Calling Taro.getUserProfile...");
-      const res = await Taro.getUserProfile({
-        desc: "用于完善会员资料与登录", // Description for the user
+      const userProfileRes = await Taro.getUserProfile({
+        desc: "用于完善会员资料与登录",
       });
+
+      if (!userProfileRes.userInfo) {
+        throw new Error("获取用户信息失败");
+      }
+
+      const userInfo = userProfileRes.userInfo as WechatUserInfo;
       console.log(
         "✅ LoginModal: Taro.getUserProfile success, userInfo received:",
-        res.userInfo
+        userInfo
       );
 
-      console.log("🔄 LoginModal: Calling mockLoginAPI with userInfo...");
-      const loggedInUser = await mockLoginAPI(res.userInfo);
+      // 2. 获取openid
+      console.log("📱 LoginModal: Getting openid...");
+      const loginRes = await Taro.login();
+      if (!loginRes.code) {
+        throw new Error("获取登录凭证失败");
+      }
+
+      // 3. 调用登录接口
+      console.log("🔄 LoginModal: Calling login API...");
+      const loggedInUser = await request<UserInfo>("/api/auth/wechat-login", {
+        method: "POST",
+        data: {
+          code: loginRes.code,
+          userInfo,
+        },
+        retryCount: 3,
+        retryDelay: 1000,
+        retryableStatusCodes: [408, 429, 500, 502, 503, 504],
+      });
+
       console.log(
-        "✅ LoginModal: mockLoginAPI successful, user data:",
+        "✅ LoginModal: Login API successful, user data:",
         loggedInUser
       );
 
@@ -134,13 +151,13 @@ export default function LoginModal(props: LoginModalProps) {
       });
 
       console.log("🚪 LoginModal: Hiding modal (setting isVisible to false)");
-      setIsVisible(false); // Hide modal on success
+      setIsVisible(false);
 
       console.log("🔄 LoginModal: Setting loading state to false");
       setIsLoading(false);
 
       console.log("📤 LoginModal: Triggering authSuccess event");
-      loginModalEventBus.trigger("authSuccess", loggedInUser); // Notify app (optional)
+      loginModalEventBus.trigger("authSuccess", loggedInUser);
       console.log(
         "✅ LoginModal: Authorization process completed successfully"
       );
@@ -152,7 +169,7 @@ export default function LoginModal(props: LoginModalProps) {
       let errMsg = "授权失败，请稍后重试";
       console.log("🔍 LoginModal: Analyzing error type...");
 
-      if (err.errMsg && err.errMsg.includes("getUserProfile:fail auth deny")) {
+      if (err.errMsg?.includes("getUserProfile:fail auth deny")) {
         console.log("🚫 LoginModal: User explicitly denied authorization");
         errMsg = "您已拒绝授权";
         console.log(
@@ -160,10 +177,20 @@ export default function LoginModal(props: LoginModalProps) {
         );
         setModalType("overlay");
         console.log("📤 LoginModal: Triggering authReject event");
-        loginModalEventBus.trigger("authReject"); // Notify app of explicit rejection
-      } else if (err.errMsg && err.errMsg.includes("Network error")) {
+        loginModalEventBus.trigger("authReject");
+      } else if (err.errMsg?.includes("Network error")) {
         console.log("🌐 LoginModal: Network error detected");
-        errMsg = "授权失败，请检查网络后重试";
+        errMsg = "网络连接失败，请检查网络后重试";
+      } else if (err.message?.includes("HTTP 429")) {
+        console.log("🚫 LoginModal: Rate limit exceeded");
+        errMsg = "请求过于频繁，请稍后再试";
+      } else if (err.message?.includes("HTTP 5")) {
+        console.log("🚫 LoginModal: Server error");
+        errMsg = "服务器暂时不可用，请稍后再试";
+      } else if (err.message === "获取用户信息失败") {
+        errMsg = "获取用户信息失败，请重试";
+      } else if (err.message === "获取登录凭证失败") {
+        errMsg = "登录失败，请重试";
       }
 
       console.log(`📝 LoginModal: Final error message: "${errMsg}"`);
@@ -171,8 +198,6 @@ export default function LoginModal(props: LoginModalProps) {
         `🔍 LoginModal: Current modalType for error handling: "${modalType}"`
       );
 
-      // For initial type, if it's not an explicit user deny, show error in place or a toast
-      // For overlay type, error is usually shown within the overlay
       if (modalType === "initial" && errMsg !== "您已拒绝授权") {
         console.log(
           "🍞 LoginModal: Showing error toast for initial modal (non-rejection error)"
@@ -184,8 +209,6 @@ export default function LoginModal(props: LoginModalProps) {
         });
       } else if (modalType === "overlay") {
         console.log("🍞 LoginModal: Showing error toast for overlay modal");
-        // Error message can be displayed within the overlay UI for this type
-        // For now, a toast for overlay too, or you can add a text field in the overlay
         Taro.showToast({
           title: errMsg,
           icon: "none",
@@ -194,9 +217,10 @@ export default function LoginModal(props: LoginModalProps) {
       }
       console.log("❌ LoginModal: Error handling completed");
     }
-  };
+  }, 1000);
 
-  const handleRejectInitial = () => {
+  // 使用节流处理拒绝操作
+  const handleRejectInitial = throttle(() => {
     console.log("🚫 LoginModal: Initial reject button clicked");
     console.log("🚫 LoginModal: Current modalType:", modalType);
     console.log(
@@ -204,9 +228,9 @@ export default function LoginModal(props: LoginModalProps) {
     );
     setModalType("overlay");
     console.log("📤 LoginModal: Triggering authReject event");
-    loginModalEventBus.trigger("authReject"); // Notify app
+    loginModalEventBus.trigger("authReject");
     console.log("✅ LoginModal: Reject handling completed");
-  };
+  }, 1000);
 
   console.log(
     "🔍 LoginModal: Checking visibility state before render, isVisible:",
@@ -246,28 +270,24 @@ export default function LoginModal(props: LoginModalProps) {
   // Initial Modal Type
   console.log("📱 LoginModal: Rendering initial modal");
   return (
-    <View className="login-modal-backdrop">
-      <View className="login-modal-content">
-        <Text className="modal-title">微信授权登录</Text>
-        {/* You can add an App logo/icon here */}
-        {/* <Image src='/path/to/your/app_icon.png' className='app-logo' /> */}
-        <Text className="modal-description">
-          为了更好地体验我们的服务，请授权登录，我们将获取您的头像、昵称信息。
-        </Text>
+    <View className="login-modal">
+      <View className="modal-content">
+        <Text className="modal-title">欢迎使用帮帮</Text>
+        <Text className="modal-subtitle">授权后即可使用完整功能</Text>
         <Button
-          className="auth-button primary"
+          className="auth-button"
           onClick={handleAuthorize}
           loading={isLoading}
           disabled={isLoading}
         >
-          授权登录
+          微信一键登录
         </Button>
         <Button
-          className="auth-button secondary"
+          className="reject-button"
           onClick={handleRejectInitial}
           disabled={isLoading}
         >
-          拒绝
+          暂不登录
         </Button>
       </View>
     </View>
