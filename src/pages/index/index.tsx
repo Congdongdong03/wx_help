@@ -1,6 +1,7 @@
 import Taro from "@tarojs/taro";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { View, Text, Image, ScrollView, Button } from "@tarojs/components";
+import { BASE_URL } from "../../utils/env";
 import "./index.scss";
 
 // ------------------ DATA STRUCTURES ------------------
@@ -114,7 +115,7 @@ export default function Index() {
   useEffect(() => {
     console.log("开始加载城市列表...");
     Taro.request({
-      url: "http://localhost:3000/api/home/cities",
+      url: `${BASE_URL}/api/home/cities`,
       method: "GET",
       timeout: 10000,
       header: {
@@ -169,7 +170,7 @@ export default function Index() {
       setLoadError(false);
 
       try {
-        let url = `http://localhost:3000/api/home/recommendations?city=${encodeURIComponent(
+        let url = `${BASE_URL}/api/home/recommendations?city=${encodeURIComponent(
           city
         )}`;
         if (categoryId && categoryId !== "recommend") {

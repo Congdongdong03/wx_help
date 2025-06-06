@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback } from "react";
 import Taro from "@tarojs/taro";
 import { View, Text, Button, ScrollView } from "@tarojs/components";
 import styles from "./index.module.scss";
+import { BASE_URL } from "../../utils/env";
 
 // Replace with your actual API base URL
-const BASE_API_URL = "http://localhost:3000/api";
+const BASE_API_URL = `${BASE_URL}/api`;
 
 // Simplified Post interface - align with your actual Post model
 interface Post {

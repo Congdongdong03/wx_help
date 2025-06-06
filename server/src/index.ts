@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express, { Request, Response, NextFunction } from "express";
 // import { Logtail } from "@logtail/node";
 import cors from "cors";
@@ -150,6 +151,11 @@ app.get("/api/debug/catalogue-images", (req: Request, res: Response) => {
       error: error.message,
     });
   }
+});
+
+// 健康检查接口
+app.get("/api/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
 });
 
 // Error handling

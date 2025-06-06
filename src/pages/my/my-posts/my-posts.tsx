@@ -2,9 +2,10 @@ import Taro, { useRouter } from "@tarojs/taro";
 import { View, Text, Image, Button, ScrollView } from "@tarojs/components";
 import { useState, useEffect, useCallback } from "react";
 import "./index.scss";
+import { BASE_URL } from "../../../utils/env";
 
 // --- API Integration START ---
-const BASE_API_URL = "http://localhost:3000/api"; // 确保这是您后端API的正确地址
+const BASE_API_URL = `${BASE_URL}/api`; // 确保这是您后端API的正确地址
 
 // 和后端 /api/posts/my 返回一致的 Post 结构
 interface ApiPost {

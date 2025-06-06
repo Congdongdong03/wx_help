@@ -13,9 +13,10 @@ import {
 import BottomActionBar from "../../../components/BottomActionBar/index";
 import WechatIdInput from "../../../components/WechatIdInput/index";
 import "./index.scss";
+import { BASE_URL } from "../../../utils/env";
 
 // Define the base API URL (adjust if your server runs elsewhere or in production)
-const BASE_API_URL = "http://localhost:3000/api";
+const BASE_API_URL = `${BASE_URL}/api`;
 
 // Interfaces (ensure Post is defined if passed directly, or map from it)
 interface OriginalPostData {

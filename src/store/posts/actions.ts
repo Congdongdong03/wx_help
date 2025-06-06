@@ -7,6 +7,7 @@ import {
   FETCH_MY_POSTS_FAILURE,
   Post, // 导入 Post 类型
 } from "./types";
+import { BASE_URL } from "../utils/env";
 
 // Action Creators
 
@@ -34,7 +35,7 @@ export const fetchMyPosts = () => {
       // TODO: 替换为实际的API调用
       const response = await Taro.request<Post[]>({
         // 使用 Post[] 类型标注响应数据
-        url: "http://localhost:3000/api/posts/my", // 后端接口地址
+        url: `${BASE_URL}/api/posts/my`, // 后端接口地址
         method: "GET",
       });
 
