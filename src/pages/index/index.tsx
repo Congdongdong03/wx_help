@@ -235,7 +235,7 @@ export default function Index() {
                 item.updated_at || item.created_at || Date.now()
               ),
               boostTime: item.is_pinned ? new Date() : undefined,
-              city: item.post?.city || city,
+              city: item.post?.cityCode || item.post?.city || city,
               auditStatus: "approved" as
                 | "approved"
                 | "pending"

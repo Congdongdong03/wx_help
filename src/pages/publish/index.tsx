@@ -405,7 +405,7 @@ export default function NewPostForm() {
         createTime: new Date().toISOString(),
         wechatId: formData.contactInfo,
         category: formData.categoryMain,
-        city: selectedCity.name,
+        city: formData.cityCode,
         price: formData.price || undefined,
         boostTime: undefined,
         image_url: finalImages[0] || undefined,
