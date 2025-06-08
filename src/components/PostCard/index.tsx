@@ -1,7 +1,8 @@
 import React, { memo } from "react";
-import { View, Text } from "@tarojs/components";
+import { View, Text, Image } from "@tarojs/components";
 import LazyImage from "../LazyImage";
 import "./index.scss";
+import { API_CONFIG } from "../../config/api";
 
 interface PostCardProps {
   post: {
@@ -43,13 +44,12 @@ const PostCard: React.FC<PostCardProps> = memo(({ post, onClick }) => {
         {images && images.length > 0 && (
           <View className="post-images">
             {images.map((image, index) => (
-              <LazyImage
+              <Image
                 key={index}
                 src={image}
-                alt={`图片 ${index + 1}`}
+                mode="aspectFill"
                 className="post-image"
-                width="100%"
-                height={200}
+                style={{ width: "100%", height: 200 }}
               />
             ))}
           </View>

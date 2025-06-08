@@ -24,7 +24,7 @@ interface FeedPost {
   boostTime?: Date;
   city: string;
   auditStatus: "approved" | "pending" | "rejected" | "draft";
-  image_url?: string;
+  images: string[];
 }
 
 // ------------------ MOCK DATA ------------------
@@ -198,6 +198,26 @@ export default function Index() {
           console.log("原始普通数据:", listRaw);
 
           const mapToFeedPost = (item: any): FeedPost => {
+            // 处理图片数组
+            let images: string[] = [];
+            if (item.post?.images) {
+              let rawImages = item.post.images;
+              if (!Array.isArray(rawImages)) {
+                try {
+                  rawImages = JSON.parse(rawImages);
+                } catch {
+                  rawImages = [];
+                }
+              }
+              images = rawImages
+                .filter(
+                  (img: string) => typeof img === "string" && img.length > 0
+                )
+                .map((img: string) =>
+                  img.startsWith("/uploads/") ? `${BASE_URL}${img}` : img
+                );
+            }
+
             const feedPost = {
               id: String(
                 item.post?.id ||
@@ -221,18 +241,7 @@ export default function Index() {
                 | "pending"
                 | "rejected"
                 | "draft",
-              image_url: item.post?.images
-                ? (() => {
-                    try {
-                      const imgs = JSON.parse(item.post.images);
-                      return Array.isArray(imgs) && imgs.length > 0
-                        ? imgs[0]
-                        : undefined;
-                    } catch {
-                      return undefined;
-                    }
-                  })()
-                : undefined,
+              images: images,
               mockImagePlaceholderHeight:
                 Math.floor(Math.random() * (550 - 200 + 1)) + 200,
               mockImagePlaceholderColor:
@@ -597,7 +606,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, isPinned }) => {
       )}
       <Image
         className="post-card-image"
-        src={post.image_url || DEFAULT_IMAGE_URL}
+        src={post.images?.[0] ? post.images[0] : DEFAULT_IMAGE_URL}
         mode="aspectFill"
         style={{
           height: post.mockImagePlaceholderHeight

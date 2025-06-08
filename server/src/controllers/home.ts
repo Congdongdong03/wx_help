@@ -58,6 +58,17 @@ export const getRecommendations = async (req: Request, res: Response) => {
         category: rec.posts.category,
         price: rec.posts.price,
         wechatId: rec.posts.wechat_id,
+        images: rec.posts.images
+          ? typeof rec.posts.images === "string"
+            ? (() => {
+                try {
+                  return JSON.parse(rec.posts.images);
+                } catch {
+                  return [];
+                }
+              })()
+            : rec.posts.images
+          : [],
         user: rec.posts.users && {
           nickname: rec.posts.users.nickname,
           avatar_url: rec.posts.users.avatar_url,

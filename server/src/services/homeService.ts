@@ -40,6 +40,7 @@ export class HomeService {
             city: true,
             category: true,
             price: true,
+            images: true,
             users: {
               select: {
                 nickname: true,
@@ -73,6 +74,7 @@ export class HomeService {
             city: true,
             category: true,
             price: true,
+            images: true,
             users: {
               select: {
                 nickname: true,
@@ -109,6 +111,7 @@ export class HomeService {
             city: true,
             category: true,
             price: true,
+            images: true,
             users: {
               select: {
                 nickname: true,
@@ -158,6 +161,7 @@ export class HomeService {
             city: true,
             category: true,
             price: true,
+            images: true,
           },
         },
       },

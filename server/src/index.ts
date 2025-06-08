@@ -61,6 +61,16 @@ app.use(
     },
   })
 );
+// 新增上传图片静态服务
+app.use(
+  "/uploads",
+  express.static(path.join(PROJECT_ROOT, "public", "uploads"), {
+    setHeaders: (res) => {
+      res.set("Access-Control-Allow-Origin", "*");
+      res.set("Cache-Control", "public, max-age=31536000");
+    },
+  })
+);
 
 // Logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {

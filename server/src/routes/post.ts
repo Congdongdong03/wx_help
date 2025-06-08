@@ -1,5 +1,6 @@
 import express, { Router } from "express";
 import { PostController } from "../controllers/post";
+import { uploadSingle } from "../controllers/upload";
 
 const router = Router();
 
@@ -20,6 +21,10 @@ router.put("/:id", PostController.updatePost); // 更新帖子
 router.delete("/:id", PostController.deletePost); // 删除帖子
 router.post("/:id/polish", PostController.polishPost); // 擦亮帖子
 router.post("/:id/resubmit", PostController.resubmitPost); // 重新提交
+
+// 图片上传接口
+// POST /api/upload
+router.post("/upload", uploadSingle);
 
 // ============ 参数路由放在最后 ============
 router.get("/:id", PostController.getPostById); // 获取帖子详情 - 放在最后

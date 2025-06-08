@@ -41,6 +41,12 @@ export default defineAppConfig({
         selectedIconPath: "assets/tabbar/help.png",
       },
       {
+        pagePath: "pages/publish/index",
+        text: "帮帮",
+        iconPath: "assets/tabbar/help.png",
+        selectedIconPath: "assets/tabbar/help.png",
+      },
+      {
         pagePath: "pages/my/index",
         text: "我的",
         iconPath: "assets/tabbar/mine.png",
