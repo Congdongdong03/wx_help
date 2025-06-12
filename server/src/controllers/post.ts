@@ -107,7 +107,8 @@ export class PostController {
         category,
         status: intentStatus,
         city,
-        cityCode, // ✅ 添加 cityCode
+        cityCode,
+        price,
       } = req.body;
 
       const userId = (req as any).userId || 1;
@@ -177,6 +178,7 @@ export class PostController {
         category,
         city: cityCode || undefined,
         status: intentStatus === "draft" ? "draft" : "pending",
+        price: price || undefined,
       });
 
       let message = "操作成功";
@@ -540,10 +542,13 @@ export class PostController {
    * GET /api/posts/:id
    */
   static async getPostById(req: Request, res: Response) {
+    log("info", "getPostById: Received request", { postId: req.params.id });
+
     try {
       const postId = parseInt(req.params.id);
 
       if (isNaN(postId)) {
+        log("warn", "getPostById: Invalid post ID", { postId: req.params.id });
         return res.status(400).json({
           code: 1,
           error: "无效的帖子ID",
@@ -552,19 +557,25 @@ export class PostController {
 
       const post = await PostService.findById(postId);
       if (!post) {
+        log("warn", "getPostById: Post not found", { postId });
         return res.status(404).json({
           code: 1,
           error: "帖子不存在",
         });
       }
 
+      log("info", "getPostById: Success", { postId });
       res.json({
         code: 0,
         message: "获取成功",
         data: post,
       });
     } catch (error: any) {
-      log("error", "getPostById: Error", { message: error.message });
+      log("error", "getPostById: Error", {
+        message: error.message,
+        stack: error.stack,
+        postId: req.params.id,
+      });
       res.status(500).json({
         code: 1,
         error: "获取帖子详情失败",

@@ -1,7 +1,161 @@
 // src/pages/detail/index.scss
 .detail-page {
-  background-color: #f8f8f8; // Light background for the whole page
-  height: 100vh; // Ensure it takes full height for scrolling
+  min-height: 100vh;
+  background: #f7f7f7;
+  padding-bottom: 32rpx;
+
+  .loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+
+  .error-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    padding: 0 32rpx;
+    text-align: center;
+
+    .error-text {
+      color: #999;
+      font-size: 28rpx;
+      margin-bottom: 32rpx;
+    }
+
+    .retry-button {
+      background: #07c160;
+      color: #fff;
+      padding: 16rpx 48rpx;
+      border-radius: 8rpx;
+      font-size: 28rpx;
+    }
+  }
+
+  .content {
+    .image-grid {
+      background: #fff;
+      padding: 32rpx;
+      margin-bottom: 24rpx;
+
+      .grid-container {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16rpx;
+        width: 100%;
+
+        .grid-item {
+          position: relative;
+          width: 100%;
+          padding-bottom: 100%; // 保持1:1的宽高比
+          overflow: hidden;
+          border-radius: 16rpx;
+
+          .image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+          }
+        }
+      }
+    }
+
+    .post-info {
+      background: #fff;
+      padding: 32rpx;
+      margin-bottom: 24rpx;
+
+      .title {
+        font-size: 36rpx;
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 24rpx;
+      }
+
+      .description {
+        font-size: 28rpx;
+        color: #666;
+        line-height: 1.5;
+        margin-bottom: 32rpx;
+      }
+
+      .price {
+        font-size: 32rpx;
+        color: #ff4d4f;
+        font-weight: 500;
+      }
+    }
+
+    .user-info {
+      background: #fff;
+      padding: 32rpx;
+      margin-bottom: 24rpx;
+      display: flex;
+      align-items: center;
+
+      .avatar {
+        width: 80rpx;
+        height: 80rpx;
+        border-radius: 50%;
+        margin-right: 24rpx;
+      }
+
+      .user-details {
+        flex: 1;
+
+        .nickname {
+          font-size: 28rpx;
+          color: #333;
+          margin-bottom: 8rpx;
+        }
+
+        .post-time {
+          font-size: 24rpx;
+          color: #999;
+        }
+      }
+    }
+
+    .contact-info {
+      background: #fff;
+      padding: 32rpx;
+      margin-bottom: 24rpx;
+
+      .contact-title {
+        font-size: 28rpx;
+        color: #333;
+        margin-bottom: 24rpx;
+      }
+
+      .wechat-id {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 24rpx;
+        background: #f7f7f7;
+        border-radius: 16rpx;
+
+        .id-text {
+          font-size: 28rpx;
+          color: #666;
+        }
+
+        .copy-button {
+          background: #07c160;
+          color: #fff;
+          padding: 12rpx 32rpx;
+          border-radius: 8rpx;
+          font-size: 24rpx;
+        }
+      }
+    }
+  }
 
   &.pinned-post {
     background-color: #000;
@@ -30,110 +184,16 @@
 
   .image-swiper {
     width: 100%;
-    height: 500rpx; // Adjust as needed, common aspect ratio for hero images
-    background-color: #e0e0e0; // Placeholder if images are loading slowly
+    height: 500px;
+
+    &.fullscreen-swiper {
+      height: 100vh;
+    }
 
     .swiper-image {
       width: 100%;
       height: 100%;
     }
-  }
-
-  .content-padding {
-    padding: 30rpx;
-    background-color: #fff; // White background for content area below swiper
-  }
-
-  .title-text {
-    font-size: 40rpx;
-    font-weight: bold;
-    color: #333;
-    display: block; // Ensure it takes its own line
-    margin-bottom: 20rpx;
-    line-height: 1.4;
-    // For multi-line ellipsis (if not handled by component prop, though Text usually does)
-    // display: -webkit-box;
-    // -webkit-line-clamp: 2;
-    // -webkit-box-orient: vertical;
-    // overflow: hidden;
-    // text-overflow: ellipsis;
-  }
-
-  .meta-info {
-    display: flex;
-    align-items: center;
-    margin-bottom: 20rpx;
-    font-size: 26rpx;
-    color: #888;
-
-    .category-tag {
-      background-color: #007bff; // Example category color
-      color: #fff;
-      padding: 4rpx 12rpx;
-      border-radius: 8rpx;
-      margin-right: 15rpx;
-      font-size: 24rpx;
-    }
-  }
-
-  .price-text {
-    font-size: 36rpx;
-    font-weight: bold;
-    color: #ff5000; // Price color
-    display: block;
-    margin-bottom: 30rpx;
-  }
-
-  .description-text {
-    font-size: 30rpx;
-    line-height: 1.7;
-    color: #555;
-    white-space: pre-wrap; // Respect newlines from the data
-    margin-bottom: 40rpx;
-    display: block;
-  }
-
-  .wechat-section {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20rpx;
-    background-color: #f0f0f0; // Slight highlight for this section
-    border-radius: 12rpx;
-    margin-bottom: 30rpx;
-
-    .wechat-id-text {
-      font-size: 28rpx;
-      color: #333;
-      &.muted {
-        color: #999;
-      }
-    }
-
-    .copy-button {
-      font-size: 26rpx;
-      // Taro Button default mini size might be small, adjust padding if needed
-      // Default button styles are okay for now, can be customized further
-      // e.g., background-color: #1aad19; color: #fff;
-      &.disabled {
-        background-color: #ccc;
-        color: #666;
-      }
-      &::after {
-        border: none; // remove default button border for mini buttons too
-      }
-    }
-  }
-
-  .reminder-text {
-    font-size: 26rpx;
-    color: #e64340; // Red color for reminder
-    text-align: center;
-    padding: 20rpx;
-    background-color: #fff7f7;
-    border: 1rpx solid #ffd3d2;
-    border-radius: 8rpx;
-    display: block;
   }
 }
 
@@ -150,4 +210,21 @@
   text-align: center;
   padding: 40rpx;
   flex-direction: column; // For potential retry button
+}
+
+// 图片预览模态框样式
+.image-preview-modal {
+  .modal-content {
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+
+    .preview-image {
+      max-width: 100%;
+      max-height: 100vh;
+      object-fit: contain;
+    }
+  }
 }

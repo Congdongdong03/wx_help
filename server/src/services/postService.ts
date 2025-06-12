@@ -20,6 +20,7 @@ export interface PostCreateInput {
   category?: string;
   city?: string;
   status: posts_status;
+  price?: string;
 }
 
 export interface PostsResult {
@@ -202,6 +203,7 @@ export class PostService {
     return await prisma.posts.create({
       data: {
         ...data,
+        price: data.price || null,
       },
     });
   }
@@ -209,28 +211,36 @@ export class PostService {
   /**
    * 根据ID查找帖子
    */
-  static async findById(id: number): Promise<any | null> {
+  static async findById(id: number): Promise<any> {
     const post = await prisma.posts.findUnique({
       where: { id },
       include: {
-        users: {
-          select: {
-            id: true,
-            nickname: true,
-            avatar_url: true,
-          },
-        },
-        recommendations: {
-          select: {
-            is_pinned: true,
-          },
-        },
+        users: true,
+        recommendations: true,
       },
     });
-    if (!post) return null;
+
+    if (!post) {
+      return null;
+    }
+
+    // 处理图片数据
+    let images = [];
+    if (post.images) {
+      try {
+        images = JSON.parse(post.images);
+      } catch (e) {
+        console.warn(`Failed to parse images for post ${post.id}`);
+      }
+    }
+
     return {
       ...post,
-      is_pinned: !!post.recommendations?.is_pinned,
+      images,
+      preview_image: images.length > 0 ? images[0] : null,
+      is_pinned: post.recommendations?.is_pinned || false,
+      author_nickname: post.users?.nickname,
+      author_avatar: post.users?.avatar_url,
     };
   }
 
@@ -238,11 +248,12 @@ export class PostService {
    * 更新帖子
    */
   static async update(id: number, data: Partial<posts>): Promise<posts> {
+    const currentTimestamp = Date.now();
     return await prisma.posts.update({
       where: { id },
       data: {
         ...data,
-        updated_at: new Date(),
+        updated_at: new Date(currentTimestamp),
       },
     });
   }
@@ -259,5 +270,67 @@ export class PostService {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * 获取帖子列表
+   */
+  static async findPosts(options: {
+    page: number;
+    limit: number;
+    category?: string;
+    city?: string;
+    status?: posts_status;
+  }): Promise<{
+    posts: any[];
+    total: number;
+  }> {
+    const { page, limit, category, city, status } = options;
+    const skip = (page - 1) * limit;
+
+    const where = {
+      ...(category && { category }),
+      ...(city && { city }),
+      ...(status && { status }),
+    };
+
+    const [posts, total] = await Promise.all([
+      prisma.posts.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { created_at: "desc" },
+        include: {
+          users: true,
+          recommendations: true,
+        },
+      }),
+      prisma.posts.count({ where }),
+    ]);
+
+    // 处理图片数据
+    const processedPosts = posts.map((post) => {
+      let images = [];
+      if (post.images) {
+        try {
+          images = JSON.parse(post.images);
+        } catch (e) {
+          console.warn(`Failed to parse images for post ${post.id}`);
+        }
+      }
+      return {
+        ...post,
+        images,
+        preview_image: images.length > 0 ? images[0] : null,
+        is_pinned: post.recommendations?.is_pinned || false,
+        author_nickname: post.users?.nickname,
+        author_avatar: post.users?.avatar_url,
+      };
+    });
+
+    return {
+      posts: processedPosts,
+      total,
+    };
   }
 }

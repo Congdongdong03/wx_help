@@ -1,6 +1,6 @@
 // API configuration
 export const getBaseUrl = () => {
-  return "http://192.168.1.243:3000";
+  return "http://localhost:3000";
 };
 
 export const API_CONFIG = {

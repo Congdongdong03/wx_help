@@ -34,12 +34,12 @@ export default defineAppConfig({
         iconPath: "assets/tabbar/homepage.png",
         selectedIconPath: "assets/tabbar/homepage.png",
       },
-      {
-        pagePath: "pages/post/index",
-        text: "发布",
-        iconPath: "assets/tabbar/help.png",
-        selectedIconPath: "assets/tabbar/help.png",
-      },
+      // {
+      //   pagePath: "pages/post/index",
+      //   text: "发布",
+      //   iconPath: "assets/tabbar/help.png",
+      //   selectedIconPath: "assets/tabbar/help.png",
+      // },
       {
         pagePath: "pages/publish/index",
         text: "帮帮",
