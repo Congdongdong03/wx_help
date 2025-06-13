@@ -82,7 +82,7 @@ export class PostService {
         // 获取普通帖子
         prisma.posts.findMany({
           where: { ...where, is_pinned: false },
-          orderBy: { updated_at: "desc" },
+          orderBy: { last_polished_at: "desc" },
           take: limit,
           skip: offset,
           include: {
@@ -102,7 +102,7 @@ export class PostService {
         // 获取置顶帖子
         prisma.posts.findMany({
           where: { ...where, is_pinned: true },
-          orderBy: { updated_at: "desc" },
+          orderBy: { last_polished_at: "desc" },
           include: {
             users: {
               select: {
@@ -146,7 +146,7 @@ export class PostService {
         // 获取帖子列表
         prisma.posts.findMany({
           where,
-          orderBy: { updated_at: "desc" },
+          orderBy: { last_polished_at: "desc" },
           take: limit,
           skip: offset,
           include: {
@@ -166,7 +166,7 @@ export class PostService {
         // 获取置顶帖子
         prisma.posts.findMany({
           where: { ...where, is_pinned: true },
-          orderBy: { updated_at: "desc" },
+          orderBy: { last_polished_at: "desc" },
           include: {
             users: {
               select: {
@@ -220,7 +220,7 @@ export class PostService {
     const [posts, totalPosts, pinnedPosts] = await Promise.all([
       prisma.posts.findMany({
         where,
-        orderBy: { created_at: "desc" },
+        orderBy: { last_polished_at: "desc" },
         take: limit,
         skip: offset,
         include: {
@@ -243,7 +243,7 @@ export class PostService {
           ...where,
           is_pinned: true,
         },
-        orderBy: { created_at: "desc" },
+        orderBy: { last_polished_at: "desc" },
         include: {
           users: {
             select: {
@@ -278,11 +278,14 @@ export class PostService {
    * 创建帖子
    */
   static async create(data: PostCreateInput): Promise<posts> {
+    const now = new Date();
     return await prisma.posts.create({
       data: {
         ...data,
         price: data.price || null,
         images: data.images ? JSON.stringify(data.images) : null,
+        created_at: now,
+        last_polished_at: now,
       },
     });
   }
@@ -366,9 +369,9 @@ export class PostService {
     const [posts, total] = await Promise.all([
       prisma.posts.findMany({
         where,
+        orderBy: { last_polished_at: "desc" },
         skip,
         take: limit,
-        orderBy: { created_at: "desc" },
         include: {
           users: {
             select: {

@@ -47,7 +47,7 @@ export class HomeService {
           },
         },
       },
-      orderBy: { created_at: "desc" },
+      orderBy: { last_polished_at: "desc" },
     });
     return posts.map(processPostImages);
   }
@@ -77,7 +77,7 @@ export class HomeService {
           },
         },
       },
-      orderBy: { created_at: "desc" },
+      orderBy: { last_polished_at: "desc" },
     });
     return posts.map(processPostImages);
   }
@@ -107,10 +107,7 @@ export class HomeService {
           },
         },
       },
-      orderBy: [
-        { is_pinned: "desc" }, // 置顶的排在前面
-        { created_at: "desc" },
-      ],
+      orderBy: { last_polished_at: "desc" },
     });
     return posts.map(processPostImages);
   }
@@ -156,7 +153,7 @@ export class HomeService {
           },
         },
       },
-      orderBy: [{ is_pinned: "desc" }, { created_at: "desc" }],
+      orderBy: [{ is_pinned: "desc" }, { last_polished_at: "desc" }],
     });
     return posts.map(processPostImages);
   }
