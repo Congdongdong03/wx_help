@@ -2,106 +2,75 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  // 1. 用户
-  const user = await prisma.users.create({
-    data: {
-      username: "test_user",
-      email: "test@example.com",
-      nickname: "测试用户",
-      phone: "1234567890",
-      openid: "test_openid",
-      avatar_url: "https://example.com/avatar.jpg",
-      gender: 1,
-      city: "beijing",
-      status: "active",
-      language: "zh_CN",
-      last_login_at: new Date(),
-    },
+  // 创建城市
+  let city = await prisma.cities.findUnique({
+    where: { code: "beijing" },
   });
+  if (!city) {
+    city = await prisma.cities.create({
+      data: {
+        name: "北京",
+        code: "beijing",
+        is_hot: true,
+        sort_order: 1,
+        is_active: true,
+      },
+    });
+  }
 
-  // 2. 城市
-  const beijing = await prisma.cities.create({
-    data: {
-      name: "北京",
-      code: "beijing",
-      is_hot: true,
-      sort_order: 1,
-      is_active: true,
-    },
+  // 创建用户
+  let user = await prisma.users.findUnique({
+    where: { username: "testuser" },
   });
+  if (!user) {
+    user = await prisma.users.create({
+      data: {
+        username: "testuser",
+        openid: "openid_test",
+        nickname: "测试用户",
+        avatar_url: "https://example.com/avatar.png",
+        phone: "13800000000",
+        email: "test@example.com",
+        status: "active",
+        last_login_at: new Date(),
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+    });
+  }
 
-  // 3. 分类
-  const category = await prisma.category.create({
-    data: {
-      name: "租房",
-      code: "rent",
-    },
-  });
-
-  // 4. 帖子
-  const post = await prisma.posts.create({
+  // 创建帖子
+  await prisma.posts.create({
     data: {
       user_id: user.id,
       title: "测试帖子",
-      category: "rent",
-      content: "这是一个测试帖子",
-      wechat_id: "test_wechat",
-      images: JSON.stringify(["https://example.com/image.jpg"]),
-      city: beijing.code,
+      category: "help",
+      sub_category: "生活",
+      content: "这是一个测试帖子内容",
+      city_code: city.code,
       status: "published",
-      price: "1000",
+      created_at: new Date(),
+      updated_at: new Date(),
+      price: 100.0,
+      price_unit: "AUD",
+      contact_info: "微信: testwx",
+      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      last_polished_at: new Date(),
+      view_count: 10,
+      favorite_count: 2,
+      recommend_score: 4.5,
+      quality_score: 3.8,
+      pinned_until: null,
       is_pinned: false,
+      images: JSON.stringify([
+        "https://example.com/image1.jpg",
+        "https://example.com/image2.jpg",
+      ]),
     },
   });
 
-  // 5. 推荐
-  await prisma.recommendations.create({
-    data: {
-      post_id: post.id,
-      is_pinned: true,
-      sort_order: 1,
-    },
-  });
-
-  // 6. 收藏
-  await prisma.favorite.create({
-    data: {
-      user_id: user.id,
-      post_id: post.id,
-    },
-  });
-
-  // 7. 反馈
-  await prisma.feedback.create({
-    data: {
-      user_id: user.id,
-      content: "测试反馈内容",
-      image: "https://example.com/feedback.jpg",
-      type: "advice",
-      status: 0,
-    },
-  });
-
-  // 8. 擦亮日志
-  await prisma.polish_log.create({
-    data: {
-      user_id: user.id,
-      post_id: post.id,
-      polished_at: new Date(),
-    },
-  });
-
-  // 9. 商品目录图片
-  await prisma.catalogue_images.create({
-    data: {
-      store_name: "Coles",
-      page_number: 1,
-      image_data: "base64imagestring",
-      week_date: new Date(),
-    },
-  });
-
-  console.log("Seed data created for all tables!");
+  // 你可以根据需要继续添加更多种子数据
+  console.log("Seed data created successfully!");
 }
 
 main()

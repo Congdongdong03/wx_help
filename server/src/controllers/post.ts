@@ -102,7 +102,7 @@ export class PostController {
       const {
         title,
         description,
-        wechatId,
+        contactInfo,
         images,
         category,
         status: intentStatus,
@@ -116,7 +116,8 @@ export class PostController {
       // 验证必填字段
       const missingFields = [];
       if (!title || title.trim() === "") missingFields.push("title");
-      if (!wechatId || wechatId.trim() === "") missingFields.push("wechatId");
+      if (!contactInfo || contactInfo.trim() === "")
+        missingFields.push("contactInfo");
       if (!category) missingFields.push("category");
       if (!intentStatus) missingFields.push("status");
 
@@ -170,13 +171,13 @@ export class PostController {
         user_id: userId,
         title: title.trim(),
         content: description ? description.trim() : undefined,
-        wechat_id: wechatId.trim(),
+        contact_info: contactInfo.trim(),
         images:
           images && Array.isArray(images) && images.length > 0
             ? JSON.stringify(images)
             : undefined,
         category,
-        city: cityCode || undefined,
+        city_code: cityCode || undefined,
         status: intentStatus === "draft" ? "draft" : "pending",
         price: price || undefined,
       });
@@ -474,7 +475,13 @@ export class PostController {
     log("info", "getPosts: Received request", { query: req.query });
 
     try {
-      const { category, city, page = "1", limit = "10", keyword } = req.query;
+      const {
+        category,
+        city_code,
+        page = "1",
+        limit = "10",
+        keyword,
+      } = req.query;
 
       const pageNumber = parseInt(page as string, 10);
       const limitNumber = parseInt(limit as string, 10);
@@ -495,7 +502,9 @@ export class PostController {
 
       if (
         category &&
-        !["help", "rent", "used", "jobs"].includes(category as string)
+        !["help", "rent", "used", "jobs", "recommend"].includes(
+          category as string
+        )
       ) {
         return res.status(400).json({
           code: 1,
@@ -505,7 +514,7 @@ export class PostController {
 
       const result = await PostService.findWithFilters({
         category: category as string,
-        city: city as string,
+        city: city_code as string,
         keyword: keyword as string,
         page: pageNumber,
         limit: limitNumber,
@@ -514,16 +523,40 @@ export class PostController {
 
       log("info", "getPosts: Success", {
         category,
-        city,
+        city_code,
         keyword,
         resultCount: result.posts.length,
+        pinnedCount: result.pinned_content?.length || 0,
         total: result.pagination.totalPosts,
       });
+
+      // 构建推荐分类的元数据
+      const recommend_meta =
+        category === "recommend"
+          ? {
+              weekly_deals_count:
+                result.pinned_content?.filter((item) => item.is_weekly_deal)
+                  .length || 0,
+              pinned_posts_count:
+                result.pinned_content?.filter((item) => !item.is_weekly_deal)
+                  .length || 0,
+              total_pinned: result.pinned_content?.length || 0,
+            }
+          : undefined;
 
       res.json({
         code: 0,
         message: "获取成功",
-        data: result,
+        data: {
+          posts: result.posts,
+          pinned_content: result.pinned_content,
+          pagination: {
+            page: result.pagination.currentPage,
+            pageSize: result.pagination.limit,
+            total: result.pagination.totalPosts,
+          },
+          recommend_meta,
+        },
       });
     } catch (error: any) {
       log("error", "getPosts: Error", {

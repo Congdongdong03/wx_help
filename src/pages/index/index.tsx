@@ -1,8 +1,23 @@
-import Taro from "@tarojs/taro";
+import Taro, { useRouter } from "@tarojs/taro";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { View, Text, Image, ScrollView, Button } from "@tarojs/components";
 import { BASE_URL } from "../../utils/env";
+import { API_CONFIG } from "../../config/api";
 import "./index.scss";
+
+// 预设的占位图高度
+const PRESET_PLACEHOLDER_HEIGHTS = [200, 250, 300, 350, 400, 450, 500];
+
+// 预设的占位图颜色
+const PRESET_PLACEHOLDER_COLORS = [
+  "#f0f0f0",
+  "#e0e0e0",
+  "#d0d0d0",
+  "#c0c0c0",
+  "#b0b0b0",
+  "#a0a0a0",
+  "#909090",
+];
 
 // ------------------ DATA STRUCTURES ------------------
 
@@ -13,18 +28,35 @@ interface Category {
 }
 
 interface FeedPost {
-  id: string;
+  id: string | number;
   mockImagePlaceholderHeight?: number;
   mockImagePlaceholderColor?: string;
   title: string;
-  description: string;
+  content: string;
+  content_preview?: string;
   category: Category;
   price?: string | number;
-  updateTime: Date;
-  boostTime?: Date;
-  city: string;
-  auditStatus: "approved" | "pending" | "rejected" | "draft";
+  updated_at: string;
+  created_at: string;
+  city_code: string;
+  status: "published" | "pending" | "rejected" | "draft";
   images: string[];
+  cover_image?: string;
+  is_pinned?: boolean;
+  is_weekly_deal?: boolean;
+  users?: {
+    id: number;
+    nickname: string;
+    avatar_url: string;
+    gender?: string;
+    city?: string;
+  };
+}
+
+interface RecommendMeta {
+  weekly_deals_count: number;
+  pinned_posts_count: number;
+  total_pinned: number;
 }
 
 // ------------------ MOCK DATA ------------------
@@ -35,24 +67,6 @@ const CATEGORIES: Category[] = [
   { id: "rent", name: "租房", color: "#007bff" },
   { id: "used", name: "二手", color: "#28a745" },
   { id: "jobs", name: "招聘", color: "#ffc107" },
-];
-
-const PRESET_PLACEHOLDER_COLORS = [
-  "#a2d2ff",
-  "#bde0fe",
-  "#ffafcc",
-  "#ffc8dd",
-  "#cdb4db",
-  "#deaaff",
-  "#b0f2c2",
-  "#c1fba4",
-  "#fbf8cc",
-  "#fde4cf",
-  "#ffcfd2",
-  "#f1c0e8",
-  "#cfbaf0",
-  "#a3c4f3",
-  "#90dbf4",
 ];
 
 // ------------------ MASONRY LAYOUT HELPER ------------------
@@ -99,6 +113,9 @@ export default function Index() {
     useState<boolean>(false);
   const [pinnedPosts, setPinnedPosts] = useState<FeedPost[]>([]);
   const [normalPosts, setNormalPosts] = useState<FeedPost[]>([]);
+  const [recommendMeta, setRecommendMeta] = useState<RecommendMeta | null>(
+    null
+  );
 
   const isLoadingRef = useRef(isLoading);
   const currentPageRef = useRef(currentPage);
@@ -161,100 +178,89 @@ export default function Index() {
       page: number,
       append: boolean = false
     ) => {
-      if (isLoadingRef.current && !append && page === currentPageRef.current) {
-        console.log("LoadPosts call skipped by guard using refs");
-        return;
-      }
+      if (isLoading) return;
 
       setIsLoading(true);
       setLoadError(false);
 
       try {
-        let url = `${BASE_URL}/api/home/recommendations?city=${encodeURIComponent(
-          city
-        )}`;
-        if (categoryId && categoryId !== "recommend") {
-          url += `&category=${categoryId}`;
-        }
-
         const res = await Taro.request({
-          url,
+          url: API_CONFIG.getApiUrl("/posts"),
           method: "GET",
+          data: {
+            page,
+            limit: POSTS_PER_PAGE,
+            category: categoryId,
+            city,
+          },
         });
 
-        console.log("API返回数据:", res.data);
-
-        // 先检查API返回的完整数据结构
-        console.log("API返回的完整响应:", JSON.stringify(res.data, null, 2));
-
         if (res.data && res.data.code === 0 && res.data.data) {
-          const responseData = res.data.data;
+          const { posts, pinned_content, pagination, recommend_meta } =
+            res.data.data;
 
-          // 根据实际API返回结构处理数据
-          let pinnedRaw = responseData.pinned || [];
-          let listRaw = responseData.list || [];
-
-          console.log("原始置顶数据:", pinnedRaw);
-          console.log("原始普通数据:", listRaw);
+          console.log("原始置顶数据:", pinned_content);
+          console.log("原始普通数据:", posts);
 
           const mapToFeedPost = (item: any): FeedPost => {
-            // 处理图片数组
+            // 兼容 images 字段为字符串（JSON数组）、数组、空值
             let images: string[] = [];
-            if (item.post?.images) {
-              let rawImages = item.post.images;
-              if (!Array.isArray(rawImages)) {
-                try {
-                  rawImages = JSON.parse(rawImages);
-                } catch {
-                  rawImages = [];
+            if (Array.isArray(item.images)) {
+              images = item.images;
+            } else if (typeof item.images === "string") {
+              try {
+                const parsed = JSON.parse(item.images);
+                if (Array.isArray(parsed)) {
+                  images = parsed;
                 }
+              } catch {
+                images = [];
               }
-              images = rawImages
-                .filter(
-                  (img: string) => typeof img === "string" && img.length > 0
-                )
-                .map((img: string) =>
-                  img.startsWith("/uploads/") ? `${BASE_URL}${img}` : img
-                );
             }
-
-            const feedPost = {
-              id: String(
-                item.post?.id ||
-                  item.id ||
-                  `temp-${Date.now()}-${Math.random()}`
-              ),
-              title: item.post?.title || "无标题",
-              description: item.post?.content || "暂无描述",
-              category:
-                CATEGORIES.find(
-                  (c) => c.id === (item.post?.category || "recommend")
-                ) || CATEGORIES[0],
-              price: item.post?.price || undefined,
-              updateTime: new Date(
-                item.updated_at || item.created_at || Date.now()
-              ),
-              boostTime: item.is_pinned ? new Date() : undefined,
-              city: item.post?.cityCode || item.post?.city || city,
-              auditStatus: "approved" as
-                | "approved"
-                | "pending"
-                | "rejected"
-                | "draft",
-              images: images,
+            return {
+              id: item.id,
               mockImagePlaceholderHeight:
-                Math.floor(Math.random() * (550 - 200 + 1)) + 200,
+                PRESET_PLACEHOLDER_HEIGHTS[
+                  Math.floor(Math.random() * PRESET_PLACEHOLDER_HEIGHTS.length)
+                ],
               mockImagePlaceholderColor:
                 PRESET_PLACEHOLDER_COLORS[
                   Math.floor(Math.random() * PRESET_PLACEHOLDER_COLORS.length)
                 ],
+              title: item.title || "无标题",
+              content: item.content || "暂无描述",
+              content_preview:
+                item.content_preview ||
+                (item.content ? item.content.slice(0, 50) + "..." : "暂无描述"),
+              category:
+                CATEGORIES.find(
+                  (c) => c.id === (item.category || "recommend")
+                ) || CATEGORIES[0],
+              price: item.price || undefined,
+              updated_at: item.updated_at || new Date().toISOString(),
+              created_at: item.created_at || new Date().toISOString(),
+              city_code: item.city_code || city,
+              status: item.status || "published",
+              images,
+              cover_image: images[0] || DEFAULT_IMAGE_URL,
+              is_pinned: item.is_pinned || false,
+              is_weekly_deal: item.is_weekly_deal || false,
+              users: item.users
+                ? {
+                    id: item.users.id,
+                    nickname: item.users.nickname || "未知用户",
+                    avatar_url:
+                      item.users.avatar_url ||
+                      "https://example.com/default-avatar.png",
+                    gender: item.users.gender,
+                    city: item.users.city,
+                  }
+                : undefined,
             };
-            console.log("映射单个帖子:", item, "->", feedPost);
-            return feedPost;
           };
 
-          const pinned = pinnedRaw.map(mapToFeedPost);
-          const list = listRaw.map(mapToFeedPost);
+          const pinned = pinned_content.map(mapToFeedPost);
+          const list = posts.map(mapToFeedPost);
 
           console.log("处理后的置顶帖子:", pinned);
           console.log("处理后的普通帖子:", list);
@@ -272,8 +278,13 @@ export default function Index() {
             setDisplayedPosts([]);
           }
 
-          setHasMoreData(list.length === POSTS_PER_PAGE);
+          setHasMoreData(page < pagination.totalPages);
           setCurrentPage(page);
+
+          // 如果是推荐分类，更新推荐元数据
+          if (categoryId === "recommend" && recommend_meta) {
+            setRecommendMeta(recommend_meta);
+          }
         } else if (res.data && res.data.message) {
           // 处理API返回错误信息的情况
           console.log("API返回错误:", res.data.message);
@@ -360,7 +371,7 @@ export default function Index() {
     const pinnedIds = new Set(pinnedPosts.map((p) => p.id));
     mixedPosts = normalPosts
       .filter((p) => !pinnedIds.has(p.id))
-      .sort((a, b) => b.updateTime.getTime() - a.updateTime.getTime());
+      .sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime());
   } else {
     if (selectedCategoryId === "recommend") {
       mixedPosts = normalPosts;
@@ -586,12 +597,6 @@ const DEFAULT_IMAGE_URL =
   "https://images.unsplash.com/photo-1506744038136-46273834b3fb";
 
 const PostCard: React.FC<PostCardProps> = ({ post, isPinned }) => {
-  const safeDescription = post.description || "暂无描述";
-  const truncatedDescription =
-    safeDescription.length > 50
-      ? safeDescription.substring(0, 50) + "..."
-      : safeDescription;
-
   return (
     <View
       className="post-card"
@@ -606,7 +611,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, isPinned }) => {
       )}
       <Image
         className="post-card-image"
-        src={post.images?.[0] ? post.images[0] : DEFAULT_IMAGE_URL}
+        src={post.cover_image || DEFAULT_IMAGE_URL}
         mode="aspectFill"
         style={{
           height: post.mockImagePlaceholderHeight
@@ -619,7 +624,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, isPinned }) => {
           {post.title || "无标题"}
         </Text>
         <Text className="post-card-description" numberOfLines={2}>
-          {truncatedDescription}
+          {post.content_preview || "暂无描述"}
         </Text>
         <View className="post-card-footer">
           <View className="post-card-tags">
@@ -634,7 +639,7 @@ const PostCard: React.FC<PostCardProps> = ({ post, isPinned }) => {
             )}
           </View>
           <Text className="post-card-time">
-            {formatRelativeTime(post.updateTime)}
+            {formatRelativeTime(new Date(post.updated_at))}
           </Text>
         </View>
       </View>

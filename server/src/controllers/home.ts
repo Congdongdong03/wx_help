@@ -31,56 +31,55 @@ export const getRecommendations = async (req: Request, res: Response) => {
       });
     }
 
-    // 查询所有推荐（按 sort_order, created_at 排序）
-    let allRecs: any[] = [];
+    // 查询所有帖子
+    let allPosts: any[] = [];
     if (category && category !== "recommend") {
-      allRecs = await HomeService.getRecommendationsByCityAndCategory(
+      allPosts = await HomeService.getPostsByCityAndCategory(
         city as string,
         category as string
       );
     } else {
-      allRecs = await HomeService.getAllRecommendations();
+      allPosts = await HomeService.getAllPosts();
     }
 
-    // pinned 只放第一条，list 放剩下的
-    const pinned = allRecs.length > 0 ? [allRecs[0]] : [];
-    const list = allRecs.slice(1);
+    // 处理图片数据
+    const processImages = (images: string | null) => {
+      if (!images) return [];
+      try {
+        return typeof images === "string" ? JSON.parse(images) : images;
+      } catch {
+        return [];
+      }
+    };
 
     // 格式化函数
-    const formatRec = (rec: any) => ({
-      id: rec.id,
-      isPinned: rec.is_pinned,
-      sortOrder: rec.sort_order,
-      post: rec.posts && {
-        id: rec.posts.id,
-        title: rec.posts.title,
-        city: rec.posts.city,
-        category: rec.posts.category,
-        price: rec.posts.price,
-        wechatId: rec.posts.wechat_id,
-        images: rec.posts.images
-          ? typeof rec.posts.images === "string"
-            ? (() => {
-                try {
-                  return JSON.parse(rec.posts.images);
-                } catch {
-                  return [];
-                }
-              })()
-            : rec.posts.images
-          : [],
-        user: rec.posts.users && {
-          nickname: rec.posts.users.nickname,
-          avatar_url: rec.posts.users.avatar_url,
+    const formatPost = (post: any) => ({
+      id: post.id,
+      isPinned: post.is_pinned,
+      post: {
+        id: post.id,
+        title: post.title,
+        city: post.city_code,
+        category: post.category,
+        price: post.price,
+        contactInfo: post.contact_info,
+        images: processImages(post.images),
+        user: post.users && {
+          nickname: post.users.nickname,
+          avatar_url: post.users.avatar_url,
         },
       },
     });
 
+    // 分离置顶和普通帖子
+    const pinned = allPosts.filter((post) => post.is_pinned).map(formatPost);
+    const list = allPosts.filter((post) => !post.is_pinned).map(formatPost);
+
     res.json({
       code: 0,
       data: {
-        pinned: pinned.map(formatRec),
-        list: list.map(formatRec),
+        pinned,
+        list,
       },
       message: "获取推荐内容成功",
     });
@@ -97,7 +96,7 @@ export const getRecommendations = async (req: Request, res: Response) => {
 export const debugDatabase = async (req: Request, res: Response) => {
   try {
     const cities = await HomeService.getAllCitiesInDatabase();
-    const allData = await HomeService.getAllRecommendations();
+    const allData = await HomeService.getAllPosts();
 
     res.json({
       code: 0,

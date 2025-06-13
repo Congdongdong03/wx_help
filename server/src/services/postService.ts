@@ -15,10 +15,10 @@ export interface PostCreateInput {
   user_id: number;
   title: string;
   content?: string;
-  wechat_id: string;
+  contact_info: string;
   images?: string;
   category?: string;
-  city?: string;
+  city_code?: string;
   status: posts_status;
   price?: string;
 }
@@ -31,13 +31,7 @@ export interface PostsResult {
     totalPosts: number;
     limit: number;
   };
-  stats: {
-    draftCount: number;
-    pendingCount: number;
-    publishedCount: number;
-    failedCount: number;
-    totalCount: number;
-  };
+  pinned_content?: any[];
 }
 
 export class PostService {
@@ -60,12 +54,12 @@ export class PostService {
       status,
     };
 
-    if (category) {
+    if (category && category !== "recommend") {
       where.category = category;
     }
 
     if (city) {
-      where.city = city;
+      where.city_code = city;
     }
 
     if (keyword) {
@@ -75,63 +69,133 @@ export class PostService {
       ];
     }
 
-    // 并行查询
-    const [posts, totalPosts, stats] = await Promise.all([
-      // 获取帖子列表
-      prisma.posts.findMany({
-        where,
-        orderBy: { updated_at: "desc" },
-        take: limit,
-        skip: offset,
-        include: {
-          users: {
-            select: {
-              id: true,
-              nickname: true,
-              avatar_url: true,
+    // 处理推荐分类
+    if (category === "recommend") {
+      const [weeklyDeals, posts, totalPosts, pinnedPosts] = await Promise.all([
+        // 获取每周特价
+        prisma.weekly_deals.findMany({
+          where: { is_active: true },
+          orderBy: { week_start_date: "desc" },
+          take: limit,
+          skip: offset,
+        }),
+        // 获取普通帖子
+        prisma.posts.findMany({
+          where: { ...where, is_pinned: false },
+          orderBy: { updated_at: "desc" },
+          take: limit,
+          skip: offset,
+          include: {
+            users: {
+              select: {
+                id: true,
+                nickname: true,
+                avatar_url: true,
+                gender: true,
+                city: true,
+              },
             },
           },
+        }),
+        // 获取总数
+        prisma.posts.count({ where }),
+        // 获取置顶帖子
+        prisma.posts.findMany({
+          where: { ...where, is_pinned: true },
+          orderBy: { updated_at: "desc" },
+          include: {
+            users: {
+              select: {
+                id: true,
+                nickname: true,
+                avatar_url: true,
+                gender: true,
+                city: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+      // 处理每周特价数据
+      const processedWeeklyDeals = weeklyDeals.map(processPostImages);
+
+      // 处理帖子数据
+      const processedPosts = posts.map(processPostImages);
+      const processedPinnedPosts = pinnedPosts.map(processPostImages);
+
+      // 合并置顶帖子和每周特价
+      const allPinnedContent = [
+        ...processedWeeklyDeals,
+        ...processedPinnedPosts,
+      ];
+
+      return {
+        posts: processedPosts,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalPosts / limit),
+          totalPosts,
+          limit,
         },
-      }),
+        pinned_content: allPinnedContent,
+      };
+    } else {
+      // 处理其他分类
+      const [posts, totalPosts, pinnedPosts] = await Promise.all([
+        // 获取帖子列表
+        prisma.posts.findMany({
+          where,
+          orderBy: { updated_at: "desc" },
+          take: limit,
+          skip: offset,
+          include: {
+            users: {
+              select: {
+                id: true,
+                nickname: true,
+                avatar_url: true,
+                gender: true,
+                city: true,
+              },
+            },
+          },
+        }),
+        // 获取总数
+        prisma.posts.count({ where }),
+        // 获取置顶帖子
+        prisma.posts.findMany({
+          where: { ...where, is_pinned: true },
+          orderBy: { updated_at: "desc" },
+          include: {
+            users: {
+              select: {
+                id: true,
+                nickname: true,
+                avatar_url: true,
+                gender: true,
+                city: true,
+              },
+            },
+          },
+        }),
+      ]);
 
-      // 获取总数
-      prisma.posts.count({ where }),
+      // 处理帖子数据
+      const processedPosts = posts.map(processPostImages);
+      const processedPinnedPosts = pinnedPosts.map(processPostImages);
 
-      // 获取统计信息
-      prisma.posts.groupBy({
-        by: ["status"],
-        _count: {
-          status: true,
+      return {
+        posts: processedPosts,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalPosts / limit),
+          totalPosts,
+          limit,
         },
-      }),
-    ]);
-
-    const statsMap = stats.reduce((acc, item) => {
-      if (item.status) {
-        // 添加 null 检查
-        acc[item.status] = item._count.status;
-      }
-      return acc;
-    }, {} as Record<string, number>);
-
-    const totalPages = Math.ceil(totalPosts / limit);
-
-    return {
-      posts,
-      pagination: {
-        currentPage: page,
-        totalPages,
-        totalPosts,
-        limit,
-      },
-      stats: {
-        draftCount: statsMap.draft || 0,
-        pendingCount: statsMap.pending || 0,
-        publishedCount: statsMap.published || 0,
-        failedCount: statsMap.failed || 0,
-        totalCount: totalPosts,
-      },
-    };
+        pinned_content: processedPinnedPosts,
+      };
+    }
   }
 
   /**
@@ -153,46 +217,60 @@ export class PostService {
       where.status = status;
     }
 
-    const [posts, totalPosts, userStats] = await Promise.all([
+    const [posts, totalPosts, pinnedPosts] = await Promise.all([
       prisma.posts.findMany({
         where,
         orderBy: { created_at: "desc" },
         take: limit,
         skip: offset,
+        include: {
+          users: {
+            select: {
+              id: true,
+              nickname: true,
+              avatar_url: true,
+              gender: true,
+              city: true,
+            },
+          },
+        },
       }),
 
       prisma.posts.count({ where }),
 
-      prisma.posts.groupBy({
-        by: ["status"],
-        where: { user_id: userId },
-        _count: { status: true },
+      prisma.posts.findMany({
+        where: {
+          ...where,
+          is_pinned: true,
+        },
+        orderBy: { created_at: "desc" },
+        include: {
+          users: {
+            select: {
+              id: true,
+              nickname: true,
+              avatar_url: true,
+              gender: true,
+              city: true,
+            },
+          },
+        },
       }),
     ]);
 
-    const statsMap = userStats.reduce((acc, item) => {
-      if (item.status) {
-        // 添加 null 检查
-        acc[item.status] = item._count.status;
-      }
-      return acc;
-    }, {} as Record<string, number>);
+    // 处理帖子数据
+    const processedPosts = posts.map(processPostImages);
+    const processedPinnedPosts = pinnedPosts.map(processPostImages);
 
     return {
-      posts,
+      posts: processedPosts,
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalPosts / limit),
         totalPosts,
         limit,
       },
-      stats: {
-        draftCount: statsMap.draft || 0,
-        pendingCount: statsMap.pending || 0,
-        publishedCount: statsMap.published || 0,
-        failedCount: statsMap.failed || 0,
-        totalCount: totalPosts,
-      },
+      pinned_content: processedPinnedPosts,
     };
   }
 
@@ -204,6 +282,7 @@ export class PostService {
       data: {
         ...data,
         price: data.price || null,
+        images: data.images ? JSON.stringify(data.images) : null,
       },
     });
   }
@@ -215,8 +294,15 @@ export class PostService {
     const post = await prisma.posts.findUnique({
       where: { id },
       include: {
-        users: true,
-        recommendations: true,
+        users: {
+          select: {
+            id: true,
+            nickname: true,
+            avatar_url: true,
+            gender: true,
+            city: true,
+          },
+        },
       },
     });
 
@@ -224,24 +310,7 @@ export class PostService {
       return null;
     }
 
-    // 处理图片数据
-    let images = [];
-    if (post.images) {
-      try {
-        images = JSON.parse(post.images);
-      } catch (e) {
-        console.warn(`Failed to parse images for post ${post.id}`);
-      }
-    }
-
-    return {
-      ...post,
-      images,
-      preview_image: images.length > 0 ? images[0] : null,
-      is_pinned: post.recommendations?.is_pinned || false,
-      author_nickname: post.users?.nickname,
-      author_avatar: post.users?.avatar_url,
-    };
+    return processPostImages(post);
   }
 
   /**
@@ -290,7 +359,7 @@ export class PostService {
 
     const where = {
       ...(category && { category }),
-      ...(city && { city }),
+      ...(city && { city_code: city }),
       ...(status && { status }),
     };
 
@@ -301,36 +370,41 @@ export class PostService {
         take: limit,
         orderBy: { created_at: "desc" },
         include: {
-          users: true,
-          recommendations: true,
+          users: {
+            select: {
+              id: true,
+              nickname: true,
+              avatar_url: true,
+              gender: true,
+              city: true,
+            },
+          },
         },
       }),
       prisma.posts.count({ where }),
     ]);
 
     // 处理图片数据
-    const processedPosts = posts.map((post) => {
-      let images = [];
-      if (post.images) {
-        try {
-          images = JSON.parse(post.images);
-        } catch (e) {
-          console.warn(`Failed to parse images for post ${post.id}`);
-        }
-      }
-      return {
-        ...post,
-        images,
-        preview_image: images.length > 0 ? images[0] : null,
-        is_pinned: post.recommendations?.is_pinned || false,
-        author_nickname: post.users?.nickname,
-        author_avatar: post.users?.avatar_url,
-      };
-    });
+    const processedPosts = posts.map(processPostImages);
 
     return {
       posts: processedPosts,
       total,
     };
   }
+}
+
+function processPostImages(post: any) {
+  return {
+    ...post,
+    images: (() => {
+      if (!post.images) return [];
+      if (Array.isArray(post.images)) return post.images;
+      try {
+        return JSON.parse(post.images);
+      } catch {
+        return [];
+      }
+    })(),
+  };
 }

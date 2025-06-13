@@ -24,109 +24,95 @@ export class HomeService {
   }
 
   /**
-   * 获取置顶推荐（全局，不受城市限制）
+   * 获取置顶帖子（全局，不受城市限制）
    */
-  static async getPinnedRecommendations() {
-    return await prisma.recommendations.findMany({
+  static async getPinnedPosts() {
+    const posts = await prisma.posts.findMany({
       where: {
         is_pinned: true,
+        status: "published",
       },
-      include: {
-        posts: {
+      select: {
+        id: true,
+        title: true,
+        contact_info: true,
+        city_code: true,
+        category: true,
+        price: true,
+        images: true,
+        users: {
           select: {
-            id: true,
-            title: true,
-            wechat_id: true,
-            city: true,
-            category: true,
-            price: true,
-            images: true,
-            users: {
-              select: {
-                nickname: true,
-                avatar_url: true,
-              },
-            },
+            nickname: true,
+            avatar_url: true,
           },
         },
       },
-      orderBy: [{ sort_order: "asc" }, { created_at: "desc" }],
+      orderBy: { created_at: "desc" },
     });
+    return posts.map(processPostImages);
   }
 
   /**
-   * 根据城市获取普通推荐（非置顶）
+   * 根据城市获取普通帖子（非置顶）
    */
-  static async getNormalRecommendationsByCity(city: string) {
-    return await prisma.recommendations.findMany({
+  static async getNormalPostsByCity(city: string) {
+    const posts = await prisma.posts.findMany({
       where: {
         is_pinned: false,
-        posts: {
-          OR: [{ city: city }, { city: "通用" }],
-        },
+        status: "published",
+        OR: [{ city_code: city }, { city_code: "通用" }],
       },
-      include: {
-        posts: {
+      select: {
+        id: true,
+        title: true,
+        contact_info: true,
+        city_code: true,
+        category: true,
+        price: true,
+        images: true,
+        users: {
           select: {
-            id: true,
-            title: true,
-            wechat_id: true,
-            city: true,
-            category: true,
-            price: true,
-            images: true,
-            users: {
-              select: {
-                nickname: true,
-                avatar_url: true,
-              },
-            },
+            nickname: true,
+            avatar_url: true,
           },
         },
       },
-      orderBy: [{ sort_order: "asc" }, { created_at: "desc" }],
+      orderBy: { created_at: "desc" },
     });
+    return posts.map(processPostImages);
   }
 
   /**
-   * 根据城市和分类获取推荐
+   * 根据城市和分类获取帖子
    */
-  static async getRecommendationsByCityAndCategory(
-    city: string,
-    category: string
-  ) {
-    return await prisma.recommendations.findMany({
+  static async getPostsByCityAndCategory(city: string, category: string) {
+    const posts = await prisma.posts.findMany({
       where: {
-        posts: {
-          category: category,
-          OR: [{ city: city }, { city: "通用" }],
-        },
+        status: "published",
+        category: category,
+        OR: [{ city_code: city }, { city_code: "通用" }],
       },
-      include: {
-        posts: {
+      select: {
+        id: true,
+        title: true,
+        contact_info: true,
+        city_code: true,
+        category: true,
+        price: true,
+        images: true,
+        users: {
           select: {
-            id: true,
-            title: true,
-            wechat_id: true,
-            city: true,
-            category: true,
-            price: true,
-            images: true,
-            users: {
-              select: {
-                nickname: true,
-                avatar_url: true,
-              },
-            },
+            nickname: true,
+            avatar_url: true,
           },
         },
       },
       orderBy: [
         { is_pinned: "desc" }, // 置顶的排在前面
-        { sort_order: "asc" },
         { created_at: "desc" },
       ],
     });
+    return posts.map(processPostImages);
   }
 
   /**
@@ -135,37 +121,58 @@ export class HomeService {
   static async getAllCitiesInDatabase() {
     const cities = await prisma.posts.findMany({
       select: {
-        city: true,
+        city_code: true,
       },
-      distinct: ["city"],
+      distinct: ["city_code"],
       where: {
-        recommendations: {
-          isNot: null,
-        },
+        status: "published",
       },
     });
 
-    return cities.map((item) => item.city).filter(Boolean);
+    return cities.map((item) => item.city_code).filter(Boolean);
   }
 
   /**
-   * 获取所有推荐数据（调试用）
+   * 获取所有帖子数据（调试用）
    */
-  static async getAllRecommendations() {
-    return await prisma.recommendations.findMany({
-      include: {
-        posts: {
+  static async getAllPosts() {
+    const posts = await prisma.posts.findMany({
+      where: {
+        status: "published",
+      },
+      select: {
+        id: true,
+        title: true,
+        city_code: true,
+        category: true,
+        price: true,
+        images: true,
+        is_pinned: true,
+        contact_info: true,
+        users: {
           select: {
-            id: true,
-            title: true,
-            city: true,
-            category: true,
-            price: true,
-            images: true,
+            nickname: true,
+            avatar_url: true,
           },
         },
       },
       orderBy: [{ is_pinned: "desc" }, { created_at: "desc" }],
     });
+    return posts.map(processPostImages);
   }
+}
+
+function processPostImages(post: any) {
+  return {
+    ...post,
+    images: (() => {
+      if (!post.images) return [];
+      if (Array.isArray(post.images)) return post.images;
+      try {
+        return JSON.parse(post.images);
+      } catch {
+        return [];
+      }
+    })(),
+  };
 }

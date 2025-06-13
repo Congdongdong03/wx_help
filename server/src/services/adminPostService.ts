@@ -65,7 +65,9 @@ export class AdminPostService {
       let images = [];
       if (post.images) {
         try {
-          images = JSON.parse(post.images);
+          images = Array.isArray(post.images)
+            ? post.images
+            : JSON.parse(post.images);
         } catch (e) {
           console.warn(`Failed to parse images for post ${post.id}`);
         }
@@ -112,40 +114,12 @@ export class AdminPostService {
       }
 
       if (action === "approve") {
-        // 1. 更新帖子状态为已发布
+        // 更新帖子状态为已发布
         const updatedPost = await tx.posts.update({
           where: { id: postId },
           data: {
             status: "published",
             updated_at: new Date(),
-          },
-        });
-
-        // 2. 处理图片URL
-        let imageUrl = null;
-        if (post.images) {
-          try {
-            const imagesArray = JSON.parse(post.images);
-            if (Array.isArray(imagesArray) && imagesArray.length > 0) {
-              imageUrl = imagesArray[0];
-            }
-          } catch (e) {
-            console.warn(`Failed to parse images for post ${postId}`);
-          }
-        }
-
-        // 3. 添加到推荐表
-        await tx.recommendations.upsert({
-          where: { post_id: postId },
-          update: {
-            is_pinned: false,
-            sort_order: 0,
-            updated_at: new Date(),
-          },
-          create: {
-            post_id: postId,
-            is_pinned: false,
-            sort_order: 0,
           },
         });
 
@@ -158,11 +132,6 @@ export class AdminPostService {
             status: "failed",
             updated_at: new Date(),
           },
-        });
-
-        // 如果之前在推荐中，删除推荐记录
-        await tx.recommendations.deleteMany({
-          where: { post_id: postId },
         });
 
         return { id: postId, status: "failed" };
@@ -237,7 +206,7 @@ export class AdminPostService {
     }
 
     if (city && city !== "all") {
-      where.city = city;
+      where.city_code = city;
     }
 
     if (userId) {
@@ -278,11 +247,6 @@ export class AdminPostService {
               avatar_url: true,
             },
           },
-          recommendations: {
-            select: {
-              is_pinned: true,
-            },
-          },
         },
       }),
       prisma.posts.count({ where }),
@@ -292,16 +256,17 @@ export class AdminPostService {
       let images = [];
       if (post.images) {
         try {
-          images = JSON.parse(post.images);
+          images = Array.isArray(post.images)
+            ? post.images
+            : JSON.parse(post.images);
         } catch (e) {
-          // 忽略解析错误
+          console.warn(`Failed to parse images for post ${post.id}`);
         }
       }
       return {
         ...post,
         images,
         preview_image: images.length > 0 ? images[0] : null,
-        is_pinned: post.recommendations?.is_pinned || false,
         author_nickname: post.users?.nickname,
         author_avatar: post.users?.avatar_url,
       };
@@ -332,11 +297,6 @@ export class AdminPostService {
         throw new Error("帖子不存在");
       }
 
-      // 删除推荐记录
-      await tx.recommendations.deleteMany({
-        where: { post_id: postId },
-      });
-
       // 删除帖子
       await tx.posts.delete({
         where: { id: postId },
@@ -350,70 +310,48 @@ export class AdminPostService {
    * 获取审核统计数据
    */
   static async getReviewStats() {
-    const [statusStats, todayStats, categoryStats] = await Promise.all([
-      // 各状态帖子数量
-      prisma.posts.groupBy({
-        by: ["status"],
-        _count: { status: true },
-      }),
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-      // 今日审核数量
-      prisma.posts.aggregate({
-        where: {
-          updated_at: {
-            gte: new Date(new Date().setHours(0, 0, 0, 0)),
-            lt: new Date(new Date().setHours(23, 59, 59, 999)),
+    const [statusStats, todayStats, categoryStats, trendStats] =
+      await Promise.all([
+        // 各状态帖子数量
+        prisma.posts.groupBy({
+          by: ["status"],
+          _count: { status: true },
+        }),
+
+        // 今日数据
+        prisma.posts.count({
+          where: {
+            created_at: { gte: today },
           },
-          status: { in: ["published", "failed"] },
-        },
-        _count: {
-          _all: true,
-        },
-      }),
+        }),
 
-      // 分类统计（已发布的）
-      prisma.posts.groupBy({
-        by: ["category"],
-        where: { status: "published" },
-        _count: { category: true },
-      }),
-    ]);
+        // 各分类帖子数量
+        prisma.posts.groupBy({
+          by: ["category"],
+          _count: { category: true },
+        }),
 
-    // 获取今日详细统计
-    const [approvedToday, rejectedToday] = await Promise.all([
-      prisma.posts.count({
-        where: {
-          status: "published",
-          updated_at: {
-            gte: new Date(new Date().setHours(0, 0, 0, 0)),
-            lt: new Date(new Date().setHours(23, 59, 59, 999)),
+        // 最近7天趋势
+        prisma.posts.groupBy({
+          by: ["created_at"],
+          where: {
+            created_at: {
+              gte: new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000),
+            },
           },
-        },
-      }),
-      prisma.posts.count({
-        where: {
-          status: "failed",
-          updated_at: {
-            gte: new Date(new Date().setHours(0, 0, 0, 0)),
-            lt: new Date(new Date().setHours(23, 59, 59, 999)),
-          },
-        },
-      }),
-    ]);
+          _count: { created_at: true },
+        }),
+      ]);
 
-    // 获取最近7天趋势
-    const trendStats = await prisma.$queryRaw`
-      SELECT 
-        DATE(updated_at) as date,
-        COUNT(*) as total,
-        SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END) as approved,
-        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as rejected
-      FROM posts
-      WHERE updated_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-      AND status IN ('published', 'failed')
-      GROUP BY DATE(updated_at)
-      ORDER BY date DESC
-    `;
+    // 计算今日审核数据
+    const approvedToday =
+      statusStats.find((stat) => stat.status === "published")?._count.status ||
+      0;
+    const rejectedToday =
+      statusStats.find((stat) => stat.status === "failed")?._count.status || 0;
 
     const stats = {
       status: statusStats.reduce((acc: any, item: any) => {
@@ -421,7 +359,7 @@ export class AdminPostService {
         return acc;
       }, {}),
       today: {
-        total_today: todayStats._count._all,
+        total_today: todayStats,
         approved_today: approvedToday,
         rejected_today: rejectedToday,
       },
