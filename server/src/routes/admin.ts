@@ -1,28 +1,95 @@
 import express, { Router } from "express";
 import { AdminPostController } from "../controllers/adminPost";
+import { requireAuth } from "../middleware/auth";
+import { PrismaClient } from "@prisma/client";
 
 const router = Router();
+const prisma = new PrismaClient();
 
 router.use(express.json());
 router.use(express.urlencoded({ extended: true }));
 
 // 获取待审核帖子
-router.get("/posts/pending", AdminPostController.getPendingPosts);
+router.get("/posts/pending", requireAuth, AdminPostController.getPendingPosts);
 
 // 审核单个帖子 - 注意这里是 POST，不是 PUT
-router.post("/posts/:id/review", AdminPostController.reviewPost);
+router.post("/posts/:id/review", requireAuth, AdminPostController.reviewPost);
 
 // 批量审核帖子
-router.post("/posts/batch-review", AdminPostController.batchReviewPosts);
+router.post(
+  "/posts/batch-review",
+  requireAuth,
+  AdminPostController.batchReviewPosts
+);
 
 // 获取所有帖子（管理员视图）
-router.get("/posts", AdminPostController.getAllPosts);
+router.get("/posts", requireAuth, AdminPostController.getAllPosts);
 
 // 管理员删除帖子
-router.delete("/posts/:id", AdminPostController.deletePost);
+router.delete("/posts/:id", requireAuth, AdminPostController.deletePost);
 
 // 获取统计数据
-router.get("/posts/stats", AdminPostController.getReviewStats);
+router.get("/posts/stats", requireAuth, AdminPostController.getReviewStats);
+
 // 获取目录图片
-router.get("/catalogue-images", AdminPostController.getCatalogueImages);
+router.get(
+  "/catalogue-images",
+  requireAuth,
+  AdminPostController.getCatalogueImages
+);
+
+// =========================
+// 管理后台统计数据接口（兼容前端 /api/admin/stats 请求）
+// 说明：此接口为管理后台前端专用，统计待审核、已发布、已拒绝、今日审核等数据
+// 路径: GET /api/admin/stats
+// 权限: 建议上线时加 requireAuth，这里为兼容前端先不加
+// =========================
+router.get("/stats", async (req, res) => {
+  try {
+    // 统计各状态帖子数量
+    const [pending, published, failed] = await Promise.all([
+      prisma.posts.count({ where: { status: "pending" } }),
+      prisma.posts.count({ where: { status: "published" } }),
+      prisma.posts.count({ where: { status: "failed" } }),
+    ]);
+
+    // 统计今日审核（已发布+已拒绝）
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // 当天零点
+    const [approvedToday, rejectedToday] = await Promise.all([
+      prisma.posts.count({
+        where: {
+          status: "published",
+          updated_at: { gte: today },
+        },
+      }),
+      prisma.posts.count({
+        where: {
+          status: "failed",
+          updated_at: { gte: today },
+        },
+      }),
+    ]);
+
+    res.json({
+      success: true,
+      code: 0,
+      data: {
+        status: { pending, published, failed },
+        today: {
+          approved: approvedToday,
+          rejected: rejectedToday,
+          total: approvedToday + rejectedToday,
+        },
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      code: 1,
+      error: "获取统计失败",
+    });
+  }
+});
+
 export default router;

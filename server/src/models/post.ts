@@ -1,4 +1,7 @@
 import { getDb } from "../config/database";
+import { FavoriteModel } from "./favorite";
+import { RedisService } from "../services/redis";
+import { DatabaseError } from "../utils/errors";
 
 export type PostStatus = "draft" | "pending" | "published" | "failed";
 
@@ -20,11 +23,18 @@ export interface Post {
   user_id: number;
   title: string;
   category?: string; // e.g., 'help', 'rent', 'used', 'jobs'
+  sub_category?: string;
   content?: string; // Main description of the post
+  price?: number;
+  price_unit?: string;
+  city_code?: string;
   wechat_id: string; // Added wechat_id
-  images?: string | null; // Allow null for images
+  images?: string[];
   city?: string; // 👈 添加这一行
+  view_count?: number;
+  favorite_count?: number;
   status: PostStatus; // Use the new PostStatus type
+  is_favorited?: boolean;
   // Potentially add category-specific fields later, e.g.:
   // room_type?: string;
   // rent_amount?: string;
@@ -61,6 +71,9 @@ interface FindPostsResult {
 }
 
 export class PostModel {
+  private static readonly CACHE_TTL = 5 * 60; // 5分钟缓存
+  private static readonly BATCH_SIZE = 100; // 批量操作大小
+
   static async findByUserId(userId: number): Promise<Post[]> {
     const db = getDb();
     const [rows]: any = await db.execute(
@@ -157,97 +170,86 @@ export class PostModel {
 
     try {
       const db = getDb();
+      const connection = await db.getConnection();
 
-      // 详细的数据库连接测试
       try {
-        const [connectionTest] = await db.execute("SELECT 1 as test");
-        modelLog("info", "Database connection successful", { connectionTest });
-      } catch (connectionError) {
-        modelLog("error", "Database connection failed", { connectionError });
-        throw new Error(`数据库连接失败: ${connectionError}`);
+        await connection.beginTransaction();
+
+        // 详细的数据库连接测试
+        try {
+          const [connectionTest] = await connection.execute("SELECT 1 as test");
+          modelLog("info", "Database connection successful", {
+            connectionTest,
+          });
+        } catch (connectionError) {
+          modelLog("error", "Database connection failed", { connectionError });
+          throw new Error(`数据库连接失败: ${connectionError}`);
+        }
+
+        const {
+          user_id,
+          title,
+          category,
+          content,
+          wechat_id,
+          images,
+          city,
+          status: intentStatus,
+        } = postInput;
+
+        // 验证输入数据
+        if (!user_id || !title || !wechat_id || !category || !intentStatus) {
+          const missingFields = {
+            user_id: !user_id,
+            title: !title,
+            wechat_id: !wechat_id,
+            category: !category,
+            status: !intentStatus,
+          };
+          modelLog("error", "Missing required fields", { missingFields });
+          throw new Error("缺少必要字段");
+        }
+
+        // 插入帖子数据
+        const [result] = await connection.execute(
+          `INSERT INTO posts (
+            user_id, title, category, content, wechat_id, 
+            images, city, status, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          [
+            user_id,
+            title,
+            category,
+            content || null,
+            wechat_id,
+            images ? JSON.stringify(images) : null,
+            city || null,
+            intentStatus,
+          ]
+        );
+
+        const postId = (result as any).insertId;
+
+        // 获取完整的帖子数据
+        const [rows] = await connection.execute(
+          "SELECT * FROM posts WHERE id = ?",
+          [postId]
+        );
+
+        await connection.commit();
+        connection.release();
+
+        const post = (rows as any[])[0];
+        modelLog("info", "create: Success", { postId, post });
+        return post;
+      } catch (error) {
+        await connection.rollback();
+        connection.release();
+        throw error;
       }
-
-      const {
-        user_id,
-        title,
-        category,
-        content,
-        wechat_id,
-        images,
-        city,
-        status: intentStatus,
-      } = postInput;
-
-      // 验证输入数据
-      if (!user_id || !title || !wechat_id || !category || !intentStatus) {
-        const missingFields = {
-          user_id: !user_id,
-          title: !title,
-          wechat_id: !wechat_id,
-          category: !category,
-          intentStatus: !intentStatus,
-        };
-        throw new Error(`缺少必要字段: ${JSON.stringify(missingFields)}`);
-      }
-
-      const actualDbStatus: PostStatus =
-        intentStatus === "published" ? "pending" : "draft";
-      modelLog("info", "create: Determined actualDbStatus", {
-        intentStatus,
-        actualDbStatus,
-      });
-
-      const sql =
-        "INSERT INTO posts (user_id, title, category, content, wechat_id, images,city, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-      const params = [
-        user_id,
-        title,
-        category,
-        content,
-        wechat_id,
-        images,
-        city,
-        actualDbStatus,
-        new Date(),
-        new Date(),
-      ];
-
-      // 验证参数中没有undefined
-      const hasUndefined = params.some((param) => param === undefined);
-      if (hasUndefined) {
-        modelLog("error", "Found undefined in params", { params });
-        throw new Error("参数中包含undefined值");
-      }
-
-      modelLog("info", "create: Executing SQL", { sql, params });
-
-      const [result]: any = await db.execute(sql, params);
-      modelLog("info", "create: SQL execution result", { result });
-
-      const insertId = result.insertId;
-      if (!insertId) {
-        throw new Error("插入记录失败，未获取到ID");
-      }
-
-      const [rows]: any = await db.execute("SELECT * FROM posts WHERE id = ?", [
-        insertId,
-      ]);
-
-      if (!rows || rows.length === 0) {
-        throw new Error(`查询新创建的记录失败，ID: ${insertId}`);
-      }
-
-      modelLog("info", "create: Successfully created and fetched post", {
-        post: rows[0],
-      });
-      return rows[0] as Post;
-    } catch (error: any) {
-      modelLog("error", "create: Operation failed", {
-        error: error.message,
-        stack: error.stack,
-        input: postInput,
-      });
-      throw error;
+    } catch (error) {
+      modelLog("error", "create: Failed", { error });
+      throw new DatabaseError(`创建帖子失败: ${(error as Error).message}`);
     }
   }
 
@@ -294,9 +296,14 @@ export class PostModel {
 
   static async findById(id: number): Promise<Post | null> {
     const db = getDb();
-    const [rows]: any = await db.execute("SELECT * FROM posts WHERE id = ?", [
-      id,
-    ]);
+    const [rows]: any = await db.execute(
+      `SELECT p.*, 
+        COALESCE(p.favorite_count, 0) as favorite_count,
+        false as is_favorited
+       FROM posts p
+       WHERE p.id = ?`,
+      [id]
+    );
 
     if (rows.length === 0) {
       return null;
@@ -439,5 +446,194 @@ export class PostModel {
         totalCount: totalPosts,
       },
     };
+  }
+
+  static async findByIdWithDetails(
+    id: number,
+    userId?: number
+  ): Promise<Post | null> {
+    try {
+      const cacheKey = `post:${id}:${userId || "anonymous"}`;
+
+      // 尝试从缓存获取
+      const cachedPost = await RedisService.getCache(cacheKey);
+      if (cachedPost) {
+        return JSON.parse(cachedPost);
+      }
+
+      const db = getDb();
+      const [rows]: any = await db.execute(
+        `SELECT p.*, 
+          CASE WHEN f.id IS NOT NULL THEN true ELSE false END as is_favorited
+         FROM posts p
+         LEFT JOIN favorites f ON p.id = f.post_id AND f.user_id = ?
+         WHERE p.id = ?`,
+        [userId || 0, id]
+      );
+
+      if (!rows || rows.length === 0) {
+        return null;
+      }
+
+      const post = rows[0] as Post;
+
+      // 设置缓存
+      await RedisService.setCache(
+        cacheKey,
+        JSON.stringify(post),
+        this.CACHE_TTL
+      );
+
+      return post;
+    } catch (error) {
+      console.error("Error in findByIdWithDetails:", error);
+      throw new DatabaseError("Failed to fetch post details");
+    }
+  }
+
+  static async toggleFavorite(
+    postId: number,
+    userId: number
+  ): Promise<{ is_favorited: boolean; favorite_count: number }> {
+    const pool = getDb();
+    const connection = await pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      // 检查收藏状态
+      const [favoriteRows]: any = await connection.execute(
+        "SELECT id FROM favorites WHERE post_id = ? AND user_id = ?",
+        [postId, userId]
+      );
+
+      let is_favorited: boolean;
+
+      if (favoriteRows.length > 0) {
+        // 取消收藏
+        await connection.execute(
+          "DELETE FROM favorites WHERE post_id = ? AND user_id = ?",
+          [postId, userId]
+        );
+        await connection.execute(
+          "UPDATE posts SET favorite_count = favorite_count - 1 WHERE id = ?",
+          [postId]
+        );
+        is_favorited = false;
+      } else {
+        // 添加收藏
+        await connection.execute(
+          "INSERT INTO favorites (post_id, user_id) VALUES (?, ?)",
+          [postId, userId]
+        );
+        await connection.execute(
+          "UPDATE posts SET favorite_count = favorite_count + 1 WHERE id = ?",
+          [postId]
+        );
+        is_favorited = true;
+      }
+
+      // 获取更新后的收藏数
+      const [countRows]: any = await connection.execute(
+        "SELECT favorite_count FROM posts WHERE id = ?",
+        [postId]
+      );
+      const favorite_count = countRows[0].favorite_count;
+
+      await connection.commit();
+
+      // 清除相关缓存
+      await RedisService.deleteCache(`post:${postId}:*`);
+
+      return { is_favorited, favorite_count };
+    } catch (error) {
+      await connection.rollback();
+      console.error("Error in toggleFavorite:", error);
+      throw new DatabaseError("Failed to toggle favorite status");
+    } finally {
+      connection.release();
+    }
+  }
+
+  static async incrementViewCount(
+    postId: number,
+    userId?: number
+  ): Promise<void> {
+    try {
+      if (userId) {
+        const shouldIncrement = await RedisService.shouldIncrementViewCount(
+          userId,
+          postId
+        );
+        if (!shouldIncrement) {
+          return;
+        }
+      }
+
+      await RedisService.incrementViewCount(postId);
+
+      // 清除相关缓存
+      await RedisService.deleteCache(`post:${postId}:*`);
+    } catch (error) {
+      console.error("Error in incrementViewCount:", error);
+      // 不抛出错误，避免影响主流程
+    }
+  }
+
+  // 批量获取帖子
+  static async findBatch(ids: number[], userId?: number): Promise<Post[]> {
+    if (!ids.length) return [];
+
+    const db = getDb();
+    const posts: Post[] = [];
+    const batchSize = this.BATCH_SIZE;
+
+    for (let i = 0; i < ids.length; i += batchSize) {
+      const batchIds = ids.slice(i, i + batchSize);
+      const [batchRows]: any = await db.execute(
+        `SELECT p.*, 
+          CASE WHEN f.id IS NOT NULL THEN true ELSE false END as is_favorited
+         FROM posts p
+         LEFT JOIN favorites f ON p.id = f.post_id AND f.user_id = ?
+         WHERE p.id IN (?)`,
+        [userId || 0, batchIds]
+      );
+
+      if (batchRows && batchRows.length > 0) {
+        posts.push(...(batchRows as Post[]));
+      }
+    }
+
+    return posts;
+  }
+
+  // 批量更新帖子状态
+  static async updateBatchStatus(ids: number[], status: string): Promise<void> {
+    if (!ids.length) return;
+
+    const pool = getDb();
+    const connection = await pool.getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      await connection.execute(
+        "UPDATE posts SET status = ?, updated_at = NOW() WHERE id IN (?)",
+        [status, ids]
+      );
+
+      await connection.commit();
+
+      // 清除相关缓存
+      await Promise.all(
+        ids.map((id) => RedisService.deleteCache(`post:${id}:*`))
+      );
+    } catch (error) {
+      await connection.rollback();
+      console.error("Error in updateBatchStatus:", error);
+      throw new DatabaseError("Failed to update batch status");
+    } finally {
+      connection.release();
+    }
   }
 }

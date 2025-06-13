@@ -1,6 +1,7 @@
 // src/services/postService.ts
 import { prisma } from "../lib/prisma";
 import { posts_status, posts } from "@prisma/client";
+import { RedisService } from "./redis";
 
 export interface PostFilters {
   category?: string;
@@ -9,6 +10,7 @@ export interface PostFilters {
   page: number;
   limit: number;
   status?: posts_status;
+  sort?: "latest" | "popular";
 }
 
 export interface PostCreateInput {
@@ -18,6 +20,7 @@ export interface PostCreateInput {
   contact_info: string;
   images?: string;
   category?: string;
+  sub_category?: string;
   city_code?: string;
   status: posts_status;
   price?: string;
@@ -294,26 +297,46 @@ export class PostService {
    * 根据ID查找帖子
    */
   static async findById(id: number): Promise<any> {
-    const post = await prisma.posts.findUnique({
-      where: { id },
-      include: {
-        users: {
-          select: {
-            id: true,
-            nickname: true,
-            avatar_url: true,
-            gender: true,
-            city: true,
+    try {
+      // 尝试从缓存获取
+      const cacheKey = `post:${id}`;
+      const cachedPost = await RedisService.getCache(cacheKey);
+
+      if (cachedPost) {
+        return JSON.parse(cachedPost);
+      }
+
+      // 从数据库获取
+      const post = await prisma.posts.findUnique({
+        where: { id },
+        include: {
+          users: {
+            select: {
+              id: true,
+              nickname: true,
+              avatar_url: true,
+              gender: true,
+              city: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    if (!post) {
-      return null;
+      if (!post) {
+        return null;
+      }
+
+      // 处理图片数据
+      const processedPost = processPostImages(post);
+
+      // 缓存结果（5分钟）
+      await RedisService.setCache(cacheKey, JSON.stringify(processedPost));
+
+      return processedPost;
+    } catch (error) {
+      console.error("Error in findById:", error);
+      throw error;
     }
-
-    return processPostImages(post);
   }
 
   /**
@@ -339,8 +362,68 @@ export class PostService {
         where: { id },
       });
       return true;
-    } catch {
+    } catch (error) {
+      console.error("Error deleting post:", error);
       return false;
+    }
+  }
+
+  /**
+   * 增加帖子浏览量
+   */
+  static async incrementViewCount(postId: number): Promise<void> {
+    try {
+      await prisma.posts.update({
+        where: { id: postId },
+        data: {
+          view_count: {
+            increment: 1,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Error incrementing view count:", error);
+      throw new Error("Failed to increment view count");
+    }
+  }
+
+  /**
+   * 切换帖子收藏状态
+   */
+  static async toggleFavorite(
+    userId: number,
+    postId: number
+  ): Promise<boolean> {
+    try {
+      // 检查是否已收藏
+      const existingFavorite = await prisma.favorite.findFirst({
+        where: {
+          user_id: userId,
+          post_id: postId,
+        },
+      });
+
+      if (existingFavorite) {
+        // 如果已收藏，则取消收藏
+        await prisma.favorite.delete({
+          where: {
+            id: existingFavorite.id,
+          },
+        });
+        return false;
+      } else {
+        // 如果未收藏，则添加收藏
+        await prisma.favorite.create({
+          data: {
+            user_id: userId,
+            post_id: postId,
+          },
+        });
+        return true;
+      }
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      throw new Error("Failed to toggle favorite");
     }
   }
 

@@ -250,12 +250,18 @@ export default function NewPostForm() {
         url: `${BASE_API_URL}/posts/upload`,
         filePath: tempFilePath,
         name: "file",
+        header: {
+          "x-openid":
+            process.env.NODE_ENV === "development"
+              ? "dev_openid_123"
+              : Taro.getStorageSync("openid") || "",
+        },
       });
 
       let url = "";
       try {
         const data = JSON.parse(uploadRes.data);
-        url = data.url;
+        url = data.data.url;
         // 确保URL是完整的
         if (url.startsWith("/uploads/")) {
           url = `${BASE_URL}${url}`;
@@ -411,11 +417,6 @@ export default function NewPostForm() {
         image_url: finalImages[0] || undefined,
         description: formData.description || "暂无描述",
       };
-
-      // 移除不需要的字段
-      delete payload.categoryMain;
-      delete payload.categorySub;
-      delete payload.cityCode;
 
       console.log("发送请求数据:", payload);
       console.log("请求URL:", `${BASE_API_URL}/posts`);

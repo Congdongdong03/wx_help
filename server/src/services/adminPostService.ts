@@ -372,4 +372,16 @@ export class AdminPostService {
 
     return stats;
   }
+
+  /**
+   * 获取目录图片（模拟实现）
+   */
+  static async getCatalogueImages(): Promise<string[]> {
+    // 这里可以返回模拟图片数据，实际项目可替换为真实逻辑
+    return [
+      "/images/catalogue1.jpg",
+      "/images/catalogue2.jpg",
+      "/images/catalogue3.jpg",
+    ];
+  }
 }

@@ -7,6 +7,8 @@ import userRoutes from "./routes/user";
 import postRoutes from "./routes/post";
 import homeRoutes from "./routes/home";
 import adminRoutes from "./routes/admin";
+import authRoutes from "./routes/auth";
+import wxRoutes from "./routes/wx";
 // 移除旧的数据库初始化
 // import { initializeDatabase } from "./config/database";
 
@@ -14,6 +16,9 @@ import adminRoutes from "./routes/admin";
 import { disconnectPrisma } from "./lib/prisma";
 import path from "path";
 import fs from "fs";
+import { requireAuth } from "./middleware/auth";
+import { errorHandler, notFoundHandler } from "./middleware/error";
+import { RedisService } from "./services/redis";
 
 const app = express();
 const PORT = Number(config.port); // 移到这里，在使用之前定义
@@ -32,7 +37,7 @@ app.use(
   cors({
     origin: "*", // 允许所有域名，生产环境建议指定具体域名
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-openid"],
   })
 );
 app.use(express.json());
@@ -92,6 +97,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/home", homeRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/wx", wxRoutes);
 
 // 添加图片调试路由
 app.get("/api/debug/catalogue-images", (req: Request, res: Response) => {
@@ -168,11 +175,9 @@ app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
-// Error handling
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-  log("error", "Error occurred", { error: err.message, stack: err.stack });
-  res.status(500).json({ error: "Internal Server Error" });
-});
+// 错误处理中间件
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 // 优雅关闭处理
 const gracefulShutdown = async (signal: string) => {
@@ -180,6 +185,7 @@ const gracefulShutdown = async (signal: string) => {
   try {
     await disconnectPrisma();
     console.log("Database connections closed.");
+    await RedisService.shutdown();
     process.exit(0);
   } catch (error) {
     console.error("Error during shutdown:", error);
@@ -190,6 +196,9 @@ const gracefulShutdown = async (signal: string) => {
 // 监听关闭信号
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
+// 启动 Redis 同步任务
+RedisService.startSyncJob();
 
 // 直接启动服务器（不需要数据库初始化）
 app.listen(PORT, "0.0.0.0", () => {

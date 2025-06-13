@@ -1,30 +1,39 @@
 import mysql from "mysql2/promise";
 
 const dbConfig = {
-  host: "127.0.0.1",
-  port: 3306,
-  user: "root",
-  password: "970325",
-  database: "bangbang",
+  host: process.env.DB_HOST || "127.0.0.1",
+  port: parseInt(process.env.DB_PORT || "3306"),
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "",
+  database: process.env.DB_NAME || "bangbang",
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
 };
 
-let dbInstance: mysql.Connection | null = null;
+let poolInstance: mysql.Pool | null = null;
 
-export const initializeDatabase = async (): Promise<mysql.Connection> => {
-  if (dbInstance) {
-    return dbInstance;
+export const initializeDatabase = async (): Promise<mysql.Pool> => {
+  if (poolInstance) {
+    return poolInstance;
   }
 
   try {
-    const connection = await mysql.createConnection(dbConfig);
+    const pool = mysql.createPool(dbConfig);
+    console.log("MySQL connection pool created successfully.");
+
+    // 测试连接
+    const connection = await pool.getConnection();
     console.log("MySQL database connected successfully.");
 
     // 创建用户表（如果不存在）
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(255) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
+        openid VARCHAR(100) UNIQUE NOT NULL,
+        nickname VARCHAR(100),
+        avatar_url VARCHAR(255),
+        phone VARCHAR(20),
         email VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -38,9 +47,14 @@ export const initializeDatabase = async (): Promise<mysql.Connection> => {
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
         title VARCHAR(255) NOT NULL,
-        category VARCHAR(50),
-        content TEXT,
-        status VARCHAR(20) DEFAULT 'pending',
+        description TEXT,
+        category VARCHAR(50) NOT NULL,
+        images TEXT,
+        price VARCHAR(50),
+        contact_info VARCHAR(255),
+        city_code VARCHAR(20),
+        status VARCHAR(20) DEFAULT 'active',
+        view_count INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -82,7 +96,54 @@ export const initializeDatabase = async (): Promise<mysql.Connection> => {
     `);
     console.log("Recommendations table checked/created.");
 
-    // 自动补充 cities 表字段
+    // 检查并更新表结构
+    await updateTableStructures(connection);
+
+    connection.release();
+    poolInstance = pool;
+    return poolInstance;
+  } catch (error) {
+    console.error("Failed to initialize MySQL database:", error);
+    process.exit(1);
+  }
+};
+
+// 更新表结构
+async function updateTableStructures(connection: mysql.Connection) {
+  try {
+    // 检查 users 表是否需要更新
+    const [userCols]: any = await connection.execute(
+      "SHOW COLUMNS FROM users LIKE 'openid';"
+    );
+    if (userCols.length === 0) {
+      // 如果表存在但没有 openid 字段，需要迁移数据
+      await connection.execute(`
+        ALTER TABLE users 
+        ADD COLUMN openid VARCHAR(100) UNIQUE,
+        ADD COLUMN nickname VARCHAR(100),
+        ADD COLUMN avatar_url VARCHAR(255),
+        ADD COLUMN phone VARCHAR(20);
+      `);
+      console.log("Updated users table structure.");
+    }
+
+    // 检查 posts 表是否需要更新
+    const [postCols]: any = await connection.execute(
+      "SHOW COLUMNS FROM posts LIKE 'images';"
+    );
+    if (postCols.length === 0) {
+      await connection.execute(`
+        ALTER TABLE posts 
+        ADD COLUMN images TEXT,
+        ADD COLUMN price VARCHAR(50),
+        ADD COLUMN contact_info VARCHAR(255),
+        ADD COLUMN city_code VARCHAR(20),
+        ADD COLUMN view_count INT DEFAULT 0;
+      `);
+      console.log("Updated posts table structure.");
+    }
+
+    // 检查 cities 表是否需要更新
     const [cityCols]: any = await connection.execute(
       "SHOW COLUMNS FROM cities LIKE 'is_active';"
     );
@@ -90,54 +151,32 @@ export const initializeDatabase = async (): Promise<mysql.Connection> => {
       await connection.execute(
         "ALTER TABLE cities ADD COLUMN is_active BOOLEAN DEFAULT true;"
       );
-      console.log("Added missing column 'is_active' to cities table.");
+      console.log("Updated cities table structure.");
     }
 
-    // 自动补充 recommendations 表字段
-    const [recPinned]: any = await connection.execute(
+    // 检查 recommendations 表是否需要更新
+    const [recCols]: any = await connection.execute(
       "SHOW COLUMNS FROM recommendations LIKE 'is_pinned';"
     );
-    if (recPinned.length === 0) {
-      await connection.execute(
-        "ALTER TABLE recommendations ADD COLUMN is_pinned BOOLEAN DEFAULT false;"
-      );
-      console.log("Added missing column 'is_pinned' to recommendations table.");
+    if (recCols.length === 0) {
+      await connection.execute(`
+        ALTER TABLE recommendations 
+        ADD COLUMN is_pinned BOOLEAN DEFAULT false,
+        ADD COLUMN price VARCHAR(50),
+        ADD COLUMN city VARCHAR(50) DEFAULT '通用';
+      `);
+      console.log("Updated recommendations table structure.");
     }
-    const [recPrice]: any = await connection.execute(
-      "SHOW COLUMNS FROM recommendations LIKE 'price';"
-    );
-    if (recPrice.length === 0) {
-      await connection.execute(
-        "ALTER TABLE recommendations ADD COLUMN price VARCHAR(50);"
-      );
-      console.log("Added missing column 'price' to recommendations table.");
-    }
-    const [recCity]: any = await connection.execute(
-      "SHOW COLUMNS FROM recommendations LIKE 'city';"
-    );
-    if (recCity.length === 0) {
-      await connection.execute(
-        "ALTER TABLE recommendations ADD COLUMN city VARCHAR(50) DEFAULT '通用';"
-      );
-      console.log("Added missing column 'city' to recommendations table.");
-    }
-
-    dbInstance = connection;
-    return dbInstance;
   } catch (error) {
-    console.error("Failed to initialize MySQL database:", error);
-    process.exit(1);
+    console.error("Error updating table structures:", error);
+    throw error;
   }
-};
-
-// 在应用程序启动时调用这个函数来获取数据库实例
-// let dbInstance: any; // 这里先用 any，后续如果需要可以在使用的地方定义更精确的类型
-// initializeDatabase().then(db => { dbInstance = db; });
+}
 
 // 获取数据库实例
-export const getDb = (): mysql.Connection => {
-  if (!dbInstance) {
+export const getDb = (): mysql.Pool => {
+  if (!poolInstance) {
     throw new Error("Database not initialized. Call initializeDatabase first.");
   }
-  return dbInstance;
+  return poolInstance;
 };

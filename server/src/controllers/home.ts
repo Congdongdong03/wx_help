@@ -1,6 +1,7 @@
 // src/controllers/home.ts
 import { Request, Response } from "express";
 import { HomeService } from "../services/homeService";
+import { AuthenticatedRequest } from "../middleware/auth";
 
 export const getCities = async (req: Request, res: Response) => {
   try {
@@ -8,25 +9,28 @@ export const getCities = async (req: Request, res: Response) => {
 
     res.json({
       code: 0,
-      data: cities,
       message: "获取城市列表成功",
+      data: cities,
     });
   } catch (error) {
     console.error("Failed to get cities:", error);
     res.status(500).json({
-      code: 500,
+      code: 1,
       message: "获取城市列表失败",
     });
   }
 };
 
-export const getRecommendations = async (req: Request, res: Response) => {
+export const getRecommendations = async (
+  req: AuthenticatedRequest,
+  res: Response
+) => {
   try {
     const { category, city } = req.query;
 
     if (!city) {
       return res.status(400).json({
-        code: 400,
+        code: 1,
         message: "城市参数不能为空",
       });
     }
@@ -77,16 +81,16 @@ export const getRecommendations = async (req: Request, res: Response) => {
 
     res.json({
       code: 0,
+      message: "获取推荐内容成功",
       data: {
         pinned,
         list,
       },
-      message: "获取推荐内容成功",
     });
   } catch (error) {
     console.error("Failed to get recommendations:", error);
     res.status(500).json({
-      code: 500,
+      code: 1,
       message: "获取推荐内容失败",
     });
   }
@@ -110,9 +114,8 @@ export const debugDatabase = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Debug failed:", error);
     res.status(500).json({
-      code: 500,
+      code: 1,
       message: "调试失败",
-      error: error instanceof Error ? error.message : String(error),
     });
   }
 };

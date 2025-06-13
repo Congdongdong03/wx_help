@@ -1,6 +1,7 @@
 // src/controllers/user.ts
 import { Request, Response } from "express";
 import { UserService } from "../services/userService";
+import { AuthenticatedRequest } from "../middleware/auth";
 
 // 统一的日志函数
 const log = (
@@ -17,26 +18,19 @@ export class UserController {
    */
   static async register(req: Request, res: Response) {
     try {
-      const { username, password, email, nickname, phone } = req.body;
+      const { username, email, nickname, phone } = req.body;
       if (!username) {
         return res.status(400).json({
           code: 1,
-          error: "用户名不能为空",
+          message: "用户名不能为空",
         });
       }
-      // 基本验证
 
+      // 基本验证
       if (username.length < 3 || username.length > 20) {
         return res.status(400).json({
           code: 1,
-          error: "用户名长度必须在3-20字符之间",
-        });
-      }
-
-      if (password.length < 6) {
-        return res.status(400).json({
-          code: 1,
-          error: "密码长度不能少于6位",
+          message: "用户名长度必须在3-20字符之间",
         });
       }
 
@@ -45,7 +39,7 @@ export class UserController {
       if (isUsernameExists) {
         return res.status(400).json({
           code: 1,
-          error: "用户名已存在",
+          message: "用户名已存在",
         });
       }
 
@@ -55,16 +49,17 @@ export class UserController {
         if (isEmailExists) {
           return res.status(400).json({
             code: 1,
-            error: "邮箱已被注册",
+            message: "邮箱已被注册",
           });
         }
       }
 
       // 创建新用户
       const newUser = await UserService.create({
+        openid: `temp_${Date.now()}`, // 临时 openid，后续需要更新
         username,
         email,
-        nickname: nickname || username, // 如果没有提供昵称，使用用户名
+        nickname: nickname || username,
         phone,
       });
 
@@ -91,14 +86,11 @@ export class UserController {
       });
       res.status(500).json({
         code: 1,
-        error: "注册失败，请稍后再试",
+        message: "注册失败，请稍后再试",
       });
     }
   }
 
-  /**
-   * 用户登录
-   */
   /**
    * 微信登录
    */
@@ -109,7 +101,7 @@ export class UserController {
       if (!openid) {
         return res.status(400).json({
           code: 1,
-          error: "openid不能为空",
+          message: "openid不能为空",
         });
       }
 
@@ -119,6 +111,7 @@ export class UserController {
       if (!user) {
         // 用户不存在，创建新用户
         user = await UserService.create({
+          openid,
           username: userInfo?.nickName || `user_${Date.now()}`,
           nickname: userInfo?.nickName,
           avatar_url: userInfo?.avatarUrl,
@@ -153,21 +146,21 @@ export class UserController {
       });
       res.status(500).json({
         code: 1,
-        error: "登录失败，请稍后再试",
+        message: "登录失败，请稍后再试",
       });
     }
   }
+
   /**
    * 获取用户信息
    */
-  static async getUserInfo(req: Request, res: Response) {
+  static async getUserInfo(req: AuthenticatedRequest, res: Response) {
     try {
-      const userId = parseInt(req.params.id);
-
-      if (isNaN(userId)) {
-        return res.status(400).json({
-          code: 1,
-          error: "无效的用户ID",
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({
+          code: 401,
+          message: "未登录",
         });
       }
 
@@ -175,7 +168,7 @@ export class UserController {
       if (!userInfo) {
         return res.status(404).json({
           code: 1,
-          error: "用户不存在",
+          message: "用户不存在",
         });
       }
 
@@ -192,11 +185,11 @@ export class UserController {
     } catch (error: any) {
       log("error", "Get user info error", {
         error: error.message || error,
-        userId: req.params.id,
+        userId: req.user?.id,
       });
       res.status(500).json({
         code: 1,
-        error: "获取用户信息失败",
+        message: "获取用户信息失败",
       });
     }
   }
@@ -204,64 +197,38 @@ export class UserController {
   /**
    * 更新用户信息
    */
-  static async updateUserInfo(req: Request, res: Response) {
+  static async updateUserInfo(req: AuthenticatedRequest, res: Response) {
     try {
-      const userId = parseInt(req.params.id);
-      const { nickname, email, phone, city, province, avatar_url } = req.body;
-
-      if (isNaN(userId)) {
-        return res.status(400).json({
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({
           code: 1,
-          error: "无效的用户ID",
+          message: "未授权",
         });
       }
 
-      // 检查用户是否存在
-      const existingUser = await UserService.findById(userId);
-      if (!existingUser) {
-        return res.status(404).json({
-          code: 1,
-          error: "用户不存在",
-        });
-      }
+      const { nickname, avatar_url, phone, city, province, country } = req.body;
 
       // 更新用户信息
       const updatedUser = await UserService.update(userId, {
         nickname,
-        email,
+        avatar_url,
         phone,
         city,
         province,
-        avatar_url,
-      });
-
-      log("info", "User info updated", {
-        userId,
-        updatedFields: Object.keys(req.body),
+        country,
       });
 
       res.json({
         code: 0,
         message: "更新成功",
-        data: {
-          id: updatedUser.id,
-          username: updatedUser.username,
-          nickname: updatedUser.nickname,
-          email: updatedUser.email,
-          phone: updatedUser.phone,
-          city: updatedUser.city,
-          province: updatedUser.province,
-          avatar_url: updatedUser.avatar_url,
-        },
+        data: updatedUser,
       });
-    } catch (error: any) {
-      log("error", "Update user info error", {
-        error: error.message || error,
-        userId: req.params.id,
-      });
+    } catch (error) {
+      console.error("更新用户信息失败:", error);
       res.status(500).json({
         code: 1,
-        error: "更新用户信息失败",
+        message: "更新用户信息失败",
       });
     }
   }

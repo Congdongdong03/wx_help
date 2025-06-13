@@ -131,13 +131,32 @@ const PostDetailPage: React.FC = () => {
     );
   }
 
+  // 兼容 images 字段为字符串、null、undefined等情况，确保 images 一定是数组
+  let images: string[] = [];
+  if (Array.isArray(post.images)) {
+    images = post.images;
+  } else if (typeof post.images === "string") {
+    try {
+      const parsed = JSON.parse(post.images);
+      if (Array.isArray(parsed)) {
+        images = parsed;
+      } else if (parsed) {
+        images = [parsed];
+      }
+    } catch {
+      if (post.images) images = [post.images];
+    }
+  } else if (post.images) {
+    images = [post.images];
+  }
+
   return (
     <View className="detail-page">
       <View className="content">
-        {post.images && post.images.length > 0 && (
+        {images.length > 0 && (
           <View className="image-grid">
             <View className="grid-container">
-              {post.images.map((image, index) => (
+              {images.map((image, index) => (
                 <View
                   key={index}
                   className="grid-item"
@@ -157,9 +176,16 @@ const PostDetailPage: React.FC = () => {
         </View>
 
         <View className="user-info">
-          <Image className="avatar" src={post.user.avatar_url} />
+          <Image
+            className="avatar"
+            src={
+              post.user?.avatar_url || "https://example.com/default-avatar.png"
+            }
+          />
           <View className="user-details">
-            <Text className="nickname">{post.user.nickname}</Text>
+            <Text className="nickname">
+              {post.user?.nickname || "未知用户"}
+            </Text>
             <Text className="post-time">
               {new Date(post.created_at).toLocaleDateString()}
             </Text>

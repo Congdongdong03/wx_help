@@ -48,6 +48,10 @@ export async function request<T = any>(
       const response = await Taro.request({
         url,
         ...requestOptions,
+        header: {
+          ...(requestOptions.header || {}),
+          "x-openid": "dev_openid_123",
+        },
       });
 
       if (response.statusCode >= 200 && response.statusCode < 300) {

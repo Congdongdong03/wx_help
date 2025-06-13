@@ -184,15 +184,18 @@ export default function Index() {
       setLoadError(false);
 
       try {
+        const params: any = {
+          page,
+          limit: POSTS_PER_PAGE,
+          city,
+        };
+        if (categoryId && categoryId !== "recommend") {
+          params.category = categoryId;
+        }
         const res = await Taro.request({
           url: API_CONFIG.getApiUrl("/posts"),
           method: "GET",
-          data: {
-            page,
-            limit: POSTS_PER_PAGE,
-            category: categoryId,
-            city,
-          },
+          data: params,
         });
 
         if (res.data && res.data.code === 0 && res.data.data) {

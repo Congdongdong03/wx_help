@@ -1,2 +1,0 @@
--- AlterTable
-ALTER TABLE `posts` MODIFY `last_polished_at` DATETIME(0) NULL DEFAULT CURRENT_TIMESTAMP(0);
