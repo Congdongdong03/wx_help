@@ -35,6 +35,7 @@ interface FeedPost {
   content: string;
   content_preview?: string;
   category: Category;
+  sub_category?: string;
   price?: string | number;
   updated_at: string;
   created_at: string;
@@ -68,6 +69,23 @@ const CATEGORIES: Category[] = [
   { id: "used", name: "二手", color: "#28a745" },
   { id: "jobs", name: "招聘", color: "#ffc107" },
 ];
+
+const SUB_CATEGORIES = {
+  rent: [
+    { label: "出租", value: "rent", icon: "租" },
+    { label: "求租", value: "wanted_rent", icon: "求租" },
+    { label: "出售", value: "sell", icon: "售" },
+    { label: "求购", value: "wanted_buy", icon: "求购" },
+  ],
+  used: [
+    { label: "出售", value: "sell", icon: "卖" },
+    { label: "求购", value: "wanted", icon: "收" },
+  ],
+  help: [
+    { label: "求助", value: "need_help", icon: "求助" },
+    { label: "提供帮助", value: "offer_help", icon: "帮助" },
+  ],
+};
 
 // ------------------ MASONRY LAYOUT HELPER ------------------
 const distributePosts = (posts: FeedPost[]): [FeedPost[], FeedPost[]] => {
@@ -116,6 +134,7 @@ export default function Index() {
   const [recommendMeta, setRecommendMeta] = useState<RecommendMeta | null>(
     null
   );
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   const isLoadingRef = useRef(isLoading);
   const currentPageRef = useRef(currentPage);
@@ -239,6 +258,7 @@ export default function Index() {
                 CATEGORIES.find(
                   (c) => c.id === (item.category || "recommend")
                 ) || CATEGORIES[0],
+              sub_category: item.sub_category || "",
               price: item.price || undefined,
               updated_at: item.updated_at || new Date().toISOString(),
               created_at: item.created_at || new Date().toISOString(),
@@ -374,7 +394,10 @@ export default function Index() {
     const pinnedIds = new Set(pinnedPosts.map((p) => p.id));
     mixedPosts = normalPosts
       .filter((p) => !pinnedIds.has(p.id))
-      .sort((a, b) => b.updated_at.getTime() - a.updated_at.getTime());
+      .sort(
+        (a, b) =>
+          new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      );
   } else {
     if (selectedCategoryId === "recommend") {
       mixedPosts = normalPosts;
@@ -398,6 +421,17 @@ export default function Index() {
   console.log("pinnedPosts:", pinnedPosts);
   console.log("normalPosts:", normalPosts);
   console.log("displayedPosts:", displayedPosts);
+
+  // 处理下拉刷新
+  const onRefresherRefresh = async () => {
+    console.log("开始下拉刷新...");
+    setRefreshing(true);
+    setCurrentPage(1);
+    setHasMoreData(true);
+    await loadPosts(selectedCity, selectedCategoryId, 1, false);
+    setRefreshing(false);
+    console.log("下拉刷新完成");
+  };
 
   return (
     <View className="index-page">
@@ -429,6 +463,9 @@ export default function Index() {
       <ScrollView
         scrollY
         className="posts-scroll-view"
+        refresherEnabled
+        refresherTriggered={refreshing}
+        onRefresherRefresh={onRefresherRefresh}
         onScrollToLower={onScrollToLower}
         lowerThreshold={150}
       >
@@ -600,6 +637,14 @@ const DEFAULT_IMAGE_URL =
   "https://images.unsplash.com/photo-1506744038136-46273834b3fb";
 
 const PostCard: React.FC<PostCardProps> = ({ post, isPinned }) => {
+  const getSubCategoryIcon = (category: string, subCategory: string) => {
+    const subCategories =
+      SUB_CATEGORIES[category as keyof typeof SUB_CATEGORIES];
+    if (!subCategories) return subCategory;
+    const found = subCategories.find((sub) => sub.value === subCategory);
+    return found ? found.icon : subCategory;
+  };
+
   return (
     <View
       className="post-card"
@@ -610,6 +655,11 @@ const PostCard: React.FC<PostCardProps> = ({ post, isPinned }) => {
       {isPinned && (
         <View className="post-card-pin-indicator">
           <Text>置顶</Text>
+        </View>
+      )}
+      {post.status === "pending" && post.title !== "草稿" && (
+        <View className="post-card-status pending">
+          <Text>审核中</Text>
         </View>
       )}
       <Image
@@ -623,9 +673,14 @@ const PostCard: React.FC<PostCardProps> = ({ post, isPinned }) => {
         }}
       />
       <View className="post-card-content">
-        <Text className="post-card-title" numberOfLines={2}>
-          {post.title || "无标题"}
-        </Text>
+        <View className="post-card-title">
+          {post.sub_category && (
+            <Text className="post-card-category-sub">
+              {getSubCategoryIcon(post.category.id, post.sub_category)}
+            </Text>
+          )}
+          <Text numberOfLines={2}>{post.title || "无标题"}</Text>
+        </View>
         <Text className="post-card-description" numberOfLines={2}>
           {post.content_preview || "暂无描述"}
         </Text>

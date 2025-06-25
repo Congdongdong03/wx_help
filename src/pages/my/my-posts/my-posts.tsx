@@ -153,7 +153,10 @@ export default function MyPosts() {
   // 将 API Post 转换为 UIPost
   const mapApiPostToUIPost = useCallback((apiPost: ApiPost): UIPost => {
     let imageUrl = "https://via.placeholder.com/200x150.png?text=No+Image";
-    if (apiPost.images) {
+    if (
+      typeof apiPost.images === "string" &&
+      apiPost.images.trim().startsWith("[")
+    ) {
       try {
         const imagesArray = JSON.parse(apiPost.images);
         if (Array.isArray(imagesArray) && imagesArray.length > 0) {
@@ -502,6 +505,9 @@ export default function MyPosts() {
   // Tab 点击处理函数
   const handleTabClick = (index: number) => {
     setCurrentTabIndex(index);
+    const apiStatusFilter =
+      tabList[index].status === "draft" ? "draft" : getCurrentApiStatusFilter();
+    fetchApiPosts(1, apiStatusFilter, false);
   };
 
   // *** 修改函数：处理擦亮按钮点击事件 (占位符) ***
@@ -745,7 +751,10 @@ export default function MyPosts() {
               }
             }}
           >
-            {displayedPosts.map((post) => {
+            {(tabList[currentTabIndex].status === "reviewing"
+              ? displayedPosts.filter((post) => post.title !== "草稿")
+              : displayedPosts
+            ).map((post) => {
               const isApiPost = typeof post.id === "number";
               const isBoostable =
                 isApiPost && post.uiDisplayStatus === "published"; // API帖子且已发布
@@ -777,7 +786,10 @@ export default function MyPosts() {
                           <Text
                             className={`post-status status-${post.uiDisplayStatus}`}
                           >
-                            {displayUiStatus(post.uiDisplayStatus)}
+                            {post.uiDisplayStatus === "pending" &&
+                            post.title === "草稿"
+                              ? "草稿"
+                              : displayUiStatus(post.uiDisplayStatus)}
                           </Text>
                         </View>
                       </View>
