@@ -84,16 +84,15 @@ const PostDetailPage: React.FC = () => {
     setSelectedImage(null);
   };
 
-  const handleCopyWechatId = () => {
-    if (post?.wechat_id) {
-      Taro.setClipboardData({
-        data: post.wechat_id,
-        success: () => {
-          Taro.showToast({
-            title: "微信号已复制",
-            icon: "success",
-          });
-        },
+  const handleMessageSeller = () => {
+    if (post?.user?.id && post?.user?.nickname) {
+      Taro.navigateTo({
+        url: `/pages/messages/chat/index?userId=${post.user.id}&nickname=${post.user.nickname}`,
+      });
+    } else {
+      Taro.showToast({
+        title: "用户信息缺失，无法私信",
+        icon: "none",
       });
     }
   };
@@ -196,8 +195,12 @@ const PostDetailPage: React.FC = () => {
           <Text className="contact-title">联系方式</Text>
           <View className="wechat-id">
             <Text className="id-text">{post.wechat_id}</Text>
-            <Button className="copy-button" onClick={handleCopyWechatId}>
-              复制
+            <Button
+              className="message-seller-button"
+              onClick={handleMessageSeller}
+              style={{ marginLeft: "0px" }}
+            >
+              私信卖家
             </Button>
           </View>
         </View>

@@ -1,0 +1,19 @@
+export interface Conversation {
+  id: string;
+  otherUserId: string;
+  otherUserNickname: string;
+  otherUserAvatar: string;
+  lastMessagePreview: string;
+  lastMessageTime: string; // Already formatted, e.g., "昨天 17:30" or "06-25"
+  unreadCount: number;
+}
+
+export interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string; // The user ID who sent the message
+  receiverId: string; // The user ID who received the message
+  content: string;
+  timestamp: string; // ISO string for precise sorting, will be formatted for display
+  isRead: boolean;
+}

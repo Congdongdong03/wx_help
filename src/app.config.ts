@@ -14,6 +14,8 @@ export default defineAppConfig({
     "pages/settings/help-feedback/index",
     "pages/settings/user-agreement/index",
     "pages/settings/privacy-policy/index",
+    "pages/message/index",
+    "pages/messages/chat/index",
   ],
   window: {
     backgroundTextStyle: "light",
@@ -33,6 +35,12 @@ export default defineAppConfig({
         text: "首页",
         iconPath: "assets/tabbar/homepage.png",
         selectedIconPath: "assets/tabbar/homepage.png",
+      },
+      {
+        pagePath: "pages/message/index",
+        text: "私信",
+        iconPath: "assets/tabbar/message.png",
+        selectedIconPath: "assets/tabbar/message.png",
       },
       // {
       //   pagePath: "pages/post/index",

@@ -158,6 +158,23 @@ export default function My() {
           <Text>我的收藏</Text>
           <Text className="menu-arrow">&gt;</Text>
         </View>
+        <View
+          className="menu-item"
+          onClick={() => Taro.navigateTo({ url: "/pages/message/index" })}
+        >
+          <Text>我的消息</Text>
+          <View
+            style={{
+              backgroundColor: "red",
+              borderRadius: "50%",
+              width: "20rpx",
+              height: "20rpx",
+              marginLeft: "auto",
+              marginRight: "20rpx",
+            }}
+          ></View>
+          <Text className="menu-arrow">&gt;</Text>
+        </View>
         {/* TODO: Add "帮助与反馈" here */}
         <View
           className="menu-item"
