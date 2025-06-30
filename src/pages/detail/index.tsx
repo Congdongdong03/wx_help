@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Taro, { useRouter } from "@tarojs/taro";
 import { View, Text, Image, Button } from "@tarojs/components";
 import { API_CONFIG } from "../../config/api";
+import { messageService } from "../../services/messageService";
 import "./index.scss";
 
 interface PostDetail {
@@ -84,14 +85,37 @@ const PostDetailPage: React.FC = () => {
     setSelectedImage(null);
   };
 
-  const handleMessageSeller = () => {
-    if (post?.user?.id && post?.user?.nickname) {
-      Taro.navigateTo({
-        url: `/pages/messages/chat/index?userId=${post.user.id}&nickname=${post.user.nickname}`,
-      });
-    } else {
+  const handleMessageSeller = async () => {
+    if (!post?.user?.id || !post?.user?.nickname || !id) {
       Taro.showToast({
         title: "用户信息缺失，无法私信",
+        icon: "none",
+      });
+      return;
+    }
+
+    try {
+      Taro.showLoading({ title: "正在连接..." });
+
+      // 创建或找到对话
+      const conversationId = await messageService.findOrCreateConversation(
+        id,
+        post.user.id.toString()
+      );
+
+      Taro.hideLoading();
+
+      // 跳转到聊天窗口
+      Taro.navigateTo({
+        url: `/pages/messages/chat/index?conversationId=${conversationId}&otherUserId=${
+          post.user.id
+        }&nickname=${encodeURIComponent(post.user.nickname)}`,
+      });
+    } catch (error) {
+      Taro.hideLoading();
+      console.error("Error creating conversation:", error);
+      Taro.showToast({
+        title: "创建对话失败",
         icon: "none",
       });
     }

@@ -3,6 +3,7 @@ export interface Conversation {
   otherUserId: string;
   otherUserNickname: string;
   otherUserAvatar: string;
+  postTitle: string;
   lastMessagePreview: string;
   lastMessageTime: string; // Already formatted, e.g., "昨天 17:30" or "06-25"
   unreadCount: number;
@@ -16,4 +17,5 @@ export interface Message {
   content: string;
   timestamp: string; // ISO string for precise sorting, will be formatted for display
   isRead: boolean;
+  status?: "pending" | "sent" | "failed";
 }

@@ -9,6 +9,7 @@ import homeRoutes from "./routes/home";
 import adminRoutes from "./routes/admin";
 import authRoutes from "./routes/auth";
 import wxRoutes from "./routes/wx";
+import conversationRoutes from "./routes/conversation";
 // 移除旧的数据库初始化
 // import { initializeDatabase } from "./config/database";
 
@@ -19,9 +20,207 @@ import fs from "fs";
 import { requireAuth } from "./middleware/auth";
 import { errorHandler, notFoundHandler } from "./middleware/error";
 import { RedisService } from "./services/redis";
+// import { socketService } from "./services/socket"; // 已移除 socket.io 相关代码
+import { createServer } from "http";
+import { WebSocket, WebSocketServer } from "ws";
+import { messageService } from "./services/messageService";
+import { prisma } from "./lib/prisma";
 
 const app = express();
+const server = createServer(app);
 const PORT = Number(config.port); // 移到这里，在使用之前定义
+
+// 扩展 WebSocket 类型，支持 userId
+interface ExtWebSocket extends WebSocket {
+  userId?: string;
+}
+
+// 初始化 WebSocket 服务
+const wss = new WebSocketServer({ server });
+
+// 维护用户映射：userId => ws
+const userMap = new Map<string, ExtWebSocket>();
+
+// WebSocket 连接处理
+wss.on("connection", function connection(ws: ExtWebSocket, req) {
+  console.log("🔌 新 WebSocket 客户端连接:", req.socket.remoteAddress);
+
+  // 为每个连接添加 userId 属性
+  ws.userId = undefined;
+
+  // 发送欢迎消息
+  ws.send(
+    JSON.stringify({
+      type: "system",
+      content: "欢迎连接 WebSocket 服务器！",
+      timestamp: Date.now(),
+    })
+  );
+
+  ws.on("message", async function incoming(message) {
+    try {
+      const data = JSON.parse(message.toString());
+      console.log("📨 收到 WebSocket 消息:", data);
+
+      // 处理不同类型的消息
+      switch (data.type) {
+        case "auth":
+          console.log("🔐 用户认证:", data.userId);
+          ws.userId = data.userId;
+          userMap.set(data.userId, ws);
+          ws.send(
+            JSON.stringify({
+              type: "auth_success",
+              userId: data.userId,
+              timestamp: Date.now(),
+            })
+          );
+          console.log("📊 当前在线用户:", Array.from(userMap.keys()));
+
+          // === 新增：推送未读消息 ===
+          if (
+            data.userId === "dev_openid_123" ||
+            data.userId === "test_user_2"
+          ) {
+            try {
+              const unreadMessages = await prisma.message.findMany({
+                where: {
+                  receiverId: data.userId,
+                  isRead: false,
+                },
+                orderBy: { createdAt: "asc" },
+              });
+
+              for (const msg of unreadMessages) {
+                ws.send(
+                  JSON.stringify({
+                    type: "chat",
+                    content: msg.content,
+                    senderId: msg.senderId,
+                    toUserId: msg.receiverId,
+                    conversationId: msg.conversationId,
+                    timestamp: msg.createdAt,
+                    messageId: msg.id,
+                    offline: true, // 标记为离线消息
+                  })
+                );
+              }
+
+              // 推送后批量标记为已读
+              if (unreadMessages.length > 0) {
+                await prisma.message.updateMany({
+                  where: {
+                    id: { in: unreadMessages.map((m) => m.id) },
+                  },
+                  data: { isRead: true },
+                });
+              }
+            } catch (err) {
+              console.error("推送未读消息失败:", err);
+            }
+          }
+          break;
+
+        case "sendMessage":
+          // 1. 保存消息到数据库
+          const savedMsg = await messageService.sendMessage(
+            data.conversationId, // 会话ID
+            ws.userId!, // 发送者
+            data.toUserId, // 接收者
+            data.content // 内容
+          );
+
+          // 2. 如果对方在线，推送
+          const targetWs = userMap.get(data.toUserId);
+          if (targetWs && targetWs.readyState === 1) {
+            targetWs.send(
+              JSON.stringify({
+                type: "chat",
+                content: data.content,
+                senderId: ws.userId,
+                toUserId: data.toUserId,
+                conversationId: data.conversationId,
+                timestamp: savedMsg.createdAt,
+                messageId: savedMsg.id,
+                clientTempId: data.clientTempId || null,
+              })
+            );
+            console.log(`✅ 消息已发送给用户: ${data.toUserId}`);
+          } else {
+            console.log(`💾 目标用户 ${data.toUserId} 不在线，消息已存数据库`);
+            // 不推送，只写库
+          }
+
+          // 3. 推送给自己（发送者）——回显
+          if (ws.readyState === 1) {
+            ws.send(
+              JSON.stringify({
+                type: "chat",
+                content: data.content,
+                senderId: ws.userId,
+                toUserId: data.toUserId,
+                conversationId: data.conversationId,
+                timestamp: savedMsg.createdAt,
+                messageId: savedMsg.id,
+                clientTempId: data.clientTempId || null,
+              })
+            );
+          }
+          break;
+
+        case "joinRoom":
+          console.log("🚪 加入房间:", data.conversationId);
+          ws.send(
+            JSON.stringify({
+              type: "room_joined",
+              conversationId: data.conversationId,
+              timestamp: Date.now(),
+            })
+          );
+          break;
+
+        case "leaveRoom":
+          console.log("🚪 离开房间:", data.conversationId);
+          ws.send(
+            JSON.stringify({
+              type: "room_left",
+              conversationId: data.conversationId,
+              timestamp: Date.now(),
+            })
+          );
+          break;
+
+        default:
+          console.log("❓ 未知消息类型:", data.type);
+      }
+    } catch (e) {
+      console.error("❌ WebSocket 消息解析失败:", e);
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          content: "消息格式错误",
+          timestamp: Date.now(),
+        })
+      );
+    }
+  });
+
+  ws.on("close", function close() {
+    console.log("🔌 WebSocket 客户端断开连接");
+    if (ws.userId) {
+      userMap.delete(ws.userId);
+      console.log(`👤 用户 ${ws.userId} 已离线`);
+      console.log("📊 当前在线用户:", Array.from(userMap.keys()));
+    }
+  });
+
+  ws.on("error", function error(err) {
+    console.error("❌ WebSocket 错误:", err);
+    if (ws.userId) {
+      userMap.delete(ws.userId);
+    }
+  });
+});
 
 // 简单的日志辅助函数
 const log = (
@@ -99,6 +298,7 @@ app.use("/api/home", homeRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/wx", wxRoutes);
+app.use("/api/conversations", conversationRoutes);
 
 // 添加图片调试路由
 app.get("/api/debug/catalogue-images", (req: Request, res: Response) => {
@@ -175,6 +375,17 @@ app.get("/api/health", (req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
+// WebSocket 状态检查接口
+app.get("/api/socket/status", (req, res) => {
+  const clientCount = wss.clients.size;
+  res.status(200).json({
+    status: "running",
+    clientCount,
+    uptime: process.uptime(),
+    timestamp: Date.now(),
+  });
+});
+
 // 错误处理中间件
 app.use(notFoundHandler);
 app.use(errorHandler);
@@ -201,7 +412,7 @@ process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 RedisService.startSyncJob();
 
 // 直接启动服务器（不需要数据库初始化）
-app.listen(PORT, "0.0.0.0", () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server is running on port ${PORT} (0.0.0.0)`);
   console.log("Using Prisma for database connections");
   console.log("✅ 图片服务已启用");

@@ -1,6 +1,8 @@
+import { BASE_URL } from "./env";
+
 // API configuration
 export const getBaseUrl = () => {
-  return "http://localhost:3000";
+  return BASE_URL;
 };
 
 export const API_CONFIG = {

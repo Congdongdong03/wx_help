@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from "react";
 import Taro from "@tarojs/taro";
-import { View, Text, ScrollView, Image, Button } from "@tarojs/components";
-import { Conversation } from "../../types/message";
-import { messageService } from "../../services/messageService";
-
-import "./index.scss";
+import { View, Text, ScrollView, Image } from "@tarojs/components";
+import { Conversation } from "../../../types/message";
+import { messageService } from "../../../services/messageService";
 
 interface ConversationItemProps {
   conversation: Conversation;
@@ -17,7 +15,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
 }) => {
   const {
     otherUserAvatar,
-    otherUserNickname,
+    nickname,
     lastMessagePreview,
     lastMessageTime,
     unreadCount,
@@ -33,8 +31,8 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
       style={{
         display: "flex",
         alignItems: "center",
-        padding: "20rpx",
-        borderBottom: "2rpx solid #eee",
+        padding: "10px",
+        borderBottom: "1px solid #eee",
       }}
       onClick={handleClick}
     >
@@ -42,20 +40,20 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
         className="avatar"
         src={otherUserAvatar || "https://via.placeholder.com/50"}
         style={{
-          width: "100rpx",
-          height: "100rpx",
+          width: "50px",
+          height: "50px",
           borderRadius: "50%",
           backgroundColor: "#ddd",
-          marginRight: "20rpx",
+          marginRight: "10px",
         }}
       />
       <View className="content" style={{ flex: 1 }}>
         <Text className="nickname" style={{ fontWeight: "bold" }}>
-          {otherUserNickname}
+          {nickname}
         </Text>
         <Text
           className="last-message"
-          style={{ color: "#666", fontSize: "24rpx" }}
+          style={{ color: "#666", fontSize: "12px" }}
         >
           {lastMessagePreview}
         </Text>
@@ -70,7 +68,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
       >
         <Text
           className="updated-at"
-          style={{ fontSize: "20rpx", color: "#999" }}
+          style={{ fontSize: "10px", color: "#999" }}
         >
           {lastMessageTime}
         </Text>
@@ -81,13 +79,13 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
               backgroundColor: "red",
               color: "white",
               borderRadius: "50%",
-              width: "36rpx",
-              height: "36rpx",
+              width: "18px",
+              height: "18px",
               display: "flex",
               justifyContent: "center",
               alignItems: "center",
-              fontSize: "20rpx",
-              marginTop: "10rpx",
+              fontSize: "10px",
+              marginTop: "5px",
             }}
           >
             {unreadCount}
@@ -98,7 +96,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
   );
 };
 
-const Message: React.FC = () => {
+const MessageListPage: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -131,7 +129,7 @@ const Message: React.FC = () => {
         conversation.id
       }&otherUserId=${conversation.otherUserId}&nickname=${encodeURIComponent(
         conversation.otherUserNickname
-      )}`,
+      )}&avatar=${encodeURIComponent(conversation.otherUserAvatar)}`,
     });
   };
 
@@ -139,7 +137,7 @@ const Message: React.FC = () => {
     return (
       <View
         className="message-list-page"
-        style={{ textAlign: "center", padding: "40rpx" }}
+        style={{ textAlign: "center", padding: "20px" }}
       >
         <Text>加载中...</Text>
       </View>
@@ -150,10 +148,10 @@ const Message: React.FC = () => {
     return (
       <View
         className="message-list-page"
-        style={{ textAlign: "center", padding: "40rpx", color: "red" }}
+        style={{ textAlign: "center", padding: "20px", color: "red" }}
       >
         <Text>加载失败，请重试。</Text>
-        <Button onClick={fetchConversations} style={{ marginTop: "20rpx" }}>
+        <Button onClick={fetchConversations} style={{ marginTop: "10px" }}>
           重新加载
         </Button>
       </View>
@@ -166,14 +164,14 @@ const Message: React.FC = () => {
         className="header"
         style={{
           textAlign: "center",
-          padding: "30rpx",
-          borderBottom: "2rpx solid #eee",
+          padding: "15px",
+          borderBottom: "1px solid #eee",
           fontWeight: "bold",
         }}
       >
         <Text>我的消息</Text>
       </View>
-      <ScrollView scrollY style={{ height: "calc(100vh - 100rpx)" }}>
+      <ScrollView scrollY style={{ height: "calc(100vh - 50px)" }}>
         {conversations.length > 0 ? (
           conversations.map((conversation) => (
             <ConversationItem
@@ -183,9 +181,7 @@ const Message: React.FC = () => {
             />
           ))
         ) : (
-          <View
-            style={{ textAlign: "center", padding: "40rpx", color: "#999" }}
-          >
+          <View style={{ textAlign: "center", padding: "20px", color: "#999" }}>
             <Text>暂无会话</Text>
           </View>
         )}
@@ -194,4 +190,4 @@ const Message: React.FC = () => {
   );
 };
 
-export default Message;
+export default MessageListPage;

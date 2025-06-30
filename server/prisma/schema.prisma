@@ -97,6 +97,7 @@ model posts {
   images           String?       @db.Text
   favorite         favorite[]
   polish_log       polish_log[]
+  conversations    Conversation[]
   users            users         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "posts_ibfk_1")
 
   @@index([user_id], map: "posts_ibfk_1")
@@ -210,4 +211,38 @@ model SystemConfig {
   updated_at  DateTime @updatedAt
 
   @@index([key])
+}
+
+// 对话表
+model Conversation {
+  id             String   @id @default(cuid())
+  postId         Int
+  participant1Id String   @db.VarChar(255)
+  participant2Id String   @db.VarChar(255)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  messages       Message[]
+  post           posts    @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, participant1Id, participant2Id])
+  @@index([participant1Id])
+  @@index([participant2Id])
+  @@index([postId])
+}
+
+// 消息表
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderId       String       @db.VarChar(255)
+  receiverId     String       @db.VarChar(255)
+  content        String       @db.Text
+  isRead         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([createdAt])
 }

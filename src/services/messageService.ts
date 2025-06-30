@@ -1,86 +1,20 @@
+import Taro from "@tarojs/taro";
+import { API_CONFIG } from "../config/api";
 import { Conversation, Message } from "../types/message";
 
-// Mock data for demonstration purposes
-let mockConversations: Conversation[] = [
-  {
-    id: "conv1",
-    otherUserId: "user101",
-    otherUserNickname: "张三",
-    otherUserAvatar: "https://via.placeholder.com/50/FF5733/FFFFFF?text=ZS",
-    lastMessagePreview: "你好，请问帖子还在吗？",
-    lastMessageTime: "昨天 17:30",
-    unreadCount: 2,
-  },
-  {
-    id: "conv2",
-    otherUserId: "user102",
-    otherUserNickname: "李四",
-    otherUserAvatar: "https://via.placeholder.com/50/33FF57/FFFFFF?text=LS",
-    lastMessagePreview: "好的，我明天联系你。",
-    lastMessageTime: "06-25",
-    unreadCount: 0,
-  },
-  {
-    id: "conv3",
-    otherUserId: "user103",
-    otherUserNickname: "王五",
-    otherUserAvatar: "https://via.placeholder.com/50/3357FF/FFFFFF?text=WW",
-    lastMessagePreview: "好的，我明天联系你。",
-    lastMessageTime: "06-24",
-    unreadCount: 1,
-  },
-];
+// REMOVED: Mock data for demonstration purposes
+// let mockConversations: Conversation[] = [...];
+// let mockMessages: Message[] = [...];
 
-let mockMessages: Message[] = [
-  {
-    id: "msg1",
-    conversationId: "conv1",
-    senderId: "user101", //张三
-    receiverId: "currentUser",
-    content: "你好，请问帖子还在吗？",
-    timestamp: "2024-06-26T17:29:00Z",
-    isRead: false,
-  },
-  {
-    id: "msg2",
-    conversationId: "conv1",
-    senderId: "currentUser",
-    receiverId: "user101",
-    content: "还在的，请问有什么可以帮您的吗？",
-    timestamp: "2024-06-26T17:30:00Z",
-    isRead: true,
-  },
-  {
-    id: "msg3",
-    conversationId: "conv1",
-    senderId: "user101",
-    receiverId: "currentUser",
-    content: "我想了解一下价格和使用情况。",
-    timestamp: "2024-06-26T17:35:00Z",
-    isRead: false,
-  },
-  {
-    id: "msg4",
-    conversationId: "conv2",
-    senderId: "user102",
-    receiverId: "currentUser",
-    content: "好的，我明天联系你。",
-    timestamp: "2024-06-25T10:00:00Z",
-    isRead: true,
-  },
-  {
-    id: "msg5",
-    conversationId: "conv3",
-    senderId: "user103",
-    receiverId: "currentUser",
-    content: "好的，我明天联系你。",
-    timestamp: "2024-06-24T09:00:00Z",
-    isRead: false,
-  },
-];
+// REMOVED: Helper to simulate network delay
+// const simulateDelay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
-// Helper to simulate network delay
-const simulateDelay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+// Helper function to get current user ID
+const getCurrentUserId = (): string => {
+  // In a real app, this would come from user authentication
+  // For now, we'll use a development user ID
+  return "dev_openid_123";
+};
 
 export const messageService = {
   /**
@@ -88,9 +22,30 @@ export const messageService = {
    * @returns A promise that resolves with an array of Conversation objects.
    */
   fetchConversations: async (): Promise<Conversation[]> => {
-    await simulateDelay(500);
-    // In a real app, this would fetch from a backend API
-    return mockConversations;
+    try {
+      const res = await Taro.request({
+        url: API_CONFIG.getApiUrl("/conversations/list"),
+        method: "GET",
+        header: {
+          "content-type": "application/json",
+          "x-openid": getCurrentUserId(),
+        },
+      });
+
+      if (
+        res.statusCode === 200 &&
+        res.data.code === 0 &&
+        Array.isArray(res.data.data)
+      ) {
+        return res.data.data as Conversation[];
+      } else {
+        console.error("API returned error or invalid data:", res);
+        throw new Error("Failed to fetch conversations");
+      }
+    } catch (err) {
+      console.error("Error fetching conversations:", err);
+      throw err;
+    }
   },
 
   /**
@@ -99,9 +54,30 @@ export const messageService = {
    * @returns A promise that resolves with an array of Message objects.
    */
   fetchMessages: async (conversationId: string): Promise<Message[]> => {
-    await simulateDelay(500);
-    // In a real app, this would fetch from a backend API based on conversationId
-    return mockMessages.filter((msg) => msg.conversationId === conversationId);
+    try {
+      const res = await Taro.request({
+        url: API_CONFIG.getApiUrl(`/conversations/${conversationId}/messages`),
+        method: "GET",
+        header: {
+          "content-type": "application/json",
+          "x-openid": getCurrentUserId(),
+        },
+      });
+
+      if (
+        res.statusCode === 200 &&
+        res.data.code === 0 &&
+        Array.isArray(res.data.data)
+      ) {
+        return res.data.data as Message[];
+      } else {
+        console.error("API returned error or invalid data:", res);
+        throw new Error("Failed to fetch messages");
+      }
+    } catch (err) {
+      console.error("Error fetching messages:", err);
+      throw err;
+    }
   },
 
   /**
@@ -118,27 +94,29 @@ export const messageService = {
     receiverId: string,
     content: string
   ): Promise<Message> => {
-    await simulateDelay(300);
-    const newMessage: Message = {
-      id: `msg${Date.now()}`,
-      conversationId,
-      senderId,
-      receiverId,
-      content,
-      timestamp: new Date().toISOString(),
-      isRead: false, // Sender's message is considered read by sender immediately
-    };
-    mockMessages.push(newMessage);
+    try {
+      const res = await Taro.request({
+        url: API_CONFIG.getApiUrl(`/conversations/${conversationId}/messages`),
+        method: "POST",
+        header: {
+          "content-type": "application/json",
+          "x-openid": getCurrentUserId(),
+        },
+        data: {
+          content,
+        },
+      });
 
-    // Update last message in conversation list
-    const conversation = mockConversations.find((c) => c.id === conversationId);
-    if (conversation) {
-      conversation.lastMessagePreview = content;
-      conversation.lastMessageTime = "刚刚"; // Simplified for mock
-      // No unread count increase for sender's own message
+      if (res.statusCode === 200 && res.data.code === 0 && res.data.data) {
+        return res.data.data as Message;
+      } else {
+        console.error("API returned error or invalid data:", res);
+        throw new Error("Failed to send message");
+      }
+    } catch (err) {
+      console.error("Error sending message:", err);
+      throw err;
     }
-
-    return newMessage;
   },
 
   /**
@@ -151,16 +129,61 @@ export const messageService = {
     conversationId: string,
     userId: string
   ): Promise<void> => {
-    await simulateDelay(200);
-    mockMessages = mockMessages.map((msg) =>
-      msg.conversationId === conversationId && msg.receiverId === userId
-        ? { ...msg, isRead: true }
-        : msg
-    );
-    // Reduce unread count for the conversation
-    const conversation = mockConversations.find((c) => c.id === conversationId);
-    if (conversation) {
-      conversation.unreadCount = 0;
+    try {
+      const res = await Taro.request({
+        url: API_CONFIG.getApiUrl(`/conversations/${conversationId}/mark-read`),
+        method: "POST",
+        header: {
+          "content-type": "application/json",
+          "x-openid": getCurrentUserId(),
+        },
+        data: {
+          userId,
+        },
+      });
+
+      if (res.statusCode === 200 && res.data.code === 0) {
+        console.log("Messages marked as read successfully");
+      } else {
+        console.error("API returned error or invalid data:", res);
+        throw new Error("Failed to mark messages as read");
+      }
+    } catch (err) {
+      console.error("Error marking messages as read:", err);
+      throw err;
+    }
+  },
+
+  findOrCreateConversation: async (
+    postId: string,
+    otherUserId: string
+  ): Promise<string> => {
+    try {
+      const res = await Taro.request({
+        url: API_CONFIG.getApiUrl("/conversations/find-or-create"),
+        method: "POST",
+        header: {
+          "content-type": "application/json",
+          "x-openid": getCurrentUserId(),
+        },
+        data: {
+          postId,
+          otherUserId,
+        },
+      });
+
+      if (res.statusCode === 200 && res.data) {
+        if (res.data.code === 0 && res.data.data) {
+          return res.data.data.conversationId;
+        } else {
+          throw new Error(res.data.message || "创建对话失败");
+        }
+      } else {
+        throw new Error("网络请求失败");
+      }
+    } catch (error) {
+      console.error("Error finding or creating conversation:", error);
+      throw error;
     }
   },
 };
