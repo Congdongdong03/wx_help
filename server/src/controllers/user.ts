@@ -232,4 +232,23 @@ export class UserController {
       });
     }
   }
+
+  /**
+   * 用户登出
+   */
+  static async logout(req: AuthenticatedRequest, res: Response) {
+    try {
+      // 这里可以添加登出逻辑，比如清除token等
+      res.json({
+        code: 0,
+        message: "登出成功",
+      });
+    } catch (error) {
+      console.error("登出失败:", error);
+      res.status(500).json({
+        code: 1,
+        message: "登出失败",
+      });
+    }
+  }
 }

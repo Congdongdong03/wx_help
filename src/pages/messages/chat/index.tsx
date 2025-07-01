@@ -8,7 +8,7 @@ import {
   ScrollView,
   Image,
 } from "@tarojs/components";
-import { Message } from "../../../types/message";
+import { Message, PaginationInfo } from "../../../types/message";
 import { messageService } from "../../../services/messageService";
 import {
   connectWebSocket,
@@ -66,7 +66,9 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           position: "relative",
         }}
       >
-        <Text style={{ fontSize: "28rpx", lineHeight: "1.4" }}>{content}</Text>
+        <Text style={{ fontSize: "28rpx", lineHeight: "1.4" }}>
+          {decodeURIComponent(content)}
+        </Text>
         {/* 消息状态指示器 */}
         {isMyMessage && (
           <View
@@ -108,6 +110,20 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
               </View>
             )}
           </View>
+        )}
+        {/* 本地时间显示 */}
+        {message.timestamp && (
+          <Text
+            style={{
+              display: "block",
+              fontSize: "20rpx",
+              color: "#bbb",
+              marginTop: "8rpx",
+              textAlign: isMyMessage ? "right" : "left",
+            }}
+          >
+            {new Date(message.timestamp).toLocaleString()}
+          </Text>
         )}
       </View>
       {isMyMessage && (
@@ -187,17 +203,12 @@ const ConnectionStatus: React.FC<{
   );
 };
 
-// 1. 定义调试用户列表（放在组件外部）
+// 开发环境调试用户列表
 const debugUsers = [
   {
     id: "dev_openid_123",
     name: "用户A",
     avatar: "https://via.placeholder.com/40/007AFF/FFFFFF?text=A",
-  },
-  {
-    id: "test_user_2",
-    name: "用户B",
-    avatar: "https://via.placeholder.com/40/FF5722/FFFFFF?text=B",
   },
 ];
 
@@ -213,12 +224,15 @@ const ChatWindowPage: React.FC = () => {
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
   const [isOtherUserTyping, setIsOtherUserTyping] = useState(false);
   const [isOtherUserOnline, setIsOtherUserOnline] = useState(false);
   const [socketConnected, setSocketConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState<PaginationInfo | null>(null);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   const scrollViewRef = useRef<any>(null);
   const [scrollToViewId, setScrollToViewId] = useState<string>("");
@@ -434,15 +448,39 @@ const ChatWindowPage: React.FC = () => {
     }
   }, [socketConnected, conversationId, handleJoinRoom]);
 
-  const fetchChatMessages = async () => {
+  const sortMessages = (arr: Message[]) =>
+    arr
+      .slice()
+      .sort(
+        (a, b) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+
+  const fetchChatMessages = async (
+    page: number = 1,
+    isLoadMore: boolean = false
+  ) => {
     if (!conversationId) return;
 
     try {
-      setLoading(true);
-      const fetchedMessages = await messageService.fetchMessages(
-        conversationId
-      );
-      setMessages(fetchedMessages);
+      if (isLoadMore) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+
+      const response = await messageService.fetchMessages(conversationId, page);
+
+      if (isLoadMore) {
+        // 加载更多时，将新消息添加到现有消息前面，合并后排序
+        setMessages((prev) => sortMessages([...response.messages, ...prev]));
+      } else {
+        // 首次加载或刷新时，直接排序后设置消息
+        setMessages(sortMessages(response.messages));
+        setHasInitialized(true);
+      }
+
+      setPagination(response.pagination);
       setError(false);
     } catch (err) {
       console.error("Error fetching messages:", err);
@@ -453,6 +491,40 @@ const ChatWindowPage: React.FC = () => {
       });
     } finally {
       setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const loadMoreMessages = async () => {
+    // 第一步：安全检查 - 防止重复请求
+    if (loadingMore || !pagination?.hasMore) {
+      return;
+    }
+
+    const nextPage = pagination.nextPage;
+    if (!nextPage) {
+      return;
+    }
+
+    // 第二步：记录当前位置
+    const firstMessageId = messages[0]?.id;
+
+    try {
+      // 第三步：获取并合并数据
+      await fetchChatMessages(nextPage, true);
+
+      // 第四步：恢复滚动位置
+      if (firstMessageId) {
+        setTimeout(() => {
+          setScrollToViewId(`msg-${firstMessageId}`);
+        }, 100);
+      }
+    } catch (error) {
+      console.error("Error loading more messages:", error);
+      Taro.showToast({
+        title: "加载更多消息失败",
+        icon: "none",
+      });
     }
   };
 
@@ -488,7 +560,9 @@ const ChatWindowPage: React.FC = () => {
       isRead: false,
       status: "pending",
     };
-    setMessages((prevMessages) => [...prevMessages, optimisticMessage]);
+    setMessages((prevMessages) =>
+      sortMessages([...prevMessages, optimisticMessage])
+    );
     setMessageInput("");
     if (isWebSocketConnected()) {
       emitWebSocketEvent("sendMessage", {
@@ -510,19 +584,23 @@ const ChatWindowPage: React.FC = () => {
         // 更新消息为 sent
         console.log("HTTP fallback sent:", sent);
         setMessages((prevMessages) =>
-          prevMessages.map((msg) =>
-            msg.content === sent.content &&
-            msg.senderId === sent.senderId &&
-            msg.status === "pending"
-              ? { ...msg, ...sent, status: "sent" }
-              : msg
+          sortMessages(
+            prevMessages.map((msg) =>
+              msg.content === sent.content &&
+              msg.senderId === sent.senderId &&
+              msg.status === "pending"
+                ? { ...msg, ...sent, status: "sent" }
+                : msg
+            )
           )
         );
       } catch (err) {
         console.error("Error sending message via HTTP API:", err);
         setMessages((prevMessages) =>
-          prevMessages.map((msg) =>
-            msg.id === clientTempId ? { ...msg, status: "failed" } : msg
+          sortMessages(
+            prevMessages.map((msg) =>
+              msg.id === clientTempId ? { ...msg, status: "failed" } : msg
+            )
           )
         );
         Taro.showToast({ title: "发送失败", icon: "none" });
@@ -539,6 +617,15 @@ const ChatWindowPage: React.FC = () => {
   const handleRetryConnection = () => {
     handleConnect();
   };
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      setScrollToViewId("");
+      setTimeout(() => {
+        setScrollToViewId("chat-bottom-anchor");
+      }, 100);
+    }
+  }, [messages]);
 
   if (loading) {
     return (
@@ -558,7 +645,10 @@ const ChatWindowPage: React.FC = () => {
         style={{ textAlign: "center", padding: "40rpx", color: "red" }}
       >
         <Text>加载失败，请重试。</Text>
-        <Button onClick={fetchChatMessages} style={{ marginTop: "20rpx" }}>
+        <Button
+          onClick={() => fetchChatMessages()}
+          style={{ marginTop: "20rpx" }}
+        >
           重新加载
         </Button>
       </View>
@@ -568,35 +658,23 @@ const ChatWindowPage: React.FC = () => {
   return (
     <View
       className="chat-window-page"
-      style={{ display: "flex", flexDirection: "column", height: "100vh" }}
+      style={{
+        width: "100vw",
+        height: "100vh",
+        position: "relative",
+        background: "#f8f9fa",
+      }}
     >
-      {/* 开发环境下显示切换用户面板 */}
-      {process.env.NODE_ENV === "development" && (
-        <View
-          style={{ margin: "20rpx 0", display: "flex", alignItems: "center" }}
-        >
-          <Text style={{ marginRight: "10rpx" }}>切换用户：</Text>
-          {debugUsers.map((user) => (
-            <Button
-              key={user.id}
-              size="mini"
-              style={{
-                marginRight: "10rpx",
-                backgroundColor:
-                  currentUser.id === user.id ? "#007AFF" : "#eee",
-                color: currentUser.id === user.id ? "#fff" : "#333",
-              }}
-              onClick={() => setCurrentUser(user)}
-            >
-              {user.name}
-            </Button>
-          ))}
-        </View>
-      )}
-      {/* 头部 */}
+      {/* Header 固定顶部 */}
       <View
         className="header"
         style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100vw",
+          height: "120rpx",
+          zIndex: 100,
           padding: "20rpx 30rpx",
           borderBottom: "2rpx solid #eee",
           backgroundColor: "white",
@@ -619,54 +697,76 @@ const ChatWindowPage: React.FC = () => {
         </Text>
       </View>
 
-      {/* 连接错误提示 */}
-      {connectionError && (
-        <View
-          style={{
-            backgroundColor: "#f8d7da",
-            color: "#721c24",
-            padding: "20rpx",
-            textAlign: "center",
-            borderBottom: "1px solid #f5c6cb",
-          }}
-        >
-          <Text style={{ fontSize: "24rpx" }}>{connectionError}</Text>
-          <Button
-            onClick={handleRetryConnection}
-            style={{
-              marginTop: "10rpx",
-              backgroundColor: "#dc3545",
-              color: "white",
-              fontSize: "20rpx",
-              padding: "5rpx 15rpx",
-            }}
-          >
-            重试连接
-          </Button>
-        </View>
-      )}
-
-      {/* 消息列表 */}
+      {/* Content 区域可滚动，绝对定位 */}
       <ScrollView
         scrollY
-        style={{ flex: 1, padding: "20rpx" }}
+        style={{
+          position: "absolute",
+          top: "120rpx",
+          bottom: "140rpx",
+          left: 0,
+          right: 0,
+          width: "100vw",
+          padding: "20rpx 0",
+          background: "#f8f9fa",
+        }}
         ref={scrollViewRef}
         scrollIntoView={scrollToViewId}
         scrollWithAnimation
+        onScrollToUpper={loadMoreMessages}
+        upperThreshold={50}
+        enableFlex
       >
+        {/* 加载更多提示 */}
+        {loadingMore && (
+          <View
+            style={{
+              textAlign: "center",
+              padding: "20rpx",
+              color: "#888",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text style={{ fontSize: "24rpx" }}>加载更多消息...</Text>
+          </View>
+        )}
+
+        {/* 没有更多消息提示 */}
+        {!loadingMore &&
+          pagination &&
+          !pagination.hasMore &&
+          messages.length > 0 && (
+            <View
+              style={{
+                textAlign: "center",
+                padding: "20rpx",
+                color: "#999",
+                borderTop: "1rpx solid #eee",
+                marginTop: "10rpx",
+              }}
+            >
+              <Text style={{ fontSize: "20rpx" }}>没有更多消息了</Text>
+            </View>
+          )}
+
         {isOtherUserTyping && (
           <View style={{ padding: "10rpx 20rpx", color: "#888" }}>
             <Text style={{ fontSize: "24rpx" }}>对方正在输入...</Text>
           </View>
         )}
+
         {messages.length > 0 ? (
-          messages.map((message) => (
+          messages.map((message, idx, arr) => (
             <View key={message.id} id={`msg-${message.id}`}>
               <MessageBubble
                 message={message}
                 isMyMessage={message.senderId === currentUser.id}
                 otherUserAvatar={otherUserAvatar}
               />
+              {/* 滚动锚点：只在最后一条消息后渲染 */}
+              {idx === arr.length - 1 && <View id="chat-bottom-anchor" />}
             </View>
           ))
         ) : (
@@ -681,10 +781,16 @@ const ChatWindowPage: React.FC = () => {
         )}
       </ScrollView>
 
-      {/* 输入区域 */}
+      {/* Footer 固定底部 */}
       <View
         className="input-area"
         style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          width: "100vw",
+          height: "140rpx",
+          zIndex: 100,
           display: "flex",
           padding: "20rpx",
           borderTop: "2rpx solid #eee",

@@ -9,10 +9,10 @@ export class Validator {
   ): Promise<void> {
     try {
       const db = getDb();
-      const [rules] = await db.execute(
+      const [rules] = (await db.execute(
         "SELECT rule_type, rule_value FROM validation_rules WHERE table_name = ? AND field_name = ?",
         [tableName, fieldName]
-      );
+      )) as [any[], any];
 
       if (!rules || rules.length === 0) {
         return;

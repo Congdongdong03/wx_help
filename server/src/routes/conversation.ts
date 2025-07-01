@@ -159,10 +159,11 @@ router.get("/list", async (req: Request, res: Response) => {
   }
 });
 
-// 获取对话的消息列表
+// 获取对话的消息列表（支持分页）
 router.get("/:conversationId/messages", async (req: Request, res: Response) => {
   try {
     const { conversationId } = req.params;
+    const { page = "1", limit = "20", before } = req.query;
     const currentUserId =
       (req.headers["x-openid"] as string) || "dev_openid_123";
 
@@ -184,16 +185,44 @@ router.get("/:conversationId/messages", async (req: Request, res: Response) => {
       });
     }
 
-    const messages = await prisma.message.findMany({
+    // 解析分页参数
+    const pageNum = parseInt(page as string, 10);
+    const limitNum = Math.min(parseInt(limit as string, 10), 50); // 最大限制50条
+    const offset = (pageNum - 1) * limitNum;
+
+    // 构建查询条件
+    const whereCondition: any = {
+      conversationId: conversationId,
+    };
+
+    // 如果指定了before参数（时间戳），则只获取该时间之前的消息
+    if (before) {
+      whereCondition.createdAt = {
+        lt: new Date(parseInt(before as string, 10)),
+      };
+    }
+
+    // 获取消息总数
+    const totalCount = await prisma.message.count({
       where: {
         conversationId: conversationId,
       },
-      orderBy: {
-        createdAt: "asc",
-      },
     });
 
-    const formattedMessages = messages.map((msg) => ({
+    // 获取分页消息
+    const messages = await prisma.message.findMany({
+      where: whereCondition,
+      orderBy: {
+        createdAt: "desc", // 按时间倒序，最新的在前面
+      },
+      take: limitNum,
+      skip: offset,
+    });
+
+    // 反转消息顺序，使其按时间正序排列
+    const sortedMessages = messages.reverse();
+
+    const formattedMessages = sortedMessages.map((msg) => ({
       id: msg.id,
       conversationId: msg.conversationId,
       senderId: msg.senderId,
@@ -203,10 +232,25 @@ router.get("/:conversationId/messages", async (req: Request, res: Response) => {
       isRead: msg.isRead,
     }));
 
+    // 计算分页信息
+    const hasMore = offset + limitNum < totalCount;
+    const nextPage = hasMore ? pageNum + 1 : null;
+    const prevPage = pageNum > 1 ? pageNum - 1 : null;
+
     res.json({
       code: 0,
       message: "成功",
-      data: formattedMessages,
+      data: {
+        messages: formattedMessages,
+        pagination: {
+          currentPage: pageNum,
+          pageSize: limitNum,
+          totalCount,
+          hasMore,
+          nextPage,
+          prevPage,
+        },
+      },
     });
   } catch (error) {
     console.error("Error fetching messages:", error);

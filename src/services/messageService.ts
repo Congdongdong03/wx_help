@@ -1,6 +1,6 @@
 import Taro from "@tarojs/taro";
 import { API_CONFIG } from "../config/api";
-import { Conversation, Message } from "../types/message";
+import { Conversation, Message, MessagesResponse } from "../types/message";
 
 // REMOVED: Mock data for demonstration purposes
 // let mockConversations: Conversation[] = [...];
@@ -49,14 +49,33 @@ export const messageService = {
   },
 
   /**
-   * Fetches messages for a specific conversation.
+   * Fetches messages for a specific conversation with pagination.
    * @param conversationId The ID of the conversation.
-   * @returns A promise that resolves with an array of Message objects.
+   * @param page The page number (default: 1).
+   * @param limit The number of messages per page (default: 20, max: 50).
+   * @param before Optional timestamp to get messages before this time.
+   * @returns A promise that resolves with MessagesResponse object.
    */
-  fetchMessages: async (conversationId: string): Promise<Message[]> => {
+  fetchMessages: async (
+    conversationId: string,
+    page: number = 1,
+    limit: number = 20,
+    before?: number
+  ): Promise<MessagesResponse> => {
     try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: Math.min(limit, 50).toString(),
+      });
+
+      if (before) {
+        params.append("before", before.toString());
+      }
+
       const res = await Taro.request({
-        url: API_CONFIG.getApiUrl(`/conversations/${conversationId}/messages`),
+        url: API_CONFIG.getApiUrl(
+          `/conversations/${conversationId}/messages?${params}`
+        ),
         method: "GET",
         header: {
           "content-type": "application/json",
@@ -67,9 +86,10 @@ export const messageService = {
       if (
         res.statusCode === 200 &&
         res.data.code === 0 &&
-        Array.isArray(res.data.data)
+        res.data.data &&
+        res.data.data.messages
       ) {
-        return res.data.data as Message[];
+        return res.data.data as MessagesResponse;
       } else {
         console.error("API returned error or invalid data:", res);
         throw new Error("Failed to fetch messages");
