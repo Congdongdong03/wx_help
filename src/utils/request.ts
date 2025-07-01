@@ -1,5 +1,16 @@
 import Taro from "@tarojs/taro";
 
+// 获取当前用户ID
+function getCurrentUserId(): string {
+  try {
+    const userInfo = Taro.getStorageSync("userInfo");
+    return userInfo?.openid || "dev_openid_123";
+  } catch (error) {
+    console.error("获取用户信息失败:", error);
+    return "dev_openid_123";
+  }
+}
+
 interface RequestOptions extends Omit<Taro.request.Option, "url"> {
   retryCount?: number;
   retryDelay?: number;
@@ -50,7 +61,7 @@ export async function request<T = any>(
         ...requestOptions,
         header: {
           ...(requestOptions.header || {}),
-          "x-openid": "dev_openid_123",
+          "x-openid": getCurrentUserId(),
         },
       });
 

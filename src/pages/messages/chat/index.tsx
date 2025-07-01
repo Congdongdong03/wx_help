@@ -10,14 +10,6 @@ import {
 } from "@tarojs/components";
 import { Message } from "../../../types/message";
 import { messageService } from "../../../services/messageService";
-import // joinRoom,
-// leaveRoom,
-// sendMessage,
-// isSocketConnected as checkSocketConnected,
-// getSocket,
-// connect,
-// disconnect,
-"../../../services/socketService";
 import {
   connectWebSocket,
   disconnectWebSocket,
@@ -280,13 +272,7 @@ const ChatWindowPage: React.FC = () => {
       console.log(`加入房间: ${conversationId}`);
 
       // 请求在线状态
-      emitWebSocketEvent(
-        "requestOnlineStatus",
-        { conversationId },
-        (count: number) => {
-          setIsOtherUserOnline(count >= 2);
-        }
-      );
+      emitWebSocketEvent("requestOnlineStatus", { conversationId });
     } catch (error) {
       console.error("加入房间失败:", error);
     }
@@ -306,7 +292,15 @@ const ChatWindowPage: React.FC = () => {
 
   useEffect(() => {
     if (conversationId && currentUser.id) {
+      // 1. 建立WebSocket连接
       connectWebSocket(currentUser.id);
+
+      // 2. 加载历史消息
+      fetchChatMessages();
+
+      // 3. 标记消息为已读
+      markConversationAsRead();
+
       setMessageCallback((msg) => {
         if (msg.conversationId === conversationId && msg.type === "chat") {
           setMessages((prev) => {
@@ -348,6 +342,10 @@ const ChatWindowPage: React.FC = () => {
         }
         if (msg.type === "auth_success") {
           setLoading(false);
+        }
+        // 处理在线状态消息
+        if (msg.type === "onlineStatus") {
+          setIsOtherUserOnline(msg.onlineCount >= 2);
         }
         // 处理错误消息
         if (msg.type === "error" && msg.clientTempId) {

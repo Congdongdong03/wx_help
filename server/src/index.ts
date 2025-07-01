@@ -190,6 +190,20 @@ wss.on("connection", function connection(ws: ExtWebSocket, req) {
           );
           break;
 
+        case "requestOnlineStatus":
+          console.log("📊 请求在线状态:", data.conversationId);
+          // 计算当前在线用户数量
+          const onlineCount = userMap.size;
+          ws.send(
+            JSON.stringify({
+              type: "onlineStatus",
+              conversationId: data.conversationId,
+              onlineCount: onlineCount,
+              timestamp: Date.now(),
+            })
+          );
+          break;
+
         default:
           console.log("❓ 未知消息类型:", data.type);
       }

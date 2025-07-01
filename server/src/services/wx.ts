@@ -12,13 +12,13 @@ interface WxLoginResponse {
 }
 
 export class WxService {
-  private static readonly APPID = process.env.WX_APPID;
-  private static readonly SECRET = process.env.WX_SECRET;
+  private static readonly APPID = process.env.WECHAT_APP_ID;
+  private static readonly SECRET = process.env.WECHAT_APP_SECRET;
   private static readonly REQUEST_TIMEOUT = 5000; // 5秒超时
 
   static {
     if (!this.APPID || !this.SECRET) {
-      throw new Error("缺少必要的环境变量: WX_APPID 或 WX_SECRET");
+      throw new Error("缺少必要的环境变量: WECHAT_APP_ID 或 WECHAT_APP_SECRET");
     }
   }
 
