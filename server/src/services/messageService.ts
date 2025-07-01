@@ -9,13 +9,15 @@ export const messageService = {
    * @param senderId The ID of the sender.
    * @param receiverId The ID of the receiver.
    * @param content The content of the message.
+   * @param type The type of the message (text or image).
    * @returns A promise that resolves with the newly created Message object from the database.
    */
   sendMessage: async (
     conversationId: string,
     senderId: string,
     receiverId: string,
-    content: string
+    content: string,
+    type: "text" | "image" = "text"
   ) => {
     try {
       const newMessage = await prisma.message.create({
@@ -23,6 +25,7 @@ export const messageService = {
           conversationId,
           senderId,
           receiverId,
+          type,
           content,
           isRead: false,
           createdAt: new Date(),

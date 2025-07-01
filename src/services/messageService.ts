@@ -106,13 +106,15 @@ export const messageService = {
    * @param senderId The ID of the sender.
    * @param receiverId The ID of the receiver.
    * @param content The content of the message.
+   * @param type The type of the message (text or image).
    * @returns A promise that resolves with the newly created Message object.
    */
   sendMessage: async (
     conversationId: string,
     senderId: string,
     receiverId: string,
-    content: string
+    content: string,
+    type: "text" | "image" = "text"
   ): Promise<Message> => {
     try {
       const res = await Taro.request({
@@ -124,6 +126,7 @@ export const messageService = {
         },
         data: {
           content,
+          type,
         },
       });
 

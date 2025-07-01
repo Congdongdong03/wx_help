@@ -19,6 +19,7 @@ import {
   removeMessageCallback,
 } from "../../../services/wsService";
 import { debounce } from "../../../utils/debounce";
+import { uploadFile } from "../../../utils/request";
 
 interface MessageBubbleProps {
   message: Message;
@@ -31,7 +32,16 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   isMyMessage,
   otherUserAvatar,
 }) => {
-  const { content, status } = message;
+  const { content, status, type } = message;
+
+  const handleImageClick = () => {
+    if (type === "image") {
+      Taro.previewImage({
+        urls: [content],
+        current: content,
+      });
+    }
+  };
 
   return (
     <View
@@ -66,9 +76,21 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           position: "relative",
         }}
       >
-        <Text style={{ fontSize: "28rpx", lineHeight: "1.4" }}>
-          {decodeURIComponent(content)}
-        </Text>
+        {type === "text" ? (
+          <Text style={{ fontSize: "28rpx", lineHeight: "1.4" }}>
+            {decodeURIComponent(content)}
+          </Text>
+        ) : type === "image" ? (
+          <Image
+            src={content}
+            mode="widthFix"
+            style={{
+              maxWidth: "400rpx",
+              borderRadius: "10rpx",
+            }}
+            onClick={handleImageClick}
+          />
+        ) : null}
         {/* 消息状态指示器 */}
         {isMyMessage && (
           <View
@@ -349,6 +371,7 @@ const ChatWindowPage: React.FC = () => {
                 ...msg,
                 id: msg.messageId || Date.now().toString(),
                 status: "sent",
+                type: msg.messageType || "text", // 支持消息类型
               },
             ];
           });
@@ -397,6 +420,7 @@ const ChatWindowPage: React.FC = () => {
           emitWebSocketEvent("sendMessage", {
             conversationId,
             toUserId: otherUserId,
+            type: message.type,
             content: message.content,
             timestamp: Date.now(),
             clientTempId: message.clientTempId,
@@ -408,7 +432,8 @@ const ChatWindowPage: React.FC = () => {
               conversationId,
               currentUser.id,
               otherUserId,
-              message.content
+              message.content,
+              message.type
             )
             .then((sent) => {
               setMessages((prevMessages) =>
@@ -555,6 +580,7 @@ const ChatWindowPage: React.FC = () => {
       conversationId,
       senderId: currentUser.id,
       receiverId: otherUserId,
+      type: "text",
       content: messageInput.trim(),
       timestamp: new Date().toISOString(),
       isRead: false,
@@ -568,6 +594,7 @@ const ChatWindowPage: React.FC = () => {
       emitWebSocketEvent("sendMessage", {
         conversationId,
         toUserId: otherUserId,
+        type: "text",
         content: optimisticMessage.content,
         timestamp: Date.now(),
         clientTempId,
@@ -579,7 +606,8 @@ const ChatWindowPage: React.FC = () => {
           conversationId,
           currentUser.id,
           otherUserId,
-          optimisticMessage.content
+          optimisticMessage.content,
+          "text"
         );
         // 更新消息为 sent
         console.log("HTTP fallback sent:", sent);
@@ -608,9 +636,103 @@ const ChatWindowPage: React.FC = () => {
     }
   };
 
-  const handleKeyPress = (e: any) => {
-    if (e.keyCode === 13) {
-      handleSendMessage();
+  // 选择图片
+  const handleChooseImage = () => {
+    Taro.chooseImage({
+      count: 1,
+      sizeType: ["original", "compressed"],
+      sourceType: ["album", "camera"],
+      success: (res) => {
+        const tempFilePath = res.tempFilePaths[0];
+        handleSendImage(tempFilePath);
+      },
+      fail: (err) => {
+        if (err.errMsg && !err.errMsg.includes("cancel")) {
+          Taro.showToast({ title: "选择图片失败", icon: "none" });
+        }
+      },
+    });
+  };
+
+  // 发送图片
+  const handleSendImage = async (tempFilePath: string) => {
+    if (!conversationId || !otherUserId) return;
+
+    const clientTempId = `temp-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: clientTempId,
+      clientTempId,
+      conversationId,
+      senderId: currentUser.id,
+      receiverId: otherUserId,
+      type: "image",
+      content: tempFilePath, // 临时使用本地路径
+      timestamp: new Date().toISOString(),
+      isRead: false,
+      status: "pending",
+    };
+
+    setMessages((prevMessages) =>
+      sortMessages([...prevMessages, optimisticMessage])
+    );
+
+    try {
+      // 上传图片
+      Taro.showLoading({ title: "发送中..." });
+      const uploadResult = await uploadFile<{ url: string }>(
+        "/api/upload",
+        tempFilePath,
+        {
+          name: "file",
+          retryCount: 3,
+          retryDelay: 1000,
+        }
+      );
+
+      const imageUrl = uploadResult.url;
+
+      if (isWebSocketConnected()) {
+        // 通过WebSocket发送
+        emitWebSocketEvent("sendMessage", {
+          conversationId,
+          toUserId: otherUserId,
+          type: "image",
+          content: imageUrl,
+          timestamp: Date.now(),
+          clientTempId,
+        });
+      } else {
+        // fallback 到 HTTP API
+        const sent = await messageService.sendMessage(
+          conversationId,
+          currentUser.id,
+          otherUserId,
+          imageUrl,
+          "image"
+        );
+
+        setMessages((prevMessages) =>
+          sortMessages(
+            prevMessages.map((msg) =>
+              msg.id === clientTempId
+                ? { ...msg, ...sent, status: "sent" }
+                : msg
+            )
+          )
+        );
+      }
+      Taro.hideLoading();
+    } catch (error) {
+      console.error("Error sending image:", error);
+      Taro.hideLoading();
+      setMessages((prevMessages) =>
+        sortMessages(
+          prevMessages.map((msg) =>
+            msg.id === clientTempId ? { ...msg, status: "failed" } : msg
+          )
+        )
+      );
+      Taro.showToast({ title: "发送失败", icon: "none" });
     }
   };
 
@@ -798,13 +920,31 @@ const ChatWindowPage: React.FC = () => {
           backgroundColor: "white",
         }}
       >
+        {/* 图片选择按钮 */}
+        <Button
+          onClick={handleChooseImage}
+          style={{
+            width: "60rpx",
+            height: "60rpx",
+            backgroundColor: "#f0f0f0",
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginRight: "20rpx",
+            border: "none",
+            padding: 0,
+          }}
+        >
+          <Text style={{ fontSize: "32rpx", color: "#666" }}>📷</Text>
+        </Button>
+
         <Input
           type="text"
           className="message-input"
           placeholder="输入消息"
           value={messageInput}
           onInput={handleInputChange}
-          onKeyPress={handleKeyPress}
           style={{
             flex: 1,
             border: "2rpx solid #ddd",

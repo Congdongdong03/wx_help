@@ -14,7 +14,8 @@ export interface Message {
   conversationId: string;
   senderId: string; // The user ID who sent the message
   receiverId: string; // The user ID who received the message
-  content: string;
+  type: "text" | "image"; // 消息类型：文本或图片
+  content: string; // 文本消息的内容，或图片消息的URL
   timestamp: string; // ISO string for precise sorting, will be formatted for display
   isRead: boolean;
   status?: "pending" | "sent" | "failed";

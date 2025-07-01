@@ -236,6 +236,7 @@ model Message {
   conversationId String
   senderId       String       @db.VarChar(255)
   receiverId     String       @db.VarChar(255)
+  type           String       @default("text") @db.VarChar(20)
   content        String       @db.Text
   isRead         Boolean      @default(false)
   createdAt      DateTime     @default(now())

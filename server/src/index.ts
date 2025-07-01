@@ -99,6 +99,7 @@ wss.on("connection", function connection(ws: ExtWebSocket, req) {
                     senderId: msg.senderId,
                     toUserId: msg.receiverId,
                     conversationId: msg.conversationId,
+                    messageType: msg.type || "text", // 添加消息类型
                     timestamp: msg.createdAt,
                     messageId: msg.id,
                     offline: true, // 标记为离线消息
@@ -122,12 +123,14 @@ wss.on("connection", function connection(ws: ExtWebSocket, req) {
           break;
 
         case "sendMessage":
+          console.log("📤 处理发送消息:", data);
           // 1. 保存消息到数据库
           const savedMsg = await messageService.sendMessage(
             data.conversationId, // 会话ID
             ws.userId!, // 发送者
             data.toUserId, // 接收者
-            data.content // 内容
+            data.content, // 内容
+            data.messageType || data.type || "text" // 消息类型，支持messageType和type字段
           );
 
           // 2. 如果对方在线，推送
@@ -140,6 +143,7 @@ wss.on("connection", function connection(ws: ExtWebSocket, req) {
                 senderId: ws.userId,
                 toUserId: data.toUserId,
                 conversationId: data.conversationId,
+                messageType: data.messageType || data.type || "text", // 添加消息类型
                 timestamp: savedMsg.createdAt,
                 messageId: savedMsg.id,
                 clientTempId: data.clientTempId || null,
@@ -160,12 +164,81 @@ wss.on("connection", function connection(ws: ExtWebSocket, req) {
                 senderId: ws.userId,
                 toUserId: data.toUserId,
                 conversationId: data.conversationId,
+                messageType: data.messageType || data.type || "text", // 添加消息类型
                 timestamp: savedMsg.createdAt,
                 messageId: savedMsg.id,
                 clientTempId: data.clientTempId || null,
               })
             );
           }
+          break;
+
+        // 处理直接发送的消息类型（text, image）
+        case "text":
+        case "image":
+          console.log(`📤 处理直接发送的${data.type}消息:`, data);
+          if (data.conversationId && data.toUserId && data.content) {
+            // 1. 保存消息到数据库
+            const savedMsg = await messageService.sendMessage(
+              data.conversationId,
+              ws.userId!,
+              data.toUserId,
+              data.content,
+              data.type
+            );
+
+            // 2. 如果对方在线，推送
+            const targetWs = userMap.get(data.toUserId);
+            if (targetWs && targetWs.readyState === 1) {
+              targetWs.send(
+                JSON.stringify({
+                  type: "chat",
+                  content: data.content,
+                  senderId: ws.userId,
+                  toUserId: data.toUserId,
+                  conversationId: data.conversationId,
+                  messageType: data.type,
+                  timestamp: savedMsg.createdAt,
+                  messageId: savedMsg.id,
+                  clientTempId: data.clientTempId || null,
+                })
+              );
+              console.log(`✅ ${data.type}消息已发送给用户: ${data.toUserId}`);
+            } else {
+              console.log(
+                `💾 目标用户 ${data.toUserId} 不在线，${data.type}消息已存数据库`
+              );
+            }
+
+            // 3. 推送给自己（发送者）——回显
+            if (ws.readyState === 1) {
+              ws.send(
+                JSON.stringify({
+                  type: "chat",
+                  content: data.content,
+                  senderId: ws.userId,
+                  toUserId: data.toUserId,
+                  conversationId: data.conversationId,
+                  messageType: data.type,
+                  timestamp: savedMsg.createdAt,
+                  messageId: savedMsg.id,
+                  clientTempId: data.clientTempId || null,
+                })
+              );
+            }
+          } else {
+            console.error("❌ 消息格式不完整，缺少必要字段");
+          }
+          break;
+
+        case "typing":
+          console.log("⌨️ 用户正在输入:", data.conversationId);
+          // 可以在这里实现输入状态推送
+          break;
+
+        case "stopTyping":
+          console.log("⌨️ 用户停止输入:", data.conversationId);
+          // 可以在这里实现停止输入状态推送
           break;
 
         case "joinRoom":

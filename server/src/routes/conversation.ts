@@ -131,13 +131,23 @@ router.get("/list", async (req: Request, res: Response) => {
       const lastMessage = conv.messages[0];
       const unreadCount = conv._count.messages;
 
+      // 根据消息类型生成预览文本
+      let lastMessagePreview = "暂无消息";
+      if (lastMessage) {
+        if (lastMessage.type === "image") {
+          lastMessagePreview = "[图片]";
+        } else {
+          lastMessagePreview = lastMessage.content;
+        }
+      }
+
       return {
         id: conv.id,
         otherUserId: otherUserId,
         otherUserNickname: otherUser.nickname,
         otherUserAvatar: otherUser.avatar_url,
         postTitle: conv.post.title,
-        lastMessagePreview: lastMessage?.content || "暂无消息",
+        lastMessagePreview: lastMessagePreview,
         lastMessageTime: lastMessage?.createdAt
           ? formatTime(lastMessage.createdAt)
           : "",
@@ -227,6 +237,7 @@ router.get("/:conversationId/messages", async (req: Request, res: Response) => {
       conversationId: msg.conversationId,
       senderId: msg.senderId,
       receiverId: msg.receiverId,
+      type: msg.type,
       content: msg.content,
       timestamp: msg.createdAt.toISOString(),
       isRead: msg.isRead,
@@ -267,7 +278,7 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const { conversationId } = req.params;
-      const { content } = req.body;
+      const { content, type = "text" } = req.body;
       const currentUserId =
         (req.headers["x-openid"] as string) || "dev_openid_123";
 
@@ -275,6 +286,14 @@ router.post(
         return res.status(400).json({
           code: 1,
           message: "消息内容不能为空",
+        });
+      }
+
+      // 验证消息类型
+      if (!["text", "image"].includes(type)) {
+        return res.status(400).json({
+          code: 1,
+          message: "无效的消息类型",
         });
       }
 
@@ -307,7 +326,8 @@ router.post(
         conversationId,
         currentUserId,
         receiverId,
-        content
+        content,
+        type as "text" | "image"
       );
 
       res.status(201).json({
