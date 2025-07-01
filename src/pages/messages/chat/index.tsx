@@ -10,6 +10,7 @@ import {
 } from "@tarojs/components";
 import { Message, PaginationInfo } from "../../../types/message";
 import { messageService } from "../../../services/messageService";
+import { API_CONFIG } from "../../../config/api";
 import {
   connectWebSocket,
   disconnectWebSocket,
@@ -20,17 +21,26 @@ import {
 } from "../../../services/wsService";
 import { debounce } from "../../../utils/debounce";
 import { uploadFile } from "../../../utils/request";
+import UserSwitcher from "../../../components/UserSwitcher";
+
+interface User {
+  id: string;
+  nickname: string;
+  avatar: string;
+}
 
 interface MessageBubbleProps {
   message: Message;
   isMyMessage: boolean;
   otherUserAvatar: string;
+  currentUserAvatar: string;
 }
 
 const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   isMyMessage,
   otherUserAvatar,
+  currentUserAvatar,
 }) => {
   const { content, status, type } = message;
 
@@ -151,7 +161,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       {isMyMessage && (
         <Image
           className="avatar"
-          src="https://via.placeholder.com/40/007AFF/FFFFFF?text=ME"
+          src={currentUserAvatar}
           style={{
             width: "80rpx",
             height: "80rpx",
@@ -229,8 +239,13 @@ const ConnectionStatus: React.FC<{
 const debugUsers = [
   {
     id: "dev_openid_123",
-    name: "用户A",
+    nickname: "用户A",
     avatar: "https://via.placeholder.com/40/007AFF/FFFFFF?text=A",
+  },
+  {
+    id: "test_user_456",
+    nickname: "用户B",
+    avatar: "https://via.placeholder.com/40/28A745/FFFFFF?text=B",
   },
 ];
 
@@ -240,9 +255,20 @@ const ChatWindowPage: React.FC = () => {
     conversationId,
     otherUserId,
     nickname: otherUserNickname,
+    avatar: otherUserAvatarParam,
   } = router.params;
 
-  const [chatTitle, setChatTitle] = useState(otherUserNickname || "聊天");
+  // 调试信息
+  console.log("Chat page params:", {
+    conversationId,
+    otherUserId,
+    otherUserNickname,
+    otherUserAvatarParam,
+  });
+
+  const [chatTitle, setChatTitle] = useState(
+    otherUserNickname ? decodeURIComponent(otherUserNickname) : "聊天"
+  );
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -265,7 +291,42 @@ const ChatWindowPage: React.FC = () => {
 
   // 替换 currentUserId 相关逻辑
   // const currentUserId = "dev_openid_123"; // 删除原有写死的currentUserId
-  const otherUserAvatar = "https://via.placeholder.com/40";
+  const otherUserAvatar = otherUserAvatarParam
+    ? decodeURIComponent(otherUserAvatarParam)
+    : "https://via.placeholder.com/40";
+
+  // 调试信息
+  console.log("Chat page final values:", {
+    chatTitle,
+    otherUserAvatar,
+  });
+
+  // 用户切换处理函数
+  const handleUserChange = (newUser: User) => {
+    console.log("切换用户:", newUser);
+    setCurrentUser(newUser);
+    // 清空当前消息列表
+    setMessages([]);
+    setLoading(true);
+
+    // 断开当前WebSocket连接
+    disconnectWebSocket();
+
+    // 重新连接WebSocket，等连接成功后再加载消息
+    setTimeout(() => {
+      connectWebSocket(newUser.id)
+        .then(() => {
+          console.log("WebSocket连接成功，开始加载消息");
+          // 连接成功后再重新加载消息
+          fetchChatMessages();
+        })
+        .catch((error) => {
+          console.error("WebSocket连接失败:", error);
+          Taro.showToast({ title: "连接失败，请重试", icon: "none" });
+          setLoading(false);
+        });
+    }, 500);
+  };
 
   // Debounced function to emit typing event
   const debouncedTyping = useCallback(
@@ -284,7 +345,7 @@ const ChatWindowPage: React.FC = () => {
     setIsConnecting(true);
     setConnectionError(null);
     try {
-      await connectWebSocket();
+      await connectWebSocket(currentUser.id);
       setSocketConnected(true);
       console.log("Socket连接成功");
     } catch (error) {
@@ -297,7 +358,7 @@ const ChatWindowPage: React.FC = () => {
     } finally {
       setIsConnecting(false);
     }
-  }, []);
+  }, [currentUser.id]);
 
   // 加入房间
   const handleJoinRoom = useCallback(() => {
@@ -417,14 +478,45 @@ const ChatWindowPage: React.FC = () => {
 
         // 重新发送消息
         if (isWebSocketConnected()) {
-          emitWebSocketEvent("sendMessage", {
-            conversationId,
-            toUserId: otherUserId,
-            type: message.type,
-            content: message.content,
-            timestamp: Date.now(),
-            clientTempId: message.clientTempId,
-          });
+          try {
+            emitWebSocketEvent("sendMessage", {
+              conversationId,
+              toUserId: otherUserId,
+              type: message.type,
+              content: message.content,
+              timestamp: Date.now(),
+              clientTempId: message.clientTempId,
+            });
+          } catch (error) {
+            console.error("重试发送消息失败:", error);
+            // fallback到HTTP API
+            messageService
+              .sendMessage(
+                conversationId,
+                currentUser.id,
+                otherUserId,
+                message.content,
+                message.type
+              )
+              .then((sent) => {
+                setMessages((prevMessages) =>
+                  prevMessages.map((msg) =>
+                    msg.id === message.id
+                      ? { ...msg, ...sent, status: "sent" }
+                      : msg
+                  )
+                );
+              })
+              .catch((err) => {
+                console.error("Error retrying message via HTTP API:", err);
+                setMessages((prevMessages) =>
+                  prevMessages.map((msg) =>
+                    msg.id === message.id ? { ...msg, status: "failed" } : msg
+                  )
+                );
+                Taro.showToast({ title: "重试失败", icon: "none" });
+              });
+          }
         } else {
           // fallback 到 HTTP API
           messageService
@@ -565,14 +657,25 @@ const ChatWindowPage: React.FC = () => {
   const handleInputChange = (e: any) => {
     setMessageInput(e.detail.value);
     if (isWebSocketConnected() && conversationId) {
-      console.log("Emitting typing");
-      emitWebSocketEvent("typing", { conversationId });
-      debouncedTyping();
+      try {
+        console.log("Emitting typing");
+        emitWebSocketEvent("typing", { conversationId });
+        debouncedTyping();
+      } catch (error) {
+        console.error("发送typing事件失败:", error);
+      }
     }
   };
 
   const handleSendMessage = async () => {
     if (!messageInput.trim() || !conversationId || !otherUserId) return;
+
+    // 检查WebSocket连接状态
+    if (!isWebSocketConnected()) {
+      Taro.showToast({ title: "连接中，请稍后重试", icon: "none" });
+      return;
+    }
+
     const clientTempId = `temp-${Date.now()}`;
     const optimisticMessage: Message = {
       id: clientTempId,
@@ -590,7 +693,8 @@ const ChatWindowPage: React.FC = () => {
       sortMessages([...prevMessages, optimisticMessage])
     );
     setMessageInput("");
-    if (isWebSocketConnected()) {
+
+    try {
       emitWebSocketEvent("sendMessage", {
         conversationId,
         toUserId: otherUserId,
@@ -599,8 +703,9 @@ const ChatWindowPage: React.FC = () => {
         timestamp: Date.now(),
         clientTempId,
       });
-    } else {
-      // fallback 到 HTTP API
+    } catch (error) {
+      console.error("发送消息失败:", error);
+      // 如果WebSocket发送失败，fallback到HTTP API
       try {
         const sent = await messageService.sendMessage(
           conversationId,
@@ -679,28 +784,68 @@ const ChatWindowPage: React.FC = () => {
     try {
       // 上传图片
       Taro.showLoading({ title: "发送中..." });
-      const uploadResult = await uploadFile<{ url: string }>(
-        "/api/upload",
-        tempFilePath,
-        {
-          name: "file",
-          retryCount: 3,
-          retryDelay: 1000,
-        }
-      );
+      console.log("开始上传图片:", tempFilePath);
+      console.log("上传URL:", API_CONFIG.getApiUrl("/posts/upload"));
 
-      const imageUrl = uploadResult.url;
+      const uploadResult = await uploadFile<{
+        code: number;
+        message: string;
+        data: { url: string };
+      }>(API_CONFIG.getApiUrl("/posts/upload"), tempFilePath, {
+        name: "file",
+        retryCount: 3,
+        retryDelay: 1000,
+      });
 
+      console.log("上传结果:", uploadResult);
+
+      // 检查上传是否成功
+      if (uploadResult.code !== 0) {
+        throw new Error(uploadResult.message || "上传失败");
+      }
+
+      // 检查响应数据结构
+      if (!uploadResult.data || !uploadResult.data.url) {
+        throw new Error("上传响应格式错误");
+      }
+
+      // 将相对路径转换为完整URL
+      const imageUrl = API_CONFIG.getImageUrl(uploadResult.data.url);
+      console.log("图片URL:", imageUrl);
+
+      // 检查WebSocket连接状态
       if (isWebSocketConnected()) {
         // 通过WebSocket发送
-        emitWebSocketEvent("sendMessage", {
-          conversationId,
-          toUserId: otherUserId,
-          type: "image",
-          content: imageUrl,
-          timestamp: Date.now(),
-          clientTempId,
-        });
+        try {
+          emitWebSocketEvent("sendMessage", {
+            conversationId,
+            toUserId: otherUserId,
+            type: "image",
+            content: imageUrl,
+            timestamp: Date.now(),
+            clientTempId,
+          });
+        } catch (error) {
+          console.error("WebSocket发送图片失败:", error);
+          // fallback到HTTP API
+          const sent = await messageService.sendMessage(
+            conversationId,
+            currentUser.id,
+            otherUserId,
+            imageUrl,
+            "image"
+          );
+
+          setMessages((prevMessages) =>
+            sortMessages(
+              prevMessages.map((msg) =>
+                msg.id === clientTempId
+                  ? { ...msg, ...sent, status: "sent" }
+                  : msg
+              )
+            )
+          );
+        }
       } else {
         // fallback 到 HTTP API
         const sent = await messageService.sendMessage(
@@ -796,7 +941,7 @@ const ChatWindowPage: React.FC = () => {
           left: 0,
           width: "100vw",
           height: "120rpx",
-          zIndex: 100,
+          zIndex: 1001,
           padding: "20rpx 30rpx",
           borderBottom: "2rpx solid #eee",
           backgroundColor: "white",
@@ -813,11 +958,16 @@ const ChatWindowPage: React.FC = () => {
             marginRight: "20rpx",
             backgroundColor: "#eee",
           }}
+          onError={(e) => console.log("Avatar image error:", e)}
+          onLoad={() => console.log("Avatar image loaded successfully")}
         />
-        <Text style={{ fontSize: "32rpx", fontWeight: "bold" }}>
-          {chatTitle}
+        <Text style={{ fontSize: "32rpx", fontWeight: "bold", color: "#000" }}>
+          {chatTitle || "聊天"}
         </Text>
       </View>
+
+      {/* 用户切换组件 */}
+      <UserSwitcher currentUser={currentUser} onUserChange={handleUserChange} />
 
       {/* Content 区域可滚动，绝对定位 */}
       <ScrollView
@@ -886,6 +1036,7 @@ const ChatWindowPage: React.FC = () => {
                 message={message}
                 isMyMessage={message.senderId === currentUser.id}
                 otherUserAvatar={otherUserAvatar}
+                currentUserAvatar={currentUser.avatar}
               />
               {/* 滚动锚点：只在最后一条消息后渲染 */}
               {idx === arr.length - 1 && <View id="chat-bottom-anchor" />}

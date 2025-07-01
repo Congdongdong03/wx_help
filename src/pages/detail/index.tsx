@@ -109,7 +109,9 @@ const PostDetailPage: React.FC = () => {
       Taro.navigateTo({
         url: `/pages/messages/chat/index?conversationId=${conversationId}&otherUserId=${
           post.user.id
-        }&nickname=${encodeURIComponent(post.user.nickname)}`,
+        }&nickname=${encodeURIComponent(
+          post.user.nickname
+        )}&avatar=${encodeURIComponent(post.user.avatar_url || "")}`,
       });
     } catch (error) {
       Taro.hideLoading();

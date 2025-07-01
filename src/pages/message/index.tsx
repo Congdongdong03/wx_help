@@ -131,7 +131,7 @@ const Message: React.FC = () => {
         conversation.id
       }&otherUserId=${conversation.otherUserId}&nickname=${encodeURIComponent(
         conversation.otherUserNickname
-      )}`,
+      )}&avatar=${encodeURIComponent(conversation.otherUserAvatar || "")}`,
     });
   };
 

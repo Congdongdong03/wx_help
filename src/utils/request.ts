@@ -132,6 +132,10 @@ export async function uploadFile<T = any>(
         url,
         filePath,
         ...uploadOptions,
+        header: {
+          ...(uploadOptions.header || {}),
+          "x-openid": getCurrentUserId(),
+        },
       });
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
