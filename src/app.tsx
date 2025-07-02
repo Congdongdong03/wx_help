@@ -1,5 +1,6 @@
 import Taro, { useLaunch, useDidShow, useDidHide } from "@tarojs/taro";
 import { PropsWithChildren, useState, useEffect } from "react";
+import LoginModal from "./components/LoginModal";
 // It's good practice to manage global state via a proper state management library (Recoil, Zustand, Redux)
 // for larger apps. For this example, we'll use a simple observable pattern or direct prop drilling
 // if the LoginModal is rendered conditionally at the root of page components.
@@ -80,25 +81,26 @@ export function clearLoginState() {
   }
 }
 
+// 检查登录状态并显示登录弹窗
+export function checkLoginAndShowModal() {
+  const user = getLoggedInUser();
+  if (!user) {
+    console.log(
+      "App: No logged-in user found. Emitting event to show login modal."
+    );
+    loginModalEventBus.trigger("show", { type: "initial" });
+  } else {
+    console.log("App: User already logged in.", user);
+    loginModalEventBus.trigger("hide"); // Ensure it's hidden if somehow stuck
+  }
+}
+
 function App({ children }: PropsWithChildren) {
   // This state is local to App, to trigger modal via event bus
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginModalType, setLoginModalType] = useState<"initial" | "overlay">(
     "initial"
   );
-
-  const checkLoginAndShowModal = () => {
-    const user = getLoggedInUser();
-    if (!user) {
-      console.log(
-        "App: No logged-in user found. Emitting event to show login modal."
-      );
-      loginModalEventBus.trigger("showLogin", { type: "initial" });
-    } else {
-      console.log("App: User already logged in.", user);
-      loginModalEventBus.trigger("hideLogin"); // Ensure it's hidden if somehow stuck
-    }
-  };
 
   useLaunch(() => {
     console.log("App launched");
@@ -143,11 +145,20 @@ function App({ children }: PropsWithChildren) {
 
   // children are the pages of the app.
   // The LoginModal will be rendered by individual pages or a layout component listening to the event bus.
-  return children;
+  return (
+    <>
+      {children}
+      <LoginModal />
+    </>
+  );
 }
 
 export default App;
 
 // For testing purposes, you might add a global function to trigger logout:
-// (Taro as any).logout = clearLoginState;
-// (Taro as any).checkLogin = () => console.log(getLoggedInUser());
+(Taro as any).logout = clearLoginState;
+(Taro as any).checkLogin = () => console.log(getLoggedInUser());
+(Taro as any).clearLoginAndShowModal = () => {
+  clearLoginState();
+  checkLoginAndShowModal();
+};

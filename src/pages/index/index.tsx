@@ -3,7 +3,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { View, Text, Image, ScrollView, Button } from "@tarojs/components";
 import { BASE_URL } from "../../utils/env";
 import { API_CONFIG } from "../../config/api";
+import { clearLoginState, checkLoginAndShowModal } from "../../app";
 import "./index.scss";
+import LoginModal from "../../components/LoginModal";
 
 // 预设的占位图高度
 const PRESET_PLACEHOLDER_HEIGHTS = [200, 250, 300, 350, 400, 450, 500];
@@ -459,6 +461,30 @@ export default function Index() {
         </View>
       </View>
 
+      {/* 测试按钮 - 独立固定定位 */}
+      <Button
+        className="test-button"
+        onClick={() => {
+          clearLoginState();
+          checkLoginAndShowModal();
+        }}
+        style={{
+          position: "fixed",
+          top: "120rpx",
+          right: "20rpx",
+          zIndex: 9999,
+          background: "#ff4444",
+          color: "white",
+          fontSize: "24rpx",
+          padding: "10rpx 20rpx",
+          borderRadius: "20rpx",
+          border: "2rpx solid #fff",
+          boxShadow: "0 4rpx 12rpx rgba(0,0,0,0.3)",
+        }}
+      >
+        测试登录
+      </Button>
+
       {/* Posts Feed */}
       <ScrollView
         scrollY
@@ -623,6 +649,8 @@ export default function Index() {
           </View>
         </View>
       )}
+      {/* 登录弹窗全局渲染 */}
+      <LoginModal />
     </View>
   );
 }

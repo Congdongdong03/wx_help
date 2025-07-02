@@ -7,6 +7,6 @@ export const getBaseUrl = () => {
 
 export const API_CONFIG = {
   BASE_URL: getBaseUrl(),
-  getApiUrl: (path: string) => `${getBaseUrl()}/api${path}`,
+  getApiUrl: (path: string) => `${getBaseUrl()}${path}`,
   getImageUrl: (path: string) => `${getBaseUrl()}${path}`,
 };

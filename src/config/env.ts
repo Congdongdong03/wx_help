@@ -61,7 +61,7 @@ interface EnvConfig {
 
 // 统一配置（开发和生产都一样）
 const baseConfig: EnvConfig = {
-  BASE_URL: "http://192.168.20.18:3000",
+  BASE_URL: "http://localhost:3000",
   API_PORT: 3000,
   ENV:
     typeof process !== "undefined" &&

@@ -1,9 +1,10 @@
 import Taro from "@tarojs/taro";
 import { View, Text, Button, Image } from "@tarojs/components";
 import { useState, useEffect } from "react";
-import { UserInfo, storeLoggedInUser, loginModalEventBus } from "../../app";
+import { UserInfo, storeLoggedInUser, loginModalEventBus } from "../../app.tsx";
 import { throttle } from "../../utils/debounce";
 import { request } from "../../utils/request";
+import { API_CONFIG } from "../../config/api";
 import "./index.scss";
 
 interface LoginModalProps {
@@ -121,18 +122,28 @@ export default function LoginModal(props: LoginModalProps) {
         throw new Error("获取登录凭证失败");
       }
 
+      // 开发环境使用测试code
+      const code =
+        process.env.NODE_ENV === "development"
+          ? "dev_test_code"
+          : loginRes.code;
+      console.log("🔧 LoginModal: Using code:", code);
+
       // 3. 调用登录接口
       console.log("🔄 LoginModal: Calling login API...");
-      const loggedInUser = await request<UserInfo>("/api/auth/wechat-login", {
-        method: "POST",
-        data: {
-          code: loginRes.code,
-          userInfo,
-        },
-        retryCount: 3,
-        retryDelay: 1000,
-        retryableStatusCodes: [408, 429, 500, 502, 503, 504],
-      });
+      const loggedInUser = await request<UserInfo>(
+        API_CONFIG.getApiUrl("/api/auth/wechat-login"),
+        {
+          method: "POST",
+          data: {
+            code: code,
+            userInfo,
+          },
+          retryCount: 3,
+          retryDelay: 1000,
+          retryableStatusCodes: [408, 429, 500, 502, 503, 504],
+        }
+      );
 
       console.log(
         "✅ LoginModal: Login API successful, user data:",

@@ -1,5 +1,5 @@
 /* src/components/LoginModal/index.scss */
-.login-modal-backdrop {
+.login-modal {
   position: fixed;
   top: 0;
   left: 0;
@@ -12,7 +12,7 @@
   z-index: 1000; // Ensure it's on top
 }
 
-.login-modal-content {
+.modal-content {
   background-color: #fff;
   padding: 40rpx;
   border-radius: 16rpx;
@@ -30,14 +30,7 @@
     margin-bottom: 20rpx;
   }
 
-  .app-logo {
-    width: 120rpx;
-    height: 120rpx;
-    margin-bottom: 20rpx;
-    border-radius: 12rpx; // if it's a square logo
-  }
-
-  .modal-description {
+  .modal-subtitle {
     font-size: 28rpx;
     color: #666;
     text-align: center;
@@ -52,22 +45,33 @@
     text-align: center;
     border-radius: 44rpx;
     font-size: 30rpx;
-    margin-top: 20rpx;
+    margin-bottom: 20rpx;
     font-weight: 500;
+    background-color: #07c160; // 微信绿色
+    color: #fff;
 
     &::after {
       border: none;
     }
 
-    &.primary {
-      background-color: #007bff; // Or your app's primary color (e.g., WeChat green #07c160)
-      color: #fff;
+    &[disabled] {
+      opacity: 0.6;
     }
+  }
 
-    &.secondary {
-      background-color: #f0f0f0;
-      color: #333;
-      // border: 1rpx solid #ddd; // Optional border
+  .reject-button {
+    width: 100%;
+    height: 88rpx;
+    line-height: 88rpx;
+    text-align: center;
+    border-radius: 44rpx;
+    font-size: 30rpx;
+    font-weight: 500;
+    background-color: #f0f0f0;
+    color: #333;
+
+    &::after {
+      border: none;
     }
 
     &[disabled] {
