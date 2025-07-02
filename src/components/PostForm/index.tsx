@@ -13,6 +13,7 @@ import {
 import BottomActionBar from "@/components/BottomActionBar";
 import WechatIdInput from "@/components/WechatIdInput";
 import { BASE_URL } from "@/utils/env";
+import { request } from "@/utils/request";
 import "./index.scss";
 
 const BASE_API_URL = `${BASE_URL}/api`;
@@ -85,19 +86,18 @@ const PostForm: React.FC<PostFormProps> = ({ postId }) => {
   useEffect(() => {
     const fetchCities = async () => {
       try {
-        const res = await Taro.request<{
+        const res = await request<{
           code: number;
           data: City[];
-        }>({
-          url: `${BASE_API_URL}/home/cities`,
+        }>(`${BASE_API_URL}/home/cities`, {
           method: "GET",
         });
-        if (res.data && res.data.code === 0 && Array.isArray(res.data.data)) {
-          setCities(res.data.data);
-          if (res.data.data.length > 0) {
+        if (res && res.code === 0 && Array.isArray(res.data)) {
+          setCities(res.data);
+          if (res.data.length > 0) {
             setFormData((prev) => ({
               ...prev,
-              cityCode: res.data.data[0].code,
+              cityCode: res.data[0].code,
             }));
           }
         }
@@ -112,12 +112,11 @@ const PostForm: React.FC<PostFormProps> = ({ postId }) => {
 
   useEffect(() => {
     if (id) {
-      Taro.request({
-        url: `${BASE_API_URL}/posts/${id}`,
+      request(`${BASE_API_URL}/posts/${id}`, {
         method: "GET",
       }).then((res) => {
-        if (res.data && (res.data.code === 0 || res.data.status === 0)) {
-          const post = res.data.data;
+        if (res && (res.code === 0 || res.status === 0)) {
+          const post = res.data;
           setFormData({
             title: post.title || "",
             description: post.content || "",
@@ -299,15 +298,14 @@ const PostForm: React.FC<PostFormProps> = ({ postId }) => {
       images: imageFiles.map((file) => file.path),
     };
     try {
-      const res = await Taro.request({
-        url: `${BASE_API_URL}/posts`,
+      const res = await request(`${BASE_API_URL}/posts`, {
         method: "POST",
         data: payload,
         header: {
           "Content-Type": "application/json",
         },
       });
-      if (res.statusCode === 201) {
+      if (res && res.code === 0) {
         Taro.showToast({
           title: "草稿已保存",
           icon: "success",
@@ -391,8 +389,7 @@ const PostForm: React.FC<PostFormProps> = ({ postId }) => {
         image_url: finalImages[0] || undefined,
         description: formData.description || "暂无描述",
       };
-      const res = await Taro.request({
-        url: `${BASE_API_URL}/posts`,
+      const res = await request(`${BASE_API_URL}/posts`, {
         method: "POST",
         data: payload,
         header: {
@@ -400,7 +397,7 @@ const PostForm: React.FC<PostFormProps> = ({ postId }) => {
         },
       });
       Taro.hideLoading();
-      if (res.statusCode === 201) {
+      if (res && res.code === 0) {
         Taro.showToast({
           title: "发布成功，等待审核",
           icon: "success",
@@ -420,7 +417,7 @@ const PostForm: React.FC<PostFormProps> = ({ postId }) => {
           Taro.redirectTo({ url: "/pages/my/my-posts/my-posts" });
         }, 1500);
       } else {
-        throw new Error(res.data?.message || "发布失败");
+        throw new Error(res?.message || "发布失败");
       }
     } catch (error) {
       Taro.hideLoading();

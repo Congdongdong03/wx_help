@@ -1,6 +1,7 @@
 import Taro, { useRouter } from "@tarojs/taro";
 import { View, Text, Image, Button, ScrollView } from "@tarojs/components";
 import { useState, useEffect, useCallback } from "react";
+import { request } from "@/utils/request";
 import "./index.scss";
 import { BASE_URL } from "../../../utils/env";
 
@@ -301,20 +302,12 @@ export default function MyPosts() {
           data?: FetchPostsApiResponse; // The expected data structure for success
         }
 
-        const tokenForRequest = "FAKE_DEV_AUTH_TOKEN"; // TODO: Replace with real token logic for production
-        const response = await Taro.request<RawApiResponse>({
-          url,
+        const response = await request<RawApiResponse>(url, {
           method: "GET",
-          header: { Authorization: `Bearer ${tokenForRequest}` },
         });
 
-        if (
-          response.statusCode === 200 &&
-          response.data &&
-          response.data.code === 0 &&
-          response.data.data
-        ) {
-          const apiData = response.data.data;
+        if (response && response.code === 0 && response.data) {
+          const apiData = response.data;
           const postsFromApi = apiData.posts;
           const safePosts = Array.isArray(postsFromApi) ? postsFromApi : [];
 
@@ -526,24 +519,25 @@ export default function MyPosts() {
 
     setIsLoading(true);
     try {
-      // const token = Taro.getStorageSync('token'); // Uncomment and use your token logic
-      const token = "FAKE_DEV_AUTH_TOKEN"; // TODO: Replace with real token logic for production
-      const response = await Taro.request({
-        url: `${BASE_API_URL}/posts/${numericPostId}/refresh`,
-        method: "PUT",
-        header: { Authorization: `Bearer ${token}` }, // Add if auth is needed
-      });
+      const response = await request(
+        `${BASE_API_URL}/posts/${numericPostId}/polish`,
+        {
+          method: "POST",
+          data: {
+            title: "擦亮帖子",
+            description: "帖子已擦亮",
+            contactInfo: "已更新",
+          },
+        }
+      );
 
-      if (response.statusCode === 200 || response.statusCode === 204) {
+      if (response && response.code === 0) {
         Taro.showToast({ title: "擦亮成功", icon: "success" });
         setBoostedPostIds((prev) => new Set(prev).add(numericPostId));
         const currentFilter = getCurrentApiStatusFilter();
         fetchApiPosts(pagination.currentPage, currentFilter);
       } else {
-        const errorMessage =
-          response.data?.message ||
-          response.errMsg ||
-          `状态码 ${response.statusCode}`;
+        const errorMessage = response?.message || "擦亮失败";
         throw new Error(`擦亮失败: ${errorMessage}`);
       }
     } catch (e: any) {
@@ -612,23 +606,16 @@ export default function MyPosts() {
         if (res.confirm) {
           setIsLoading(true);
           try {
-            // const token = Taro.getStorageSync('token'); // Uncomment and use your token logic
-            const token = "FAKE_DEV_AUTH_TOKEN"; // TODO: Replace with real token logic for production
-            const response = await Taro.request({
-              url: `${BASE_API_URL}/posts/${postId}`,
+            const response = await request(`${BASE_API_URL}/posts/${postId}`, {
               method: "DELETE",
-              header: { Authorization: `Bearer ${token}` }, // Add if auth is needed
             });
 
-            if (response.statusCode === 200 || response.statusCode === 204) {
+            if (response && response.code === 0) {
               Taro.showToast({ title: "删除成功", icon: "success" });
               const currentFilter = getCurrentApiStatusFilter();
               fetchApiPosts(1, currentFilter); // Refresh list, go to page 1
             } else {
-              const errorMessage =
-                response.data?.message ||
-                response.errMsg ||
-                `状态码 ${response.statusCode}`;
+              const errorMessage = response?.message || "删除失败";
               throw new Error(`删除失败: ${errorMessage}`);
             }
           } catch (e: any) {
@@ -652,23 +639,19 @@ export default function MyPosts() {
         if (res.confirm) {
           setIsLoading(true);
           try {
-            // const token = Taro.getStorageSync('token'); // Uncomment and use your token logic
-            const token = "FAKE_DEV_AUTH_TOKEN"; // TODO: Replace with real token logic for production
-            const response = await Taro.request({
-              url: `${BASE_API_URL}/posts/${postId}/publish`, // Assuming this endpoint for republishing
+            const response = await request(`${BASE_API_URL}/posts/${postId}`, {
               method: "PUT",
-              header: { Authorization: `Bearer ${token}` }, // Add if auth is needed
+              data: {
+                status: "publish",
+              },
             });
 
-            if (response.statusCode === 200 || response.statusCode === 204) {
+            if (response && response.code === 0) {
               Taro.showToast({ title: "重新发布成功", icon: "success" });
               const currentFilter = getCurrentApiStatusFilter();
               fetchApiPosts(pagination.currentPage, currentFilter); // Refresh current page
             } else {
-              const errorMessage =
-                response.data?.message ||
-                response.errMsg ||
-                `状态码 ${response.statusCode}`;
+              const errorMessage = response?.message || "重新发布失败";
               throw new Error(`重新发布失败: ${errorMessage}`);
             }
           } catch (e: any) {

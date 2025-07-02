@@ -3,11 +3,13 @@ import Taro from "@tarojs/taro";
 // 获取当前用户ID
 function getCurrentUserId(): string {
   try {
-    const userInfo = Taro.getStorageSync("userInfo");
-    return userInfo?.openid || "dev_openid_123";
+    if (process.env.NODE_ENV === "development") {
+      return "dev_openid_123";
+    }
+    return Taro.getStorageSync("openid") || "";
   } catch (error) {
     console.error("获取用户信息失败:", error);
-    return "dev_openid_123";
+    return process.env.NODE_ENV === "development" ? "dev_openid_123" : "";
   }
 }
 
