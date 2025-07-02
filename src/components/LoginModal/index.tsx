@@ -1,7 +1,7 @@
 import Taro from "@tarojs/taro";
 import { View, Text, Button, Image } from "@tarojs/components";
 import { useState, useEffect } from "react";
-import { UserInfo, storeLoggedInUser, loginModalEventBus } from "../../app.tsx";
+import { UserInfo, storeLoggedInUser, loginModalEventBus } from "../../app";
 import { throttle } from "../../utils/debounce";
 import { request } from "../../utils/request";
 import { API_CONFIG } from "../../config/api";
@@ -131,7 +131,7 @@ export default function LoginModal(props: LoginModalProps) {
 
       // 3. 调用登录接口
       console.log("🔄 LoginModal: Calling login API...");
-      const loggedInUser = await request<UserInfo>(
+      const loginResData = await request(
         API_CONFIG.getApiUrl("/api/auth/wechat-login"),
         {
           method: "POST",
@@ -145,6 +145,10 @@ export default function LoginModal(props: LoginModalProps) {
         }
       );
 
+      const loggedInUser = {
+        ...loginResData.data,
+        token: loginResData.data.token || "mock_token_" + Date.now(),
+      };
       console.log(
         "✅ LoginModal: Login API successful, user data:",
         loggedInUser
@@ -160,6 +164,9 @@ export default function LoginModal(props: LoginModalProps) {
         icon: "success",
         duration: 2000,
       });
+      // 新增：触发全局事件并跳转到"我的"页面，确保页面刷新
+      Taro.eventCenter.trigger("userInfoUpdated");
+      Taro.switchTab({ url: "/pages/my/index" });
 
       console.log("🚪 LoginModal: Hiding modal (setting isVisible to false)");
       setIsVisible(false);

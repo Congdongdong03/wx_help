@@ -2,9 +2,8 @@ import Taro, { useRouter } from "@tarojs/taro";
 import { useState, useEffect } from "react";
 import { View, Input, Button, Text } from "@tarojs/components";
 import { debounce } from "../../../utils/debounce";
+import { getLoggedInUser } from "../../../app";
 import "./index.scss";
-
-const USER_INFO_STORAGE_KEY = "my_app_user_info"; // Should be consistent with my/index.tsx
 
 export default function EditNicknamePage() {
   const router = useRouter();
@@ -60,18 +59,24 @@ export default function EditNicknamePage() {
       Taro.hideLoading();
       // Assume success for now
       try {
-        const storedUserInfo = Taro.getStorageSync(USER_INFO_STORAGE_KEY) || {};
-        const newUserInfo = {
-          ...storedUserInfo,
-          nickname: currentNickname.trim(),
-        };
-        Taro.setStorageSync(USER_INFO_STORAGE_KEY, newUserInfo);
-        console.log("Saved new user info to storage:", newUserInfo);
+        // 更新登录存储中的用户信息
+        const loggedInUser = getLoggedInUser();
+        if (loggedInUser) {
+          const updatedLoggedInUser = {
+            ...loggedInUser,
+            nickName: currentNickname.trim(),
+          };
+          Taro.setStorageSync("userInfo", updatedLoggedInUser);
+          console.log(
+            "Updated nickname in login storage:",
+            updatedLoggedInUser
+          );
+        }
 
         Taro.showToast({ title: "昵称更新成功", icon: "success" });
         Taro.navigateBack();
       } catch (e) {
-        console.error("Failed to save nickname to storage:", e);
+        console.error("Failed to save nickname to login storage:", e);
         Taro.showToast({ title: "保存失败，请稍后再试", icon: "none" });
       }
     }, 1000);

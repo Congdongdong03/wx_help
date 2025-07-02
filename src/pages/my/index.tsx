@@ -1,37 +1,40 @@
 import Taro, { useDidShow, useRouter } from "@tarojs/taro"; // Assuming useRouter might be needed later
 import { useState, useEffect } from "react"; // Corrected import for core hooks
 import { View, Text, Button, Image } from "@tarojs/components";
+import { UserInfo, getLoggedInUser } from "../../app";
 import "./index.scss"; // We will create/update this SCSS file
 
-const USER_INFO_STORAGE_KEY = "my_app_user_info";
 const DEFAULT_AVATAR = "https://picsum.photos/seed/avatar/100"; // Placeholder avatar
 const DEFAULT_NICKNAME = "点击设置昵称";
 
-interface UserInfo {
+interface LocalUserInfo {
   nickname: string;
   avatarUrl: string;
 }
 
 export default function My() {
-  const [userInfo, setUserInfo] = useState<UserInfo>({
+  const [userInfo, setUserInfo] = useState<LocalUserInfo>({
     nickname: DEFAULT_NICKNAME,
     avatarUrl: DEFAULT_AVATAR,
   });
 
   const loadUserInfo = () => {
     try {
-      const storedUserInfo = Taro.getStorageSync(USER_INFO_STORAGE_KEY);
-      if (storedUserInfo && storedUserInfo.nickname) {
-        setUserInfo(storedUserInfo);
-        console.log("Loaded user info from storage:", storedUserInfo);
+      // 从登录存储中获取用户信息
+      const loggedInUser = getLoggedInUser();
+      if (loggedInUser && loggedInUser.nickName) {
+        setUserInfo({
+          nickname: loggedInUser.nickName,
+          avatarUrl: loggedInUser.avatarUrl || DEFAULT_AVATAR,
+        });
+        console.log("Loaded user info from login storage:", loggedInUser);
       } else {
-        // First time or no stored info, use defaults or fetch from backend
-        console.log("No user info in storage, using defaults.");
-        // setUserInfo({ nickname: DEFAULT_NICKNAME, avatarUrl: DEFAULT_AVATAR }); // Already set by default
-        // TODO: Fetch from backend if not in storage and app is truly multi-user
+        // 如果没有登录信息，使用默认值
+        console.log("No logged in user found, using defaults.");
+        setUserInfo({ nickname: DEFAULT_NICKNAME, avatarUrl: DEFAULT_AVATAR });
       }
     } catch (e) {
-      console.error("Failed to load user info from storage:", e);
+      console.error("Failed to load user info:", e);
       // Fallback to defaults if storage fails
       setUserInfo({ nickname: DEFAULT_NICKNAME, avatarUrl: DEFAULT_AVATAR });
     }
@@ -40,6 +43,12 @@ export default function My() {
   // Load user info on initial mount
   useEffect(() => {
     loadUserInfo();
+    // 监听全局 userInfoUpdated 事件，收到时刷新用户信息
+    const handler = () => loadUserInfo();
+    Taro.eventCenter.on("userInfoUpdated", handler);
+    return () => {
+      Taro.eventCenter.off("userInfoUpdated", handler);
+    };
   }, []);
 
   // Refresh user info when page is shown (e.g., after returning from edit-nickname page)
@@ -54,10 +63,8 @@ export default function My() {
       success: (res) => {
         let sourceType;
         if (res.tapIndex === 0) {
-          // "从相册选择"
           sourceType = ["album"];
         } else if (res.tapIndex === 1) {
-          // "拍照"
           sourceType = ["camera"];
         } else {
           return; // Should not happen
@@ -71,15 +78,38 @@ export default function My() {
             const tempFilePath = imgRes.tempFilePaths[0];
             console.log("Image chosen:", tempFilePath);
 
+            // 1. 立即用 tempFilePath 更新 UI
             const newUserInfo = { ...userInfo, avatarUrl: tempFilePath };
             setUserInfo(newUserInfo);
+            // 2. 立即更新本地存储（临时路径）
             try {
-              Taro.setStorageSync(USER_INFO_STORAGE_KEY, newUserInfo);
-              console.log("Saved new avatar to storage:", newUserInfo);
-            } catch (e) {
-              console.error("Failed to save avatar to storage:", e);
-              Taro.showToast({ title: "头像保存失败", icon: "none" });
-            }
+              const loggedInUser = getLoggedInUser();
+              if (loggedInUser) {
+                const updatedLoggedInUser = {
+                  ...loggedInUser,
+                  avatarUrl: tempFilePath,
+                };
+                Taro.setStorageSync("userInfo", updatedLoggedInUser);
+              }
+            } catch (e) {}
+
+            // 3. 模拟上传
+            setTimeout(() => {
+              const permanentUrl = "https://picsum.photos/seed/new-avatar/100";
+              console.log("模拟上传成功，并拿到了永久URL", permanentUrl);
+              // 4. 用永久URL更新 UI 和本地存储
+              setUserInfo({ ...userInfo, avatarUrl: permanentUrl });
+              try {
+                const loggedInUser = getLoggedInUser();
+                if (loggedInUser) {
+                  const updatedLoggedInUser = {
+                    ...loggedInUser,
+                    avatarUrl: permanentUrl,
+                  };
+                  Taro.setStorageSync("userInfo", updatedLoggedInUser);
+                }
+              } catch (e) {}
+            }, 1500); // 1.5秒模拟上传
           },
           fail: (imgErr) => {
             console.log("Image selection failed:", imgErr);
