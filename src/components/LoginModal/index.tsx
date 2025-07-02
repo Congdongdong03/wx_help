@@ -1,7 +1,9 @@
 import Taro from "@tarojs/taro";
 import { View, Text, Button, Image } from "@tarojs/components";
 import { useState, useEffect } from "react";
-import { UserInfo, storeLoggedInUser, loginModalEventBus } from "../../app";
+import { useSelector, useDispatch } from "react-redux";
+import { UserInfo, loginModalEventBus } from "../../app";
+import { useUser } from "../../store/user/hooks";
 import { throttle } from "../../utils/debounce";
 import { request } from "../../utils/request";
 import { API_CONFIG } from "../../config/api";
@@ -63,6 +65,9 @@ export default function LoginModal(props: LoginModalProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [modalType, setModalType] = useState<"initial" | "overlay">("initial");
   const [isLoading, setIsLoading] = useState(false);
+
+  // 使用新的用户状态管理
+  const { login, isLoggedIn } = useUser();
 
   console.log("🏗️ LoginModal: Component rendered with state:", {
     isVisible,
@@ -155,7 +160,8 @@ export default function LoginModal(props: LoginModalProps) {
       );
 
       console.log("💾 LoginModal: Storing logged in user...");
-      storeLoggedInUser(loggedInUser);
+      // 使用新的用户状态管理
+      login(loggedInUser);
       console.log("✅ LoginModal: User stored successfully");
 
       console.log("🎉 LoginModal: Showing success toast");

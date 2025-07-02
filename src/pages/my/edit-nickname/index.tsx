@@ -1,23 +1,28 @@
 import Taro, { useRouter } from "@tarojs/taro";
 import { useState, useEffect } from "react";
 import { View, Input, Button, Text } from "@tarojs/components";
-import { debounce } from "../../../utils/debounce";
-import { getLoggedInUser } from "../../../app";
+import { debounce, throttle } from "../../../utils/debounce";
+import { useUser } from "../../../store/user/hooks";
 import "./index.scss";
 
 export default function EditNicknamePage() {
   const router = useRouter();
+  const { currentUser, updateUser } = useUser();
   const [currentNickname, setCurrentNickname] = useState("");
   const [originalNickname, setOriginalNickname] = useState("");
   const [isSaveDisabled, setIsSaveDisabled] = useState(true);
   const [errorText, setErrorText] = useState("");
 
   useEffect(() => {
-    const initialNickname = decodeURIComponent(router.params.nickname || "");
+    // 优先使用路由参数，如果没有则使用当前用户信息
+    const initialNickname =
+      decodeURIComponent(router.params.nickname || "") ||
+      currentUser?.nickName ||
+      "";
     setCurrentNickname(initialNickname);
     setOriginalNickname(initialNickname);
-    console.log("Initial nickname from params:", initialNickname);
-  }, [router.params.nickname]);
+    console.log("Initial nickname:", initialNickname);
+  }, [router.params.nickname, currentUser?.nickName]);
 
   useEffect(() => {
     if (currentNickname.trim() === "" || currentNickname === originalNickname) {
@@ -59,24 +64,14 @@ export default function EditNicknamePage() {
       Taro.hideLoading();
       // Assume success for now
       try {
-        // 更新登录存储中的用户信息
-        const loggedInUser = getLoggedInUser();
-        if (loggedInUser) {
-          const updatedLoggedInUser = {
-            ...loggedInUser,
-            nickName: currentNickname.trim(),
-          };
-          Taro.setStorageSync("userInfo", updatedLoggedInUser);
-          console.log(
-            "Updated nickname in login storage:",
-            updatedLoggedInUser
-          );
-        }
+        // 使用新的用户状态管理更新昵称
+        updateUser({ nickName: currentNickname.trim() });
+        console.log("Updated nickname in Redux store:", currentNickname.trim());
 
         Taro.showToast({ title: "昵称更新成功", icon: "success" });
         Taro.navigateBack();
       } catch (e) {
-        console.error("Failed to save nickname to login storage:", e);
+        console.error("Failed to update nickname:", e);
         Taro.showToast({ title: "保存失败，请稍后再试", icon: "none" });
       }
     }, 1000);

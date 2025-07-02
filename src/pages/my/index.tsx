@@ -1,8 +1,8 @@
-import Taro, { useDidShow, useRouter } from "@tarojs/taro"; // Assuming useRouter might be needed later
-import { useState, useEffect } from "react"; // Corrected import for core hooks
+import Taro, { useDidShow, useRouter } from "@tarojs/taro";
+import { useState, useEffect } from "react";
 import { View, Text, Button, Image } from "@tarojs/components";
-import { UserInfo, getLoggedInUser } from "../../app";
-import "./index.scss"; // We will create/update this SCSS file
+import { useUser } from "../../store/user/hooks";
+import "./index.scss";
 
 const DEFAULT_AVATAR = "https://picsum.photos/seed/avatar/100"; // Placeholder avatar
 const DEFAULT_NICKNAME = "点击设置昵称";
@@ -13,49 +13,38 @@ interface LocalUserInfo {
 }
 
 export default function My() {
+  // 使用新的用户状态管理
+  const { currentUser, userNickname, userAvatar } = useUser();
+
+  // 本地状态用于显示
   const [userInfo, setUserInfo] = useState<LocalUserInfo>({
     nickname: DEFAULT_NICKNAME,
     avatarUrl: DEFAULT_AVATAR,
   });
 
-  const loadUserInfo = () => {
-    try {
-      // 从登录存储中获取用户信息
-      const loggedInUser = getLoggedInUser();
-      if (loggedInUser && loggedInUser.nickName) {
-        setUserInfo({
-          nickname: loggedInUser.nickName,
-          avatarUrl: loggedInUser.avatarUrl || DEFAULT_AVATAR,
-        });
-        console.log("Loaded user info from login storage:", loggedInUser);
-      } else {
-        // 如果没有登录信息，使用默认值
-        console.log("No logged in user found, using defaults.");
-        setUserInfo({ nickname: DEFAULT_NICKNAME, avatarUrl: DEFAULT_AVATAR });
-      }
-    } catch (e) {
-      console.error("Failed to load user info:", e);
-      // Fallback to defaults if storage fails
+  // 更新用户信息显示
+  useEffect(() => {
+    if (currentUser && userNickname) {
+      setUserInfo({
+        nickname: userNickname,
+        avatarUrl: userAvatar || DEFAULT_AVATAR,
+      });
+      console.log("Updated user info from Redux store:", currentUser);
+    } else {
       setUserInfo({ nickname: DEFAULT_NICKNAME, avatarUrl: DEFAULT_AVATAR });
     }
-  };
+  }, [currentUser, userNickname, userAvatar]);
 
-  // Load user info on initial mount
+  // 监听全局 userInfoUpdated 事件
   useEffect(() => {
-    loadUserInfo();
-    // 监听全局 userInfoUpdated 事件，收到时刷新用户信息
-    const handler = () => loadUserInfo();
+    const handler = () => {
+      console.log("Received userInfoUpdated event");
+    };
     Taro.eventCenter.on("userInfoUpdated", handler);
     return () => {
       Taro.eventCenter.off("userInfoUpdated", handler);
     };
   }, []);
-
-  // Refresh user info when page is shown (e.g., after returning from edit-nickname page)
-  useDidShow(() => {
-    console.log("My page didShow, reloading user info.");
-    loadUserInfo();
-  });
 
   const handleAvatarClick = () => {
     Taro.showActionSheet({

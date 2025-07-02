@@ -1,15 +1,16 @@
 import Taro, { useLaunch, useDidShow, useDidHide } from "@tarojs/taro";
 import { PropsWithChildren, useState, useEffect } from "react";
+import { Provider } from "react-redux";
+import store from "./store";
 import LoginModal from "./components/LoginModal";
-// It's good practice to manage global state via a proper state management library (Recoil, Zustand, Redux)
-// for larger apps. For this example, we'll use a simple observable pattern or direct prop drilling
-// if the LoginModal is rendered conditionally at the root of page components.
-// For a true global modal controlled by App.tsx, event bus or context might be needed.
+import { useUser } from "./store/user/hooks";
 
-// Let's define a simple event bus for showing/hiding the modal from App.tsx
+// 定义事件总线用于显示/隐藏登录弹窗
 export const loginModalEventBus = new Taro.Events();
 
+// 为了向后兼容，保留原有的UserInfo接口
 export interface UserInfo {
+  id: string | number;
   avatarUrl: string;
   nickName: string;
   openid: string;
@@ -19,6 +20,7 @@ export interface UserInfo {
   country?: string;
   province?: string;
   city?: string;
+  status?: string;
 }
 
 // Mock API for login simulation
@@ -47,12 +49,11 @@ const mockLoginAPI = (
   });
 };
 
+// 为了向后兼容，保留原有的函数
 export function getLoggedInUser(): UserInfo | null {
   try {
     const userInfo = Taro.getStorageSync("userInfo") as UserInfo | null;
-    if (userInfo && userInfo.token && userInfo.openid) {
-      // TODO: Add token expiry check if implementing that
-      // For now, if it exists, it's considered valid.
+    if (userInfo && userInfo.openid) {
       console.log("getLoggedInUser: Found valid user in storage:", userInfo);
       return userInfo;
     }
@@ -95,26 +96,33 @@ export function checkLoginAndShowModal() {
   }
 }
 
-function App({ children }: PropsWithChildren) {
-  // This state is local to App, to trigger modal via event bus
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [loginModalType, setLoginModalType] = useState<"initial" | "overlay">(
-    "initial"
-  );
+// 内部App组件，使用Redux状态管理
+function AppContent({ children }: PropsWithChildren) {
+  const { isLoggedIn, initializeUserState } = useUser();
 
   useLaunch(() => {
     console.log("App launched");
-    checkLoginAndShowModal();
+    // 初始化用户状态（从本地存储）
+    initializeUserState();
+
+    // 如果没有登录，显示登录弹窗
+    if (!isLoggedIn) {
+      console.log(
+        "App: No logged-in user found. Emitting event to show login modal."
+      );
+      loginModalEventBus.trigger("show", { type: "initial" });
+    } else {
+      console.log("App: User already logged in.");
+      loginModalEventBus.trigger("hide");
+    }
   });
 
-  // useDidShow is also important if the app returns from background
-  // and login state might have changed (e.g. token expired on server side,
-  // or user logged out on another device - though that's more complex)
   useDidShow(() => {
     console.log("App did show");
-    // For mandatory login, if they somehow bypass the initial modal (not typical)
-    // or if login becomes invalid while app is in background, re-check.
-    checkLoginAndShowModal();
+    // 重新检查登录状态
+    if (!isLoggedIn) {
+      checkLoginAndShowModal();
+    }
   });
 
   useEffect(() => {
@@ -123,19 +131,14 @@ function App({ children }: PropsWithChildren) {
         "App: AuthSuccess event received from modal. User:",
         userInfo
       );
-      // No need to store here, modal should have stored it.
-      // Toast is also handled by modal as per spec.
-      // Main action is to ensure modal is hidden if App was controlling its direct visibility.
-      // If modal hides itself, this is more of a notification.
     };
 
     const handleAuthReject = () => {
       console.log("App: AuthReject event received from modal.");
-      // Modal should transition to 'overlay' type itself.
     };
 
     loginModalEventBus.on("authSuccess", handleAuthSuccess);
-    loginModalEventBus.on("authReject", handleAuthReject); // If modal needs to signal explicit rejection to app
+    loginModalEventBus.on("authReject", handleAuthReject);
 
     return () => {
       loginModalEventBus.off("authSuccess", handleAuthSuccess);
@@ -143,13 +146,20 @@ function App({ children }: PropsWithChildren) {
     };
   }, []);
 
-  // children are the pages of the app.
-  // The LoginModal will be rendered by individual pages or a layout component listening to the event bus.
   return (
     <>
       {children}
       <LoginModal />
     </>
+  );
+}
+
+// 主App组件，提供Redux Provider
+function App({ children }: PropsWithChildren) {
+  return (
+    <Provider store={store}>
+      <AppContent>{children}</AppContent>
+    </Provider>
   );
 }
 

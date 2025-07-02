@@ -100,7 +100,7 @@ const PostDetailPage: React.FC = () => {
       // 创建或找到对话
       const conversationId = await messageService.findOrCreateConversation(
         id,
-        post.user.id.toString()
+        post.user.id
       );
 
       Taro.hideLoading();
