@@ -1,5 +1,5 @@
 import { View, Image } from "@tarojs/components";
-import { useState } from "react";
+import React, { useState } from "react";
 
 interface PostImageProps {
   mockImagePlaceholderHeight?: number;

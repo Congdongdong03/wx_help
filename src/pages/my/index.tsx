@@ -1,5 +1,5 @@
 import Taro, { useDidShow, useRouter } from "@tarojs/taro";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, Button, Image } from "@tarojs/components";
 import { useUser } from "../../store/user/hooks";
 import "./index.scss";

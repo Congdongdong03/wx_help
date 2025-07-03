@@ -1,5 +1,5 @@
 import Taro from "@tarojs/taro";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, Image, Button, ScrollView } from "@tarojs/components";
 import PostCard, { PostCardData } from "../../../components/PostCard";
 import "./index.scss";

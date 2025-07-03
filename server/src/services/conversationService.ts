@@ -1,6 +1,31 @@
 import { PrismaClient } from "@prisma/client";
 import { messageService as backendMessageService } from "./messageService";
 
+// 定义查询结果的类型
+interface PostWithUser {
+  id: number;
+  title: string;
+  users: {
+    id: number;
+    nickname: string | null;
+    avatar_url: string | null;
+  };
+}
+
+interface UserInfo {
+  openid: string | null;
+  nickname: string | null;
+  avatar_url: string | null;
+}
+
+interface MessageInfo {
+  id: string;
+  conversationId: string;
+  type: string;
+  content: string;
+  createdAt: Date;
+}
+
 const prisma = new PrismaClient();
 
 class ConversationService {
@@ -76,7 +101,7 @@ class ConversationService {
     ];
 
     const [posts, users, latestMessages, unreadCounts] = await Promise.all([
-      prisma.post.findMany({
+      prisma.posts.findMany({
         where: { id: { in: postIds } },
         select: {
           id: true,
@@ -114,10 +139,16 @@ class ConversationService {
       ),
     ]);
 
-    const postsMap = new Map(posts.map((post) => [post.id, post]));
-    const usersMap = new Map(users.map((user) => [user.openid, user]));
+    const postsMap = new Map(
+      posts.map((post: PostWithUser) => [post.id, post])
+    );
+    const usersMap = new Map(
+      users
+        .filter((user: UserInfo) => user.openid !== null)
+        .map((user: UserInfo) => [user.openid!, user])
+    );
     const latestMessagesMap = new Map(
-      latestMessages.map((msg) => [msg.conversationId, msg])
+      latestMessages.map((msg: MessageInfo) => [msg.conversationId, msg])
     );
 
     const formattedConversations = conversations.map((conv, index) => {

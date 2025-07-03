@@ -1,4 +1,10 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import Taro from "@tarojs/taro";
 import { API_CONFIG } from "../config/api";
 import {

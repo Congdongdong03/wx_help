@@ -1,5 +1,5 @@
 import Taro, { useRouter } from "@tarojs/taro";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { View, Text, Image, ScrollView, Button } from "@tarojs/components";
 import { BASE_URL } from "../../utils/env";
 import { API_CONFIG } from "../../config/api";
@@ -9,7 +9,7 @@ import LoginModal from "../../components/LoginModal";
 import UserSwitcher from "../../components/UserSwitcher";
 import PostCard from "../../components/PostCard";
 import SkeletonCard from "../../components/SkeletonCard";
-import { CATEGORIES } from "../../constants";
+import { CATEGORIES, PRESET_PLACEHOLDER_HEIGHTS } from "../../constants";
 import { distributePosts } from "../../utils/postUtils";
 import { usePosts } from "../../hooks/usePosts";
 
@@ -154,13 +154,10 @@ export default function Index() {
 
   return (
     <View className="index-page">
-      <View className="header-container">
-        <View className="header-content">
-          <Text className="header-title">帮帮</Text>
-          <View className="city-selector" onClick={handleCitySelectorClick}>
-            <Text className="selected-city">{selectedCity || "选择城市"}</Text>
-            <Text className="at-icon at-icon-chevron-down"></Text>
-          </View>
+      <View className="header">
+        <View className="city-selector" onClick={handleCitySelectorClick}>
+          <Text className="selected-city">{selectedCity || "选择城市"}</Text>
+          <Text className="arrow at-icon at-icon-chevron-down"></Text>
         </View>
         {process.env.NODE_ENV === "development" && (
           <View
@@ -170,136 +167,74 @@ export default function Index() {
             <Text className="at-icon at-icon-user"></Text>
           </View>
         )}
-      </View>
-      <ScrollView scrollY className="category-scroll-view" scrollWithAnimation>
-        <View className="category-list">
+        {/* 分类 tabs 放 header 内部，符合 SCSS 结构 */}
+        <View className="category-tabs">
           {CATEGORIES.map((category) => (
             <View
               key={category.id}
-              className={`category-item ${
+              className={`category-tab ${
                 selectedCategoryId === category.id ? "active" : ""
               }`}
               onClick={() => handleCategoryChange(category.id)}
-              style={{
-                backgroundColor:
-                  selectedCategoryId === category.id
-                    ? category.color
-                    : "#f8f8f8",
-                color:
-                  selectedCategoryId === category.id ? "#fff" : category.color,
-              }}
             >
               <Text>{category.name}</Text>
             </View>
           ))}
         </View>
-      </ScrollView>
+      </View>
 
       <ScrollView
         scrollY
-        className="content-scroll-view"
+        className="posts-scroll-view"
         refresherEnabled={true}
-        refresherTriggered={
-          isLoading && posts.length === 0 && pinnedPosts.length === 0
-        }
-        onRefresherRefresh={onRefresherRefresh}
+        refresherTriggered={false}
         onScrollToLower={onScrollToLower}
+        onRefresherRefresh={onRefresherRefresh}
       >
-        {showSkeleton ? (
-          <View className="post-list-container">
-            <View
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                gap: "20rpx",
-              }}
-            >
-              {leftSkeleton.map((post) => (
-                <SkeletonCard
-                  key={post.id}
-                  mockImageHeight={post.mockImagePlaceholderHeight!}
-                />
+        <View className="masonry-container">
+          <View className="masonry-column">
+            {/* 左列：置顶、普通、骨架 */}
+            {pinnedPosts
+              .filter((_, i) => i % 2 === 0)
+              .map((post) => (
+                <PostCard key={post.id} post={post} pinned />
               ))}
-            </View>
-            <View
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                gap: "20rpx",
-              }}
-            >
-              {rightSkeleton.map((post) => (
-                <SkeletonCard
-                  key={post.id}
-                  mockImageHeight={post.mockImagePlaceholderHeight!}
-                />
+            {leftColumnPosts.map((post) => (
+              <PostCard key={post.id} post={post} />
+            ))}
+            {showSkeleton &&
+              leftSkeleton.map((item) => (
+                <SkeletonCard key={item.id} {...item} />
               ))}
-            </View>
           </View>
-        ) : showNoPosts ? (
-          <View className="no-posts-found">
-            <Text className="no-posts-text">暂无帖子</Text>
-            {loadError && (
-              <Button className="retry-button" onClick={retryLoad}>
-                点击重试
-              </Button>
-            )}
+          <View className="masonry-column">
+            {/* 右列：置顶、普通、骨架 */}
+            {pinnedPosts
+              .filter((_, i) => i % 2 === 1)
+              .map((post) => (
+                <PostCard key={post.id} post={post} pinned />
+              ))}
+            {rightColumnPosts.map((post) => (
+              <PostCard key={post.id} post={post} />
+            ))}
+            {showSkeleton &&
+              rightSkeleton.map((item) => (
+                <SkeletonCard key={item.id} {...item} />
+              ))}
           </View>
-        ) : (
-          <View className="post-list-container">
-            {pinnedPosts.length > 0 && (
-              <View className="pinned-posts-section">
-                {pinnedPosts.map((post) => (
-                  <PostCard key={post.id} post={post} isPinned={true} />
-                ))}
-              </View>
-            )}
-            {posts.length > 0 && (
-              <View className="normal-posts-columns">
-                <View
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "20rpx",
-                  }}
-                >
-                  {leftColumnPosts.map((post) => (
-                    <PostCard key={post.id} post={post} />
-                  ))}
-                </View>
-                <View
-                  style={{
-                    flex: 1,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "20rpx",
-                  }}
-                >
-                  {rightColumnPosts.map((post) => (
-                    <PostCard key={post.id} post={post} />
-                  ))}
-                </View>
-              </View>
-            )}
+        </View>
+        {showNoPosts && <View className="empty-tip">已经到底啦~</View>}
+        {loadError && (
+          <View className="empty-tip">
+            加载失败{" "}
+            <Text
+              onClick={retryLoad}
+              style={{ color: "#007bff", marginLeft: 8 }}
+            >
+              重试
+            </Text>
           </View>
         )}
-
-        {isLoading && posts.length > 0 && (
-          <View className="loading-more-container">
-            <Text>加载中...</Text>
-          </View>
-        )}
-
-        {!isLoading &&
-          !hasMoreData &&
-          (posts.length > 0 || pinnedPosts.length > 0) && (
-            <View className="no-more-posts-container">
-              <Text>已经到底啦~</Text>
-            </View>
-          )}
       </ScrollView>
 
       {/* City Picker Popup */}
@@ -339,7 +274,7 @@ export default function Index() {
 
       {/* 用户切换面板 - 仅在开发环境显示 */}
       <UserSwitcher
-        isVisible={isUserSwitcherVisible}
+        visible={isUserSwitcherVisible}
         onClose={() => setIsUserSwitcherVisible(false)}
       />
     </View>

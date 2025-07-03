@@ -1,5 +1,5 @@
 import Taro, { useLaunch, useDidShow, useDidHide } from "@tarojs/taro";
-import { PropsWithChildren, useState, useEffect } from "react";
+import React, { PropsWithChildren, useState, useEffect } from "react";
 import { Provider } from "react-redux";
 import store from "./store";
 import LoginModal from "./components/LoginModal";

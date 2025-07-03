@@ -1,5 +1,5 @@
 import { createStore, applyMiddleware, combineReducers } from "redux";
-import { thunk } from "redux-thunk";
+import thunk from "redux-thunk";
 // 导入 postsReducer
 import postsReducer from "./posts/reducer";
 // 导入 PostsState 类型

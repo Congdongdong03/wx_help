@@ -379,4 +379,16 @@ class WebSocketService {
   }
 }
 
-export default new WebSocketService();
+const wsService = new WebSocketService();
+
+// 导出便捷函数
+export const connectWebSocket = (userId: string) => wsService.connect(userId);
+export const disconnectWebSocket = () => wsService.disconnect();
+export const isWebSocketConnected = () => wsService.isConnectedStatus();
+export const emitWebSocketEvent = (eventName: string, data: any) =>
+  wsService.emitEvent(eventName, data);
+export const setMessageCallback = (callback: (message: any) => void) =>
+  wsService.setMessageCallback(callback);
+export const removeMessageCallback = () => wsService.removeMessageCallback();
+
+export default wsService;

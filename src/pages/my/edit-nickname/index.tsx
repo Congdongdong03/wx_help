@@ -1,5 +1,5 @@
 import Taro, { useRouter } from "@tarojs/taro";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Input, Button, Text } from "@tarojs/components";
 import { debounce, throttle } from "../../../utils/debounce";
 import { useUser } from "../../../store/user/hooks";
