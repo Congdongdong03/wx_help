@@ -1,4 +1,10 @@
 import Taro from "@tarojs/taro";
+import { FeedPost, Category } from "../types";
+import {
+  PRESET_PLACEHOLDER_HEIGHTS,
+  PRESET_PLACEHOLDER_COLORS,
+  CATEGORIES,
+} from "../constants";
 
 export const formatRelativeTime = (date: Date): string => {
   const now = new Date();
@@ -83,4 +89,77 @@ export const validatePostData = (data: any): boolean => {
 export const truncateText = (text: string, maxLength: number): string => {
   if (!text) return "";
   return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+};
+
+export const mapToFeedPost = (item: any): FeedPost => {
+  let images: string[] = [];
+  if (Array.isArray(item.images)) {
+    images = item.images;
+  } else if (typeof item.images === "string") {
+    try {
+      const parsed = JSON.parse(item.images);
+      if (Array.isArray(parsed)) {
+        images = parsed;
+      }
+    } catch {
+      images = [];
+    }
+  }
+  return {
+    id: item.id,
+    mockImagePlaceholderHeight:
+      PRESET_PLACEHOLDER_HEIGHTS[
+        Math.floor(Math.random() * PRESET_PLACEHOLDER_HEIGHTS.length)
+      ],
+    mockImagePlaceholderColor:
+      PRESET_PLACEHOLDER_COLORS[
+        Math.floor(Math.random() * PRESET_PLACEHOLDER_COLORS.length)
+      ],
+    title: item.title,
+    content: item.content,
+    content_preview: item.content_preview,
+    category: {
+      id: item.category_id,
+      name: CATEGORIES.find((cat) => cat.id === item.category_id)?.name || "",
+      color: CATEGORIES.find((cat) => cat.id === item.category_id)?.color || "",
+    },
+    sub_category: item.sub_category,
+    price: item.price,
+    updated_at: item.updated_at,
+    created_at: item.created_at,
+    city_code: item.city_code,
+    status: item.status,
+    images: images,
+    cover_image: item.cover_image,
+    is_pinned: item.is_pinned,
+    is_weekly_deal: item.is_weekly_deal,
+    users: item.users,
+  };
+};
+
+export const distributePosts = (
+  posts: FeedPost[]
+): [FeedPost[], FeedPost[]] => {
+  const leftColumn: FeedPost[] = [];
+  const rightColumn: FeedPost[] = [];
+  let leftHeight = 0;
+  let rightHeight = 0;
+
+  posts.forEach((post) => {
+    // 估算卡片高度 (图片高度 + 内容高度)
+    const imageHeight = post.mockImagePlaceholderHeight || 300;
+    const contentHeight = 180; // 估算的内容区域高度
+    const cardHeight = imageHeight + contentHeight;
+
+    // 选择高度较小的列
+    if (leftHeight <= rightHeight) {
+      leftColumn.push(post);
+      leftHeight += cardHeight + 20; // 加上margin
+    } else {
+      rightColumn.push(post);
+      rightHeight += cardHeight + 20; // 加上margin
+    }
+  });
+
+  return [leftColumn, rightColumn];
 };
