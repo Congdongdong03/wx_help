@@ -14,7 +14,7 @@ export class UserService {
   static async wechatLogin(code: string, userInfo: any): Promise<UserInfo> {
     try {
       const response = await request(
-        API_CONFIG.getApiUrl("/api/auth/wechat-login"),
+        API_CONFIG.getApiUrl("/auth/wechat-login"),
         {
           method: "POST",
           data: {
@@ -56,7 +56,7 @@ export class UserService {
   static async getUserInfo(): Promise<UserInfo | null> {
     try {
       const response = await requestWithRedux(
-        API_CONFIG.getApiUrl("/api/user/info"),
+        API_CONFIG.getApiUrl("/users/info"),
         {
           method: "GET",
           retryCount: 2,
@@ -93,7 +93,7 @@ export class UserService {
   static async updateUserInfo(userInfo: Partial<UserInfo>): Promise<boolean> {
     try {
       const response = await requestWithRedux(
-        API_CONFIG.getApiUrl("/api/user/update"),
+        API_CONFIG.getApiUrl("/users/info"),
         {
           method: "PUT",
           data: userInfo,
@@ -120,7 +120,7 @@ export class UserService {
   static async logout(): Promise<boolean> {
     try {
       const response = await requestWithRedux(
-        API_CONFIG.getApiUrl("/api/user/logout"),
+        API_CONFIG.getApiUrl("/users/logout"),
         {
           method: "POST",
           retryCount: 1,
@@ -142,20 +142,13 @@ export class UserService {
 
   /**
    * 检查登录状态
+   * TODO: 实现登录状态检查接口
    */
   static async checkLoginStatus(): Promise<boolean> {
     try {
-      const response = await requestWithRedux(
-        API_CONFIG.getApiUrl("/api/user/check-status"),
-        {
-          method: "GET",
-          retryCount: 1,
-          retryDelay: 1000,
-          retryableStatusCodes: [408, 429, 500, 502, 503, 504],
-        }
-      );
-
-      return response.code === 0;
+      // 暂时使用获取用户信息来检查登录状态
+      const userInfo = await this.getUserInfo();
+      return userInfo !== null;
     } catch (error) {
       console.error("检查登录状态失败:", error);
       return false;

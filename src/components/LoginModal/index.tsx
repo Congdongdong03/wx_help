@@ -137,7 +137,7 @@ export default function LoginModal(props: LoginModalProps) {
       // 3. 调用登录接口
       console.log("🔄 LoginModal: Calling login API...");
       const loginResData = await request(
-        API_CONFIG.getApiUrl("/api/auth/wechat-login"),
+        API_CONFIG.getApiUrl("/auth/wechat-login"),
         {
           method: "POST",
           data: {

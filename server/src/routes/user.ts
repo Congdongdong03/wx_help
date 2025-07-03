@@ -16,4 +16,7 @@ router.get("/info", requireAuth, UserController.getUserInfo);
 // 更新用户信息
 router.put("/info", requireAuth, UserController.updateUserInfo);
 
+// 用户登出
+router.post("/logout", requireAuth, UserController.logout);
+
 export default router;
