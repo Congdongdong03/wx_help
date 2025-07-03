@@ -7,20 +7,15 @@ import { clearLoginState, checkLoginAndShowModal } from "../../app";
 import "./index.scss";
 import LoginModal from "../../components/LoginModal";
 import UserSwitcher from "../../components/UserSwitcher";
-
-// 预设的占位图高度
-const PRESET_PLACEHOLDER_HEIGHTS = [200, 250, 300, 350, 400, 450, 500];
-
-// 预设的占位图颜色
-const PRESET_PLACEHOLDER_COLORS = [
-  "#f0f0f0",
-  "#e0e0e0",
-  "#d0d0d0",
-  "#c0c0c0",
-  "#b0b0b0",
-  "#a0a0a0",
-  "#909090",
-];
+import PostCard from "../../components/PostCard";
+import SkeletonCard from "../../components/SkeletonCard";
+import {
+  CATEGORIES,
+  PRESET_PLACEHOLDER_HEIGHTS,
+  PRESET_PLACEHOLDER_COLORS,
+} from "../../constants";
+import { distributePosts } from "../../utils/postUtils";
+import { usePosts } from "../../hooks/usePosts";
 
 // ------------------ DATA STRUCTURES ------------------
 
@@ -65,56 +60,7 @@ interface RecommendMeta {
 
 // ------------------ MOCK DATA ------------------
 
-const CATEGORIES: Category[] = [
-  { id: "recommend", name: "推荐", color: "#6f42c1" },
-  { id: "help", name: "帮帮", color: "#17a2b8" },
-  { id: "rent", name: "租房", color: "#007bff" },
-  { id: "used", name: "二手", color: "#28a745" },
-  { id: "jobs", name: "招聘", color: "#ffc107" },
-];
-
-const SUB_CATEGORIES = {
-  rent: [
-    { label: "出租", value: "rent", icon: "租" },
-    { label: "求租", value: "wanted_rent", icon: "求租" },
-    { label: "出售", value: "sell", icon: "售" },
-    { label: "求购", value: "wanted_buy", icon: "求购" },
-  ],
-  used: [
-    { label: "出售", value: "sell", icon: "卖" },
-    { label: "求购", value: "wanted", icon: "收" },
-  ],
-  help: [
-    { label: "求助", value: "need_help", icon: "求助" },
-    { label: "提供帮助", value: "offer_help", icon: "帮助" },
-  ],
-};
-
 // ------------------ MASONRY LAYOUT HELPER ------------------
-const distributePosts = (posts: FeedPost[]): [FeedPost[], FeedPost[]] => {
-  const leftColumn: FeedPost[] = [];
-  const rightColumn: FeedPost[] = [];
-  let leftHeight = 0;
-  let rightHeight = 0;
-
-  posts.forEach((post) => {
-    // 估算卡片高度 (图片高度 + 内容高度)
-    const imageHeight = post.mockImagePlaceholderHeight || 300;
-    const contentHeight = 180; // 估算的内容区域高度
-    const cardHeight = imageHeight + contentHeight;
-
-    // 选择高度较小的列
-    if (leftHeight <= rightHeight) {
-      leftColumn.push(post);
-      leftHeight += cardHeight + 20; // 加上margin
-    } else {
-      rightColumn.push(post);
-      rightHeight += cardHeight + 20; // 加上margin
-    }
-  });
-
-  return [leftColumn, rightColumn];
-};
 
 // ------------------ API 数据加载 ------------------
 
@@ -684,124 +630,3 @@ export default function Index() {
     </View>
   );
 }
-
-// ------------------ POST CARD COMPONENT ------------------
-interface PostCardProps {
-  post: FeedPost;
-  isPinned?: boolean;
-}
-
-const DEFAULT_IMAGE_URL =
-  "https://images.unsplash.com/photo-1506744038136-46273834b3fb";
-
-const PostCard: React.FC<PostCardProps> = ({ post, isPinned }) => {
-  const getSubCategoryIcon = (category: string, subCategory: string) => {
-    const subCategories =
-      SUB_CATEGORIES[category as keyof typeof SUB_CATEGORIES];
-    if (!subCategories) return subCategory;
-    const found = subCategories.find((sub) => sub.value === subCategory);
-    return found ? found.icon : subCategory;
-  };
-
-  return (
-    <View
-      className="post-card"
-      onClick={() =>
-        Taro.navigateTo({ url: `/pages/detail/index?id=${post.id}` })
-      }
-    >
-      {isPinned && (
-        <View className="post-card-pin-indicator">
-          <Text>置顶</Text>
-        </View>
-      )}
-      {post.status === "pending" && post.title !== "草稿" && (
-        <View className="post-card-status pending">
-          <Text>审核中</Text>
-        </View>
-      )}
-      <Image
-        className="post-card-image"
-        src={post.cover_image || DEFAULT_IMAGE_URL}
-        mode="aspectFill"
-        style={{
-          height: post.mockImagePlaceholderHeight
-            ? `${post.mockImagePlaceholderHeight}rpx`
-            : "400rpx",
-        }}
-      />
-      <View className="post-card-content">
-        <View className="post-card-title">
-          {post.sub_category && (
-            <Text className="post-card-category-sub">
-              {getSubCategoryIcon(post.category.id, post.sub_category)}
-            </Text>
-          )}
-          <Text numberOfLines={2}>{post.title || "无标题"}</Text>
-        </View>
-        <Text className="post-card-description" numberOfLines={2}>
-          {post.content_preview || "暂无描述"}
-        </Text>
-        <View className="post-card-footer">
-          <View className="post-card-tags">
-            <Text
-              className="post-card-category-tag"
-              style={{ backgroundColor: post.category.color }}
-            >
-              {post.category.name}
-            </Text>
-            {post.price && (
-              <Text className="post-card-price-tag">￥{post.price}</Text>
-            )}
-          </View>
-          <Text className="post-card-time">
-            {formatRelativeTime(new Date(post.updated_at))}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-};
-
-// ------------------ SKELETON CARD COMPONENT ------------------
-interface SkeletonCardProps {
-  mockImageHeight: number;
-}
-
-const SkeletonCard: React.FC<SkeletonCardProps> = ({ mockImageHeight }) => {
-  return (
-    <View className="post-card skeleton-card">
-      <View
-        className="skeleton-image"
-        style={{ height: `${mockImageHeight}rpx` }}
-      />
-      <View className="post-card-content">
-        <View className="skeleton-line title" />
-        <View className="skeleton-line short" />
-        <View className="skeleton-line long" />
-        <View className="post-card-footer skeleton-footer">
-          <View className="skeleton-line tag" />
-          <View className="skeleton-line time" />
-        </View>
-      </View>
-    </View>
-  );
-};
-
-// ------------------ HELPER FUNCTIONS ------------------
-const formatRelativeTime = (date: Date): string => {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSeconds = Math.round(diffMs / 1000);
-  const diffMinutes = Math.round(diffSeconds / 60);
-  const diffHours = Math.round(diffMinutes / 60);
-  const diffDays = Math.round(diffHours / 24);
-
-  if (diffSeconds < 60) return `${diffSeconds}秒前`;
-  if (diffMinutes < 60) return `${diffMinutes}分钟前`;
-  if (diffHours < 24) return `${diffHours}小时前`;
-  if (diffDays <= 7) return `${diffDays}天前`;
-  return `${date.getMonth() + 1}月${date.getDate()}日 ${String(
-    date.getHours()
-  ).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-};
