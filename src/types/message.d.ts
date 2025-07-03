@@ -1,5 +1,6 @@
 export interface Conversation {
   id: string;
+  postId: string; // 添加 postId 字段
   otherUserId: string;
   otherUserNickname: string;
   otherUserAvatar: string;

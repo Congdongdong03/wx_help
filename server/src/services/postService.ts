@@ -91,6 +91,7 @@ export class PostService {
             users: {
               select: {
                 id: true,
+                openid: true,
                 nickname: true,
                 avatar_url: true,
                 gender: true,
@@ -109,6 +110,7 @@ export class PostService {
             users: {
               select: {
                 id: true,
+                openid: true,
                 nickname: true,
                 avatar_url: true,
                 gender: true,
@@ -155,6 +157,7 @@ export class PostService {
             users: {
               select: {
                 id: true,
+                openid: true,
                 nickname: true,
                 avatar_url: true,
                 gender: true,
@@ -173,6 +176,7 @@ export class PostService {
             users: {
               select: {
                 id: true,
+                openid: true,
                 nickname: true,
                 avatar_url: true,
                 gender: true,
@@ -229,6 +233,7 @@ export class PostService {
           users: {
             select: {
               id: true,
+              openid: true,
               nickname: true,
               avatar_url: true,
               gender: true,
@@ -250,6 +255,7 @@ export class PostService {
           users: {
             select: {
               id: true,
+              openid: true,
               nickname: true,
               avatar_url: true,
               gender: true,
@@ -312,6 +318,7 @@ export class PostService {
           users: {
             select: {
               id: true,
+              openid: true,
               nickname: true,
               avatar_url: true,
               gender: true,
@@ -458,6 +465,7 @@ export class PostService {
           users: {
             select: {
               id: true,
+              openid: true,
               nickname: true,
               avatar_url: true,
               gender: true,

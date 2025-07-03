@@ -3,6 +3,7 @@ import Taro from "@tarojs/taro";
 import { View, Text, ScrollView, Image, Button } from "@tarojs/components";
 import { Conversation } from "../../types/message";
 import { messageService } from "../../services/messageService";
+import { useUser } from "../../store/user/hooks";
 
 import "./index.scss";
 
@@ -99,19 +100,24 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
 };
 
 const Message: React.FC = () => {
+  const { currentUser } = useUser();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    fetchConversations();
-  }, []);
+    if (currentUser?.openid) {
+      fetchConversations();
+    }
+  }, [currentUser]);
 
   const fetchConversations = async () => {
+    if (!currentUser?.openid) return;
+
     setLoading(true);
     setError(false);
     try {
-      const data = await messageService.fetchConversations();
+      const data = await messageService.fetchConversations(currentUser.openid);
       setConversations(data);
     } catch (err) {
       console.error("Error fetching conversations:", err);
@@ -134,6 +140,23 @@ const Message: React.FC = () => {
       )}&avatar=${encodeURIComponent(conversation.otherUserAvatar || "")}`,
     });
   };
+
+  if (!currentUser?.openid) {
+    return (
+      <View
+        className="message-list-page"
+        style={{ textAlign: "center", padding: "40rpx" }}
+      >
+        <Text>请先登录以查看会话</Text>
+        <Button
+          onClick={() => Taro.navigateTo({ url: "/pages/my/index" })}
+          style={{ marginTop: "20rpx" }}
+        >
+          去登录
+        </Button>
+      </View>
+    );
+  }
 
   if (loading) {
     return (

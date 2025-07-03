@@ -19,9 +19,19 @@ let messageQueue: Array<{ type: string; data: any }> = [];
 // 消息回调函数
 let messageCallback: ((message: any) => void) | null = null;
 
+// 接收到的消息队列，用于在 messageCallback 未设置时缓存消息
+let incomingMessageQueue: any[] = [];
+
 // 设置消息回调
 export function setMessageCallback(callback: (message: any) => void) {
   messageCallback = callback;
+  // 设置回调后，立即处理所有缓存的传入消息
+  while (incomingMessageQueue.length > 0) {
+    const queuedMessage = incomingMessageQueue.shift();
+    if (queuedMessage && messageCallback) {
+      messageCallback(queuedMessage);
+    }
+  }
 }
 
 // 移除消息回调
@@ -151,17 +161,19 @@ export function connectWebSocket(
               console.log("✅ 认证成功");
             } else if (data.type === "error") {
               console.error("❌ 服务器错误:", data.content);
-            } else if (data.type === "chat") {
-              console.log("💬 收到聊天消息");
-              // 调用消息回调
+            } else {
+              // 处理所有其他传入消息，包括 'chat'
               if (messageCallback) {
+                // 如果回调已设置，则立即处理
                 messageCallback(data);
+              } else {
+                // 如果回调未设置，则将传入消息暂存队列
+                console.log(
+                  "ℹ️ messageCallback 未设置，消息暂存 incomingMessageQueue:",
+                  data
+                );
+                incomingMessageQueue.push(data);
               }
-            }
-
-            // 通用消息回调
-            if (messageCallback) {
-              messageCallback(data);
             }
           } catch (e) {
             console.error("❌ 消息解析失败", e);
@@ -252,17 +264,17 @@ export function connectWebSocket(
               console.log("✅ H5 认证成功");
             } else if (data.type === "error") {
               console.error("❌ H5 服务器错误:", data.content);
-            } else if (data.type === "chat") {
-              console.log("💬 H5 收到聊天消息");
-              // 调用消息回调
+            } else {
+              // 处理所有其他传入消息，包括 'chat'
               if (messageCallback) {
                 messageCallback(data);
+              } else {
+                console.log(
+                  "ℹ️ H5 messageCallback 未设置，消息暂存 incomingMessageQueue:",
+                  data
+                );
+                incomingMessageQueue.push(data);
               }
-            }
-
-            // 通用消息回调
-            if (messageCallback) {
-              messageCallback(data);
             }
           } catch (e) {
             console.error("❌ H5 消息解析失败", e);

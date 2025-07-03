@@ -16,10 +16,11 @@ interface PostDetail {
   status: string;
   created_at: string;
   updated_at: string;
-  user: {
+  users: {
     id: number;
     nickname: string;
     avatar_url: string;
+    openid: string;
   };
 }
 
@@ -42,6 +43,14 @@ const PostDetailPage: React.FC = () => {
       setLoading(false);
     }
   }, [id]);
+
+  // 监听用户状态变化，重新获取帖子数据
+  useEffect(() => {
+    if (id && currentUser) {
+      console.log("用户状态变化，重新获取帖子数据");
+      fetchPostDetail();
+    }
+  }, [currentUser?.id]);
 
   const fetchPostDetail = async () => {
     if (!id) return;
@@ -89,7 +98,7 @@ const PostDetailPage: React.FC = () => {
   };
 
   const handleMessageSeller = async () => {
-    if (!post?.user?.id || !post?.user?.nickname || !id) {
+    if (!post?.users?.openid || !post?.users?.nickname || !id) {
       Taro.showToast({
         title: "用户信息缺失，无法私信",
         icon: "none",
@@ -101,20 +110,40 @@ const PostDetailPage: React.FC = () => {
       Taro.showLoading({ title: "正在连接..." });
 
       // 创建或找到对话
+      // 获取当前用户的 openid
+      const currentUserOpenid =
+        currentUser?.openid || Taro.getStorageSync("openid");
+
+      if (!currentUserOpenid) {
+        Taro.hideLoading();
+        Taro.showToast({
+          title: "请先登录",
+          icon: "none",
+        });
+        return;
+      }
+
+      console.log("Creating conversation with:", {
+        postId: id,
+        otherUserId: post.users.openid,
+        currentUserOpenid: currentUserOpenid,
+      });
+
       const conversationId = await messageService.findOrCreateConversation(
         id,
-        post.user.id
+        post.users.openid,
+        currentUserOpenid
       );
 
       Taro.hideLoading();
 
       // 跳转到聊天窗口
       Taro.navigateTo({
-        url: `/pages/messages/chat/index?conversationId=${conversationId}&otherUserId=${
-          post.user.id
-        }&nickname=${encodeURIComponent(
-          post.user.nickname
-        )}&avatar=${encodeURIComponent(post.user.avatar_url || "")}`,
+        url: `/pages/messages/chat/index?conversationId=${conversationId}&postId=${id}&otherUserId=${encodeURIComponent(
+          post.users.openid
+        )}&nickname=${encodeURIComponent(
+          post.users.nickname
+        )}&avatar=${encodeURIComponent(post.users.avatar_url || "")}`,
       });
     } catch (error) {
       Taro.hideLoading();
@@ -179,9 +208,19 @@ const PostDetailPage: React.FC = () => {
   }
 
   // 判断是否显示联系方式部分
-  // 只有当当前登录用户的ID不等于帖子发布者的ID时才显示
+  // 只有当当前登录用户的 openid 不等于帖子发布者 openid 时才显示
   const shouldShowContactInfo =
-    currentUser && post?.user?.id && currentUser.id !== post.user.id;
+    currentUser &&
+    post?.users?.openid &&
+    currentUser.openid !== post.users.openid;
+
+  // 调试信息
+  console.log("=== 帖子详情页权限调试 ===");
+  console.log("当前用户:", currentUser);
+  console.log("帖子发布者:", post?.users);
+  console.log("当前用户openid:", currentUser?.openid);
+  console.log("帖子发布者openid:", post?.users?.openid);
+  console.log("是否显示私信按钮:", shouldShowContactInfo);
 
   return (
     <View className="detail-page">
@@ -212,12 +251,12 @@ const PostDetailPage: React.FC = () => {
           <Image
             className="avatar"
             src={
-              post.user?.avatar_url || "https://example.com/default-avatar.png"
+              post.users?.avatar_url || "https://example.com/default-avatar.png"
             }
           />
           <View className="user-details">
             <Text className="nickname">
-              {post.user?.nickname || "未知用户"}
+              {post.users?.nickname || "未知用户"}
             </Text>
             <Text className="post-time">
               {new Date(post.created_at).toLocaleDateString()}

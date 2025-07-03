@@ -105,6 +105,10 @@ function AppContent({ children }: PropsWithChildren) {
     // 初始化用户状态（从本地存储）
     initializeUserState();
 
+    // 检查本地缓存中的 openid
+    const cachedOpenid = Taro.getStorageSync("openid");
+    console.log("App: Cached openid:", cachedOpenid);
+
     // 如果没有登录，显示登录弹窗
     if (!isLoggedIn) {
       console.log(

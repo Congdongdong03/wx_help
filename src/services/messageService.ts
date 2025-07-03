@@ -9,26 +9,25 @@ import { Conversation, Message, MessagesResponse } from "../types/message";
 // REMOVED: Helper to simulate network delay
 // const simulateDelay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
-// Helper function to get current user ID
-const getCurrentUserId = (): string => {
-  // In a real app, this would come from user authentication
-  // For now, we'll use a development user ID
-  return "dev_openid_123";
-};
-
 export const messageService = {
   /**
    * Fetches a list of conversations for the current user.
+   * @param currentUserId The ID of the current logged-in user.
    * @returns A promise that resolves with an array of Conversation objects.
    */
-  fetchConversations: async (): Promise<Conversation[]> => {
+  fetchConversations: async (
+    currentUserId: string
+  ): Promise<Conversation[]> => {
     try {
+      console.log(
+        `[messageService.fetchConversations] Sending x-openid: ${currentUserId}`
+      );
       const res = await Taro.request({
         url: API_CONFIG.getApiUrl("/conversations/list"),
         method: "GET",
         header: {
           "content-type": "application/json",
-          "x-openid": getCurrentUserId(),
+          "x-openid": String(currentUserId),
         },
       });
 
@@ -51,6 +50,7 @@ export const messageService = {
   /**
    * Fetches messages for a specific conversation with pagination.
    * @param conversationId The ID of the conversation.
+   * @param userOpenId The openId of the current logged-in user (for x-openid header).
    * @param page The page number (default: 1).
    * @param limit The number of messages per page (default: 20, max: 50).
    * @param before Optional timestamp to get messages before this time.
@@ -58,6 +58,7 @@ export const messageService = {
    */
   fetchMessages: async (
     conversationId: string,
+    userOpenId: string,
     page: number = 1,
     limit: number = 20,
     before?: number
@@ -72,6 +73,9 @@ export const messageService = {
         params.append("before", before.toString());
       }
 
+      console.log(
+        `[messageService.fetchMessages] Sending x-openid: ${userOpenId}`
+      );
       const res = await Taro.request({
         url: API_CONFIG.getApiUrl(
           `/conversations/${conversationId}/messages?${params}`
@@ -79,7 +83,7 @@ export const messageService = {
         method: "GET",
         header: {
           "content-type": "application/json",
-          "x-openid": getCurrentUserId(),
+          "x-openid": String(userOpenId),
         },
       });
 
@@ -103,30 +107,34 @@ export const messageService = {
   /**
    * Sends a new message.
    * @param conversationId The ID of the conversation.
-   * @param senderId The ID of the sender.
-   * @param receiverId The ID of the receiver.
+   * @param userOpenId The openId of the current logged-in user (for x-openid header).
+   * @param receiverId The openid of the receiver.
    * @param content The content of the message.
    * @param type The type of the message (text or image).
    * @returns A promise that resolves with the newly created Message object.
    */
   sendMessage: async (
     conversationId: string,
-    senderId: string,
+    userOpenId: string,
     receiverId: string,
     content: string,
     type: "text" | "image" = "text"
   ): Promise<Message> => {
     try {
+      console.log(
+        `[messageService.sendMessage] Sending x-openid: ${userOpenId}, receiverId: ${receiverId}`
+      );
       const res = await Taro.request({
         url: API_CONFIG.getApiUrl(`/conversations/${conversationId}/messages`),
         method: "POST",
         header: {
           "content-type": "application/json",
-          "x-openid": getCurrentUserId(),
+          "x-openid": String(userOpenId),
         },
         data: {
           content,
           type,
+          receiverId,
         },
       });
 
@@ -145,23 +153,23 @@ export const messageService = {
   /**
    * Marks messages in a conversation as read.
    * @param conversationId The ID of the conversation.
-   * @param userId The ID of the user marking messages as read.
+   * @param userOpenId The openId of the current logged-in user (for x-openid header).
    * @returns A promise that resolves when the operation is complete.
    */
   markMessagesAsRead: async (
     conversationId: string,
-    userId: string
+    userOpenId: string
   ): Promise<void> => {
     try {
+      console.log(
+        `[messageService.markMessagesAsRead] Sending x-openid: ${userOpenId}`
+      );
       const res = await Taro.request({
         url: API_CONFIG.getApiUrl(`/conversations/${conversationId}/mark-read`),
         method: "POST",
         header: {
           "content-type": "application/json",
-          "x-openid": getCurrentUserId(),
-        },
-        data: {
-          userId,
+          "x-openid": String(userOpenId),
         },
       });
 
@@ -179,15 +187,24 @@ export const messageService = {
 
   findOrCreateConversation: async (
     postId: string,
-    otherUserId: string
+    otherUserId: string,
+    currentUserId: string
   ): Promise<string> => {
     try {
+      // 验证参数
+      if (!currentUserId || currentUserId === "undefined") {
+        throw new Error("currentUserId is required and cannot be undefined");
+      }
+
+      console.log(
+        `[messageService.findOrCreateConversation] Sending x-openid: ${currentUserId}`
+      );
       const res = await Taro.request({
         url: API_CONFIG.getApiUrl("/conversations/find-or-create"),
         method: "POST",
         header: {
           "content-type": "application/json",
-          "x-openid": getCurrentUserId(),
+          "x-openid": String(currentUserId),
         },
         data: {
           postId,

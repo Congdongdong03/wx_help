@@ -6,6 +6,7 @@ import { API_CONFIG } from "../../config/api";
 import { clearLoginState, checkLoginAndShowModal } from "../../app";
 import "./index.scss";
 import LoginModal from "../../components/LoginModal";
+import UserSwitcher from "../../components/UserSwitcher";
 
 // 预设的占位图高度
 const PRESET_PLACEHOLDER_HEIGHTS = [200, 250, 300, 350, 400, 450, 500];
@@ -137,6 +138,8 @@ export default function Index() {
     null
   );
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [isUserSwitcherVisible, setIsUserSwitcherVisible] =
+    useState<boolean>(false);
 
   const isLoadingRef = useRef(isLoading);
   const currentPageRef = useRef(currentPage);
@@ -485,6 +488,29 @@ export default function Index() {
         测试登录
       </Button>
 
+      {/* 用户切换按钮 - 仅在开发环境显示 */}
+      {process.env.NODE_ENV === "development" && (
+        <Button
+          className="user-switcher-button"
+          onClick={() => setIsUserSwitcherVisible(true)}
+          style={{
+            position: "fixed",
+            top: "180rpx",
+            right: "20rpx",
+            zIndex: 9999,
+            background: "#007aff",
+            color: "white",
+            fontSize: "24rpx",
+            padding: "10rpx 20rpx",
+            borderRadius: "20rpx",
+            border: "2rpx solid #fff",
+            boxShadow: "0 4rpx 12rpx rgba(0,0,0,0.3)",
+          }}
+        >
+          切换用户
+        </Button>
+      )}
+
       {/* Posts Feed */}
       <ScrollView
         scrollY
@@ -651,6 +677,12 @@ export default function Index() {
       )}
       {/* 登录弹窗全局渲染 */}
       <LoginModal />
+
+      {/* 用户切换面板 - 仅在开发环境显示 */}
+      <UserSwitcher
+        isVisible={isUserSwitcherVisible}
+        onClose={() => setIsUserSwitcherVisible(false)}
+      />
     </View>
   );
 }

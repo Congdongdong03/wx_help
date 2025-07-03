@@ -22,11 +22,13 @@ import {
 import { debounce } from "../../../utils/debounce";
 import { uploadFile } from "../../../utils/request";
 import UserSwitcher from "../../../components/UserSwitcher";
+import { useUser } from "../../../store/user/hooks";
 
 interface User {
-  id: string;
+  id: number;
   nickname: string;
   avatar: string;
+  openid: string;
 }
 
 interface MessageBubbleProps {
@@ -235,35 +237,39 @@ const ConnectionStatus: React.FC<{
   );
 };
 
-// 开发环境调试用户列表
-const debugUsers = [
-  {
-    id: "dev_openid_123",
-    nickname: "用户A",
-    avatar: "https://via.placeholder.com/40/007AFF/FFFFFF?text=A",
-  },
-  {
-    id: "test_user_456",
-    nickname: "用户B",
-    avatar: "https://via.placeholder.com/40/28A745/FFFFFF?text=B",
-  },
-];
-
 const ChatWindowPage: React.FC = () => {
   const router = useRouter();
+  console.log("Chat page params:", router.params);
   const {
-    conversationId,
+    postId,
+    conversationId: paramConversationId,
     otherUserId,
     nickname: otherUserNickname,
     avatar: otherUserAvatarParam,
   } = router.params;
 
+  const { currentUser } = useUser();
+
+  // 新增 conversationId 状态
+  const [currentConversationId, setCurrentConversationId] = useState<
+    string | null
+  >(paramConversationId || null);
+
   // 调试信息
   console.log("Chat page params:", {
-    conversationId,
+    postId,
+    paramConversationId,
     otherUserId,
     otherUserNickname,
     otherUserAvatarParam,
+  });
+
+  // 调试当前用户信息
+  console.log("Current user info:", {
+    currentUser,
+    currentUserId: currentUser?.id,
+    currentUserOpenid: currentUser?.openid,
+    hasOpenid: !!currentUser?.openid,
   });
 
   const [chatTitle, setChatTitle] = useState(
@@ -286,11 +292,6 @@ const ChatWindowPage: React.FC = () => {
   const [scrollToViewId, setScrollToViewId] = useState<string>("");
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 将 currentUser 的 useState 移到这里
-  const [currentUser, setCurrentUser] = useState(debugUsers[0]);
-
-  // 替换 currentUserId 相关逻辑
-  // const currentUserId = "dev_openid_123"; // 删除原有写死的currentUserId
   const otherUserAvatar = otherUserAvatarParam
     ? decodeURIComponent(otherUserAvatarParam)
     : "https://via.placeholder.com/40";
@@ -299,44 +300,134 @@ const ChatWindowPage: React.FC = () => {
   console.log("Chat page final values:", {
     chatTitle,
     otherUserAvatar,
+    decodedNickname: otherUserNickname
+      ? decodeURIComponent(otherUserNickname)
+      : null,
   });
 
-  // 用户切换处理函数
-  const handleUserChange = (newUser: User) => {
-    console.log("切换用户:", newUser);
-    setCurrentUser(newUser);
-    // 清空当前消息列表
-    setMessages([]);
-    setLoading(true);
+  // 如果没有当前用户或对话ID，则不渲染或显示加载状态
+  if (!currentUser || !currentUser.openid || !otherUserId) {
+    return (
+      <View
+        className="chat-window-page"
+        style={{ textAlign: "center", padding: "40rpx" }}
+      >
+        <Text>{!currentUser?.openid ? "请先登录" : "加载中..."}</Text>
+        {!currentUser?.openid && (
+          <Button
+            onClick={() => Taro.navigateTo({ url: "/pages/my/index" })}
+            style={{ marginTop: "20rpx" }}
+          >
+            去登录
+          </Button>
+        )}
+      </View>
+    );
+  }
 
-    // 断开当前WebSocket连接
-    disconnectWebSocket();
+  // 检查是否有必要的参数
+  if (!currentConversationId && !postId) {
+    return (
+      <View
+        className="chat-window-page"
+        style={{ textAlign: "center", padding: "40rpx" }}
+      >
+        <Text>缺少必要参数</Text>
+      </View>
+    );
+  }
 
-    // 重新连接WebSocket，等连接成功后再加载消息
-    setTimeout(() => {
-      connectWebSocket(newUser.id)
-        .then(() => {
-          console.log("WebSocket连接成功，开始加载消息");
-          // 连接成功后再重新加载消息
-          fetchChatMessages();
-        })
-        .catch((error) => {
-          console.error("WebSocket连接失败:", error);
-          Taro.showToast({ title: "连接失败，请重试", icon: "none" });
-          setLoading(false);
-        });
-    }, 500);
-  };
+  // 获取或创建对话，并设置 conversationId
+  const initConversation = useCallback(async () => {
+    console.log("initConversation called with:", {
+      postId,
+      currentConversationId,
+      otherUserId,
+      currentUserOpenid: currentUser?.openid,
+      hasAllRequired: !!(
+        currentConversationId ||
+        (postId && otherUserId && currentUser?.openid)
+      ),
+    });
+
+    // 如果已经有 conversationId，直接使用
+    if (currentConversationId) {
+      console.log("✅ Using existing conversationId:", currentConversationId);
+      setLoading(false);
+      return;
+    }
+
+    // 检查用户登录状态和 openid
+    if (!currentUser?.openid) {
+      console.error("❌ initConversation: currentUser.openid is missing!");
+      console.log("currentUser:", currentUser);
+
+      // 尝试从本地缓存获取 openid
+      const cachedOpenid = Taro.getStorageSync("openid");
+      console.log("cachedOpenid:", cachedOpenid);
+
+      if (cachedOpenid) {
+        console.log("✅ Found openid in cache, using it");
+        // 如果缓存中有 openid，使用它
+        try {
+          const convId = await messageService.findOrCreateConversation(
+            postId as string,
+            otherUserId as string,
+            cachedOpenid
+          );
+          setCurrentConversationId(convId);
+          console.log("Initialized conversation ID:", convId);
+        } catch (err) {
+          console.error("Error initializing conversation:", err);
+          setError(true);
+          Taro.showToast({ title: "获取对话失败", icon: "none" });
+        }
+        return;
+      } else {
+        Taro.showToast({ title: "请先登录", icon: "none" });
+        return;
+      }
+    }
+
+    if (!postId || !otherUserId) {
+      console.log("initConversation: Missing postId or otherUserId");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log("Calling findOrCreateConversation with:", {
+        postId: postId as string,
+        otherUserId: otherUserId as string,
+        currentUserOpenid: currentUser.openid,
+      });
+      const convId = await messageService.findOrCreateConversation(
+        postId as string,
+        otherUserId as string,
+        currentUser.openid
+      );
+      setCurrentConversationId(convId);
+      console.log("Initialized conversation ID:", convId);
+    } catch (err) {
+      console.error("Error initializing conversation:", err);
+      setError(true);
+      Taro.showToast({ title: "获取对话失败", icon: "none" });
+    } finally {
+      setLoading(false);
+    }
+  }, [postId, currentConversationId, otherUserId, currentUser.openid]);
 
   // Debounced function to emit typing event
   const debouncedTyping = useCallback(
     debounce(() => {
-      if (isWebSocketConnected() && conversationId) {
+      if (isWebSocketConnected() && currentConversationId) {
         console.log("Emitting stopTyping");
-        emitWebSocketEvent("stopTyping", { conversationId });
+        emitWebSocketEvent("stopTyping", {
+          conversationId: currentConversationId,
+        });
       }
     }, 1000),
-    [conversationId]
+    [currentConversationId]
   );
 
   // 连接管理
@@ -345,7 +436,7 @@ const ChatWindowPage: React.FC = () => {
     setIsConnecting(true);
     setConnectionError(null);
     try {
-      await connectWebSocket(currentUser.id);
+      await connectWebSocket(currentUser.openid);
       setSocketConnected(true);
       console.log("Socket连接成功");
     } catch (error) {
@@ -358,262 +449,90 @@ const ChatWindowPage: React.FC = () => {
     } finally {
       setIsConnecting(false);
     }
-  }, [currentUser.id]);
+  }, [currentUser.openid]);
 
   // 加入房间
   const handleJoinRoom = useCallback(() => {
-    if (!conversationId || !isWebSocketConnected()) return;
+    if (!currentConversationId || !isWebSocketConnected()) return;
 
     try {
-      // joinRoom(conversationId);
-      console.log(`加入房间: ${conversationId}`);
-
-      // 请求在线状态
-      emitWebSocketEvent("requestOnlineStatus", { conversationId });
+      console.log(`加入房间: ${currentConversationId}`);
+      emitWebSocketEvent("requestOnlineStatus", {
+        conversationId: currentConversationId,
+      });
     } catch (error) {
       console.error("加入房间失败:", error);
     }
-  }, [conversationId]);
+  }, [currentConversationId]);
 
   // 离开房间
   const handleLeaveRoom = useCallback(() => {
-    if (!conversationId) return;
+    if (!currentConversationId) return;
 
     try {
-      // leaveRoom(conversationId);
-      console.log(`离开房间: ${conversationId}`);
+      console.log(`离开房间: ${currentConversationId}`);
     } catch (error) {
       console.error("离开房间失败:", error);
     }
-  }, [conversationId]);
+  }, [currentConversationId]);
 
-  useEffect(() => {
-    if (conversationId && currentUser.id) {
-      // 1. 建立WebSocket连接
-      connectWebSocket(currentUser.id);
+  const sortMessages = useCallback(
+    (arr: Message[]) =>
+      arr
+        .slice()
+        .sort(
+          (a, b) =>
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        ),
+    []
+  );
 
-      // 2. 加载历史消息
-      fetchChatMessages();
+  const fetchChatMessages = useCallback(
+    async (page: number = 1, isLoadMore: boolean = false) => {
+      if (!currentConversationId || !currentUser.openid) return;
 
-      // 3. 标记消息为已读
-      markConversationAsRead();
-
-      setMessageCallback((msg) => {
-        if (msg.conversationId === conversationId && msg.type === "chat") {
-          setMessages((prev) => {
-            // 首先检查是否是服务器回显的消息（通过clientTempId匹配）
-            if (msg.clientTempId) {
-              const existingIndex = prev.findIndex(
-                (m) => m.clientTempId === msg.clientTempId
-              );
-              if (existingIndex !== -1) {
-                // 更新现有的乐观更新消息
-                const updatedMessages = [...prev];
-                updatedMessages[existingIndex] = {
-                  ...updatedMessages[existingIndex],
-                  id: msg.messageId || updatedMessages[existingIndex].id,
-                  status: "sent",
-                  timestamp:
-                    msg.timestamp || updatedMessages[existingIndex].timestamp,
-                };
-                return updatedMessages;
-              }
-            }
-
-            // 检查是否已经存在相同的messageId（防止重复）
-            if (msg.messageId && prev.some((m) => m.id === msg.messageId)) {
-              return prev;
-            }
-
-            // 添加新消息
-            return [
-              ...prev,
-              {
-                ...msg,
-                id: msg.messageId || Date.now().toString(),
-                status: "sent",
-                type: msg.messageType || "text", // 支持消息类型
-              },
-            ];
-          });
-          setLoading(false);
-        }
-        if (msg.type === "auth_success") {
-          setLoading(false);
-        }
-        // 处理在线状态消息
-        if (msg.type === "onlineStatus") {
-          setIsOtherUserOnline(msg.onlineCount >= 2);
-        }
-        // 处理错误消息
-        if (msg.type === "error" && msg.clientTempId) {
-          setMessages((prev) => {
-            const existingIndex = prev.findIndex(
-              (m) => m.clientTempId === msg.clientTempId
-            );
-            if (existingIndex !== -1) {
-              const updatedMessages = [...prev];
-              updatedMessages[existingIndex] = {
-                ...updatedMessages[existingIndex],
-                status: "failed",
-              };
-              return updatedMessages;
-            }
-            return prev;
-          });
-          Taro.showToast({ title: "发送失败", icon: "none" });
-        }
-      });
-
-      // 监听重试消息事件
-      const handleRetryMessage = (message: Message) => {
-        if (!conversationId || !otherUserId) return;
-
-        // 更新消息状态为pending
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === message.id ? { ...msg, status: "pending" } : msg
-          )
-        );
-
-        // 重新发送消息
-        if (isWebSocketConnected()) {
-          try {
-            emitWebSocketEvent("sendMessage", {
-              conversationId,
-              toUserId: otherUserId,
-              type: message.type,
-              content: message.content,
-              timestamp: Date.now(),
-              clientTempId: message.clientTempId,
-            });
-          } catch (error) {
-            console.error("重试发送消息失败:", error);
-            // fallback到HTTP API
-            messageService
-              .sendMessage(
-                conversationId,
-                currentUser.id,
-                otherUserId,
-                message.content,
-                message.type
-              )
-              .then((sent) => {
-                setMessages((prevMessages) =>
-                  prevMessages.map((msg) =>
-                    msg.id === message.id
-                      ? { ...msg, ...sent, status: "sent" }
-                      : msg
-                  )
-                );
-              })
-              .catch((err) => {
-                console.error("Error retrying message via HTTP API:", err);
-                setMessages((prevMessages) =>
-                  prevMessages.map((msg) =>
-                    msg.id === message.id ? { ...msg, status: "failed" } : msg
-                  )
-                );
-                Taro.showToast({ title: "重试失败", icon: "none" });
-              });
-          }
-        } else {
-          // fallback 到 HTTP API
-          messageService
-            .sendMessage(
-              conversationId,
-              currentUser.id,
-              otherUserId,
-              message.content,
-              message.type
-            )
-            .then((sent) => {
-              setMessages((prevMessages) =>
-                prevMessages.map((msg) =>
-                  msg.id === message.id
-                    ? { ...msg, ...sent, status: "sent" }
-                    : msg
-                )
-              );
-            })
-            .catch((err) => {
-              console.error("Error retrying message via HTTP API:", err);
-              setMessages((prevMessages) =>
-                prevMessages.map((msg) =>
-                  msg.id === message.id ? { ...msg, status: "failed" } : msg
-                )
-              );
-              Taro.showToast({ title: "重试失败", icon: "none" });
-            });
-        }
-      };
-
-      Taro.eventCenter.on("retryMessage", handleRetryMessage);
-
-      return () => {
-        removeMessageCallback();
-        disconnectWebSocket();
-        Taro.eventCenter.off("retryMessage", handleRetryMessage);
-      };
-    }
-  }, [conversationId, currentUser.id]);
-
-  // 当Socket连接状态改变时，自动加入房间
-  useEffect(() => {
-    if (socketConnected && conversationId) {
-      handleJoinRoom();
-    }
-  }, [socketConnected, conversationId, handleJoinRoom]);
-
-  const sortMessages = (arr: Message[]) =>
-    arr
-      .slice()
-      .sort(
-        (a, b) =>
-          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      console.log(
+        `[fetchChatMessages] Calling fetchMessages with currentConversationId: ${currentConversationId}, currentUser.openid: ${currentUser.openid}`
       );
 
-  const fetchChatMessages = async (
-    page: number = 1,
-    isLoadMore: boolean = false
-  ) => {
-    if (!conversationId) return;
+      try {
+        if (isLoadMore) {
+          setLoadingMore(true);
+        } else {
+          setLoading(true);
+        }
 
-    try {
-      if (isLoadMore) {
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
+        const response = await messageService.fetchMessages(
+          currentConversationId,
+          currentUser.openid,
+          page
+        );
+
+        if (isLoadMore) {
+          setMessages((prev) => sortMessages([...response.messages, ...prev]));
+        } else {
+          setMessages(sortMessages(response.messages));
+          setHasInitialized(true);
+        }
+
+        setPagination(response.pagination);
+        setError(false);
+      } catch (err) {
+        console.error("Error fetching messages:", err);
+        setError(true);
+        Taro.showToast({
+          title: "加载消息失败",
+          icon: "none",
+        });
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
       }
+    },
+    [currentConversationId, currentUser.openid]
+  );
 
-      const response = await messageService.fetchMessages(conversationId, page);
-
-      if (isLoadMore) {
-        // 加载更多时，将新消息添加到现有消息前面，合并后排序
-        setMessages((prev) => sortMessages([...response.messages, ...prev]));
-      } else {
-        // 首次加载或刷新时，直接排序后设置消息
-        setMessages(sortMessages(response.messages));
-        setHasInitialized(true);
-      }
-
-      setPagination(response.pagination);
-      setError(false);
-    } catch (err) {
-      console.error("Error fetching messages:", err);
-      setError(true);
-      Taro.showToast({
-        title: "加载消息失败",
-        icon: "none",
-      });
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  };
-
-  const loadMoreMessages = async () => {
-    // 第一步：安全检查 - 防止重复请求
+  const loadMoreMessages = useCallback(async () => {
     if (loadingMore || !pagination?.hasMore) {
       return;
     }
@@ -623,14 +542,11 @@ const ChatWindowPage: React.FC = () => {
       return;
     }
 
-    // 第二步：记录当前位置
     const firstMessageId = messages[0]?.id;
 
     try {
-      // 第三步：获取并合并数据
       await fetchChatMessages(nextPage, true);
 
-      // 第四步：恢复滚动位置
       if (firstMessageId) {
         setTimeout(() => {
           setScrollToViewId(`msg-${firstMessageId}`);
@@ -643,23 +559,198 @@ const ChatWindowPage: React.FC = () => {
         icon: "none",
       });
     }
-  };
+  }, [
+    loadingMore,
+    pagination?.hasMore,
+    pagination?.nextPage,
+    messages,
+    fetchChatMessages,
+  ]);
 
-  const markConversationAsRead = async () => {
-    if (!conversationId || !currentUser.id) return;
+  const markConversationAsRead = useCallback(async () => {
+    if (!currentConversationId || !currentUser.openid) return;
+
+    console.log(
+      `[markConversationAsRead] Calling markMessagesAsRead with currentConversationId: ${currentConversationId}, currentUser.openid: ${currentUser.openid}`
+    );
+
     try {
-      await messageService.markMessagesAsRead(conversationId, currentUser.id);
+      await messageService.markMessagesAsRead(
+        currentConversationId,
+        currentUser.openid
+      );
     } catch (err) {
       console.error("Error marking messages as read:", err);
     }
-  };
+  }, [currentConversationId, currentUser.openid]);
+
+  // 消息处理器
+  const messageHandler = useCallback(
+    (msg: any) => {
+      if (msg.conversationId === currentConversationId && msg.type === "chat") {
+        setMessages((prev) => {
+          if (msg.clientTempId) {
+            const existingIndex = prev.findIndex(
+              (m) => m.clientTempId === msg.clientTempId
+            );
+            if (existingIndex !== -1) {
+              const updatedMessages = [...prev];
+              updatedMessages[existingIndex] = {
+                ...updatedMessages[existingIndex],
+                id: msg.messageId || updatedMessages[existingIndex].id,
+                status: "sent",
+                timestamp:
+                  msg.timestamp || updatedMessages[existingIndex].timestamp,
+              };
+              return updatedMessages;
+            }
+          }
+
+          if (msg.messageId && prev.some((m) => m.id === msg.messageId)) {
+            return prev;
+          }
+
+          return [
+            ...prev,
+            {
+              ...msg,
+              id: msg.messageId || Date.now().toString(),
+              status: "sent",
+              type: msg.messageType || "text",
+            },
+          ];
+        });
+        setLoading(false);
+      }
+      if (msg.type === "auth_success") {
+        setLoading(false);
+      }
+      if (msg.type === "onlineStatus") {
+        setIsOtherUserOnline(msg.onlineCount >= 2);
+      }
+      if (msg.type === "error" && msg.clientTempId) {
+        setMessages((prev) => {
+          const existingIndex = prev.findIndex(
+            (m) => m.clientTempId === msg.clientTempId
+          );
+          if (existingIndex !== -1) {
+            const updatedMessages = [...prev];
+            updatedMessages[existingIndex] = {
+              ...updatedMessages[existingIndex],
+              status: "failed",
+            };
+            return updatedMessages;
+          }
+          return prev;
+        });
+        Taro.showToast({ title: "发送失败", icon: "none" });
+      }
+    },
+    [currentConversationId]
+  );
+
+  // 重试消息处理器
+  const handleRetryMessage = useCallback(
+    (message: Message) => {
+      if (!currentConversationId || !otherUserId || !currentUser.openid) return;
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === message.id ? { ...msg, status: "pending" } : msg
+        )
+      );
+
+      if (isWebSocketConnected()) {
+        try {
+          emitWebSocketEvent("sendMessage", {
+            conversationId: currentConversationId,
+            toUserId: otherUserId,
+            type: message.type,
+            content: message.content,
+            timestamp: Date.now(),
+            clientTempId: message.clientTempId,
+          });
+        } catch (error) {
+          console.error("WebSocket发送消息失败:", error);
+        }
+      }
+    },
+    [currentConversationId, otherUserId, currentUser.openid]
+  );
+
+  // Effect for initializing conversation and fetching data
+  useEffect(() => {
+    if (
+      currentUser.openid &&
+      otherUserId &&
+      (currentConversationId || postId)
+    ) {
+      initConversation(); // First, initialize the conversation
+    }
+  }, [
+    currentUser.openid,
+    currentConversationId,
+    postId,
+    otherUserId,
+    initConversation,
+  ]);
+
+  useEffect(() => {
+    if (currentConversationId) {
+      // Only proceed if conversationId is available
+      // 1. 建立WebSocket连接
+      handleConnect();
+
+      // 2. 加载历史消息
+      fetchChatMessages();
+
+      // 3. 标记消息为已读
+      markConversationAsRead();
+
+      // 4. 设置导航栏标题
+      if (otherUserNickname) {
+        const decodedNickname = decodeURIComponent(otherUserNickname);
+        Taro.setNavigationBarTitle({
+          title: decodedNickname,
+        });
+      }
+
+      // 5. 设置消息处理器
+      setMessageCallback(messageHandler);
+
+      // 6. 设置重试消息处理器
+      Taro.eventCenter.on("retryMessage", handleRetryMessage);
+
+      return () => {
+        Taro.eventCenter.off("retryMessage", handleRetryMessage);
+        removeMessageCallback();
+      };
+    }
+  }, [
+    currentConversationId,
+    currentUser.openid,
+    otherUserNickname,
+    handleConnect,
+    fetchChatMessages,
+    markConversationAsRead,
+    messageHandler,
+    handleRetryMessage,
+  ]);
+
+  // 清理函数
+  useEffect(() => {
+    return () => {
+      removeMessageCallback();
+      Taro.eventCenter.off("retryMessage");
+    };
+  }, []);
 
   const handleInputChange = (e: any) => {
     setMessageInput(e.detail.value);
-    if (isWebSocketConnected() && conversationId) {
+    if (isWebSocketConnected() && currentConversationId) {
       try {
         console.log("Emitting typing");
-        emitWebSocketEvent("typing", { conversationId });
+        emitWebSocketEvent("typing", { conversationId: currentConversationId });
         debouncedTyping();
       } catch (error) {
         console.error("发送typing事件失败:", error);
@@ -668,9 +759,19 @@ const ChatWindowPage: React.FC = () => {
   };
 
   const handleSendMessage = async () => {
-    if (!messageInput.trim() || !conversationId || !otherUserId) return;
+    if (
+      !messageInput.trim() ||
+      !currentConversationId ||
+      !otherUserId ||
+      !currentUser.openid
+    )
+      return;
 
-    // 检查WebSocket连接状态
+    if (currentUser.openid === otherUserId) {
+      Taro.showToast({ title: "不能给自己发送消息", icon: "none" });
+      return;
+    }
+
     if (!isWebSocketConnected()) {
       Taro.showToast({ title: "连接中，请稍后重试", icon: "none" });
       return;
@@ -680,8 +781,8 @@ const ChatWindowPage: React.FC = () => {
     const optimisticMessage: Message = {
       id: clientTempId,
       clientTempId,
-      conversationId,
-      senderId: currentUser.id,
+      conversationId: currentConversationId,
+      senderId: currentUser.openid,
       receiverId: otherUserId,
       type: "text",
       content: messageInput.trim(),
@@ -696,7 +797,7 @@ const ChatWindowPage: React.FC = () => {
 
     try {
       emitWebSocketEvent("sendMessage", {
-        conversationId,
+        conversationId: currentConversationId,
         toUserId: otherUserId,
         type: "text",
         content: optimisticMessage.content,
@@ -705,16 +806,17 @@ const ChatWindowPage: React.FC = () => {
       });
     } catch (error) {
       console.error("发送消息失败:", error);
-      // 如果WebSocket发送失败，fallback到HTTP API
       try {
+        console.log(
+          `[handleSendMessage] HTTP fallback calling sendMessage with currentConversationId: ${currentConversationId}, currentUser.openid: ${currentUser.openid}`
+        );
         const sent = await messageService.sendMessage(
-          conversationId,
-          currentUser.id,
+          currentConversationId,
+          currentUser.openid,
           otherUserId,
           optimisticMessage.content,
           "text"
         );
-        // 更新消息为 sent
         console.log("HTTP fallback sent:", sent);
         setMessages((prevMessages) =>
           sortMessages(
@@ -741,7 +843,6 @@ const ChatWindowPage: React.FC = () => {
     }
   };
 
-  // 选择图片
   const handleChooseImage = () => {
     Taro.chooseImage({
       count: 1,
@@ -759,19 +860,22 @@ const ChatWindowPage: React.FC = () => {
     });
   };
 
-  // 发送图片
   const handleSendImage = async (tempFilePath: string) => {
-    if (!conversationId || !otherUserId) return;
+    if (!currentConversationId || !otherUserId || !currentUser.openid) return;
 
-    const clientTempId = `temp-${Date.now()}`;
+    if (currentUser.openid === otherUserId) {
+      Taro.showToast({ title: "不能给自己发送消息", icon: "none" });
+      return;
+    }
+
+    const clientTempId = `image-${Date.now()}`;
     const optimisticMessage: Message = {
       id: clientTempId,
-      clientTempId,
-      conversationId,
-      senderId: currentUser.id,
+      conversationId: currentConversationId,
+      senderId: currentUser.openid,
       receiverId: otherUserId,
       type: "image",
-      content: tempFilePath, // 临时使用本地路径
+      content: tempFilePath,
       timestamp: new Date().toISOString(),
       isRead: false,
       status: "pending",
@@ -782,7 +886,6 @@ const ChatWindowPage: React.FC = () => {
     );
 
     try {
-      // 上传图片
       Taro.showLoading({ title: "发送中..." });
       console.log("开始上传图片:", tempFilePath);
       console.log("上传URL:", API_CONFIG.getApiUrl("/posts/upload"));
@@ -799,26 +902,31 @@ const ChatWindowPage: React.FC = () => {
 
       console.log("上传结果:", uploadResult);
 
-      // 检查上传是否成功
       if (uploadResult.code !== 0) {
         throw new Error(uploadResult.message || "上传失败");
       }
 
-      // 检查响应数据结构
       if (!uploadResult.data || !uploadResult.data.url) {
         throw new Error("上传响应格式错误");
       }
 
-      // 将相对路径转换为完整URL
       const imageUrl = API_CONFIG.getImageUrl(uploadResult.data.url);
       console.log("图片URL:", imageUrl);
 
-      // 检查WebSocket连接状态
+      setMessages((prevMessages) =>
+        sortMessages(
+          prevMessages.map((msg) =>
+            msg.id === clientTempId
+              ? { ...msg, content: imageUrl, status: "sent" }
+              : msg
+          )
+        )
+      );
+
       if (isWebSocketConnected()) {
-        // 通过WebSocket发送
         try {
           emitWebSocketEvent("sendMessage", {
-            conversationId,
+            conversationId: currentConversationId,
             toUserId: otherUserId,
             type: "image",
             content: imageUrl,
@@ -827,10 +935,9 @@ const ChatWindowPage: React.FC = () => {
           });
         } catch (error) {
           console.error("WebSocket发送图片失败:", error);
-          // fallback到HTTP API
           const sent = await messageService.sendMessage(
-            conversationId,
-            currentUser.id,
+            currentConversationId,
+            currentUser.openid,
             otherUserId,
             imageUrl,
             "image"
@@ -847,10 +954,12 @@ const ChatWindowPage: React.FC = () => {
           );
         }
       } else {
-        // fallback 到 HTTP API
+        console.log(
+          `[handleSendImage] HTTP fallback calling sendMessage (for image) with currentConversationId: ${currentConversationId}, currentUser.openid: ${currentUser.openid}`
+        );
         const sent = await messageService.sendMessage(
-          conversationId,
-          currentUser.id,
+          currentConversationId,
+          currentUser.openid,
           otherUserId,
           imageUrl,
           "image"
@@ -966,8 +1075,10 @@ const ChatWindowPage: React.FC = () => {
         </Text>
       </View>
 
-      {/* 用户切换组件 */}
-      <UserSwitcher currentUser={currentUser} onUserChange={handleUserChange} />
+      {/* 用户切换组件 - 仅在开发环境显示 */}
+      {process.env.NODE_ENV === "development" && (
+        <UserSwitcher isVisible={false} onClose={() => {}} />
+      )}
 
       {/* Content 区域可滚动，绝对定位 */}
       <ScrollView
@@ -1034,9 +1145,9 @@ const ChatWindowPage: React.FC = () => {
             <View key={message.id} id={`msg-${message.id}`}>
               <MessageBubble
                 message={message}
-                isMyMessage={message.senderId === currentUser.id}
+                isMyMessage={message.senderId === currentUser.openid}
                 otherUserAvatar={otherUserAvatar}
-                currentUserAvatar={currentUser.avatar}
+                currentUserAvatar={currentUser.avatarUrl}
               />
               {/* 滚动锚点：只在最后一条消息后渲染 */}
               {idx === arr.length - 1 && <View id="chat-bottom-anchor" />}

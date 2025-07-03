@@ -160,6 +160,20 @@ export default function LoginModal(props: LoginModalProps) {
       );
 
       console.log("💾 LoginModal: Storing logged in user...");
+
+      // 确保 openid 存在
+      if (!loggedInUser.openid) {
+        console.error("❌ LoginModal: loggedInUser.openid is missing!");
+        throw new Error("登录响应中缺少 openid");
+      }
+
+      // 额外保存 openid 到本地缓存（兼容 request.ts 中的 getCurrentUserId）
+      Taro.setStorageSync("openid", loggedInUser.openid);
+      console.log(
+        "💾 LoginModal: openid saved to storage:",
+        loggedInUser.openid
+      );
+
       // 使用新的用户状态管理
       login(loggedInUser);
       console.log("✅ LoginModal: User stored successfully");

@@ -1,0 +1,156 @@
+.user-switcher-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.user-switcher-modal {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 320px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.modal-title {
+  display: block;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.modal-subtitle {
+  display: block;
+  font-size: 12px;
+  color: #999;
+}
+
+.current-user-info {
+  background: #f5f5f5;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.current-user-label {
+  font-size: 14px;
+  color: #666;
+  margin-right: 8px;
+}
+
+.current-user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.user-buttons {
+  margin-bottom: 20px;
+}
+
+.user-button {
+  width: 100%;
+  height: 44px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 2px solid #e0e0e0;
+  background: white;
+  color: #333;
+  transition: all 0.2s ease;
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &.active {
+    border-color: #007aff;
+    background: #007aff;
+    color: white;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+  }
+}
+
+.logout-button {
+  width: 100%;
+  height: 44px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 2px solid #ff3b30;
+  background: white;
+  color: #ff3b30;
+  transition: all 0.2s ease;
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+  }
+}
+
+.test-tips {
+  background: #f0f8ff;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border-left: 4px solid #007aff;
+}
+
+.tips-title {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #007aff;
+  margin-bottom: 8px;
+}
+
+.tips-content {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  line-height: 1.4;
+  margin-bottom: 4px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.close-button {
+  width: 100%;
+  height: 44px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  border: 2px solid #e0e0e0;
+  background: white;
+  color: #666;
+  transition: all 0.2s ease;
+
+  &:active {
+    transform: scale(0.98);
+  }
+}

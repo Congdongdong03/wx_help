@@ -3,10 +3,13 @@ import Taro from "@tarojs/taro";
 // 获取当前用户ID
 function getCurrentUserId(): string {
   try {
+    const storedOpenId = Taro.getStorageSync("openid");
+    console.log("getCurrentUserId - Stored OpenID from storage:", storedOpenId);
     if (process.env.NODE_ENV === "development") {
-      return "dev_openid_123";
+      // 在开发环境下，如果存储中没有 openid，则使用硬编码的 dev_openid_123 作为回退
+      return storedOpenId || "dev_openid_123";
     }
-    return Taro.getStorageSync("openid") || "";
+    return storedOpenId || "";
   } catch (error) {
     console.error("获取用户信息失败:", error);
     return process.env.NODE_ENV === "development" ? "dev_openid_123" : "";
