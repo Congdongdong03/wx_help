@@ -28,7 +28,6 @@ export interface Post {
   price?: number;
   price_unit?: string;
   city_code?: string;
-  wechat_id: string; // Added wechat_id
   images?: string[];
   city?: string; // 👈 添加这一行
   view_count?: number;
@@ -191,18 +190,16 @@ export class PostModel {
           title,
           category,
           content,
-          wechat_id,
           images,
           city,
           status: intentStatus,
         } = postInput;
 
         // 验证输入数据
-        if (!user_id || !title || !wechat_id || !category || !intentStatus) {
+        if (!user_id || !title || !category || !intentStatus) {
           const missingFields = {
             user_id: !user_id,
             title: !title,
-            wechat_id: !wechat_id,
             category: !category,
             status: !intentStatus,
           };
@@ -213,15 +210,14 @@ export class PostModel {
         // 插入帖子数据
         const [result] = await connection.execute(
           `INSERT INTO posts (
-            user_id, title, category, content, wechat_id, 
+            user_id, title, category, content, 
             images, city, status, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
           [
             user_id,
             title,
             category,
             content || null,
-            wechat_id,
             images ? JSON.stringify(images) : null,
             city || null,
             intentStatus,

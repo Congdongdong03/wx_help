@@ -15,7 +15,6 @@ interface ApiPost {
   content?: string; // 后端是 content 字段
   category: string;
   status: "draft" | "pending" | "published" | "failed"; // API 的状态类型
-  wechat_id?: string;
   images?: string; // API 返回的是图片URL JSON字符串或null
   created_at?: string;
   updated_at?: string;
@@ -73,7 +72,6 @@ interface UIPost {
   createTime: string; // UI展示的创建时间
   uiDisplayStatus: UIDisplayStatus; // UI展示的状态 (替代 auditStatus)
   category: string;
-  wechatId?: string;
 
   // 保留一些特定字段用于编辑/特定逻辑
   originalApiPost?: ApiPost; // 存储原始API对象，方便后续操作
@@ -85,7 +83,6 @@ interface DraftPostData {
   formData: {
     title?: string;
     description?: string;
-    wechatId?: string;
     [key: string]: any;
   };
   imageFiles: Taro.chooseImage.ImageFile[];
@@ -194,7 +191,6 @@ export default function MyPosts() {
         : "未知时间",
       uiDisplayStatus: uiStatus,
       category: apiPost.category,
-      wechatId: apiPost.wechat_id,
       originalApiPost: apiPost, // 保存原始数据
     };
   }, []); // Empty dependency array as it doesn't depend on component state/props
@@ -221,7 +217,6 @@ export default function MyPosts() {
           createTime: new Date(draftData.timestamp).toLocaleString(),
           uiDisplayStatus: "draft",
           category: draftData.category,
-          wechatId: draftData.formData.wechatId,
         };
       }
       return null;
@@ -526,7 +521,6 @@ export default function MyPosts() {
           data: {
             title: "擦亮帖子",
             description: "帖子已擦亮",
-            contactInfo: "已更新",
           },
         }
       );

@@ -3,6 +3,7 @@ import Taro, { useRouter } from "@tarojs/taro";
 import { View, Text, Image, Button } from "@tarojs/components";
 import { API_CONFIG } from "../../config/api";
 import { messageService } from "../../services/messageService";
+import { useUser } from "../../store/user";
 import "./index.scss";
 
 interface PostDetail {
@@ -12,7 +13,6 @@ interface PostDetail {
   images: string[];
   category: string;
   price?: string;
-  wechat_id: string;
   status: string;
   created_at: string;
   updated_at: string;
@@ -30,6 +30,9 @@ const PostDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+
+  // 获取当前登录用户信息
+  const { currentUser, userId } = useUser();
 
   useEffect(() => {
     if (id) {
@@ -175,6 +178,11 @@ const PostDetailPage: React.FC = () => {
     images = [post.images];
   }
 
+  // 判断是否显示联系方式部分
+  // 只有当当前登录用户的ID不等于帖子发布者的ID时才显示
+  const shouldShowContactInfo =
+    currentUser && post?.user?.id && currentUser.id !== post.user.id;
+
   return (
     <View className="detail-page">
       <View className="content">
@@ -217,19 +225,21 @@ const PostDetailPage: React.FC = () => {
           </View>
         </View>
 
-        <View className="contact-info">
-          <Text className="contact-title">联系方式</Text>
-          <View className="wechat-id">
-            <Text className="id-text">{post.wechat_id}</Text>
-            <Button
-              className="message-seller-button"
-              onClick={handleMessageSeller}
-              style={{ marginLeft: "0px" }}
-            >
-              私信卖家
-            </Button>
+        {/* 条件渲染：只有当不是帖子发布者时才显示私信按钮 */}
+        {shouldShowContactInfo && (
+          <View className="contact-info">
+            <Text className="contact-title">联系卖家</Text>
+            <View className="wechat-id">
+              <Button
+                className="message-seller-button"
+                onClick={handleMessageSeller}
+                style={{ marginLeft: "0px" }}
+              >
+                私信卖家
+              </Button>
+            </View>
           </View>
-        </View>
+        )}
       </View>
 
       {selectedImage && (

@@ -17,7 +17,6 @@ export interface PostCreateInput {
   user_id: number;
   title: string;
   content?: string;
-  contact_info: string;
   images?: string;
   category?: string;
   sub_category?: string;

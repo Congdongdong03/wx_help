@@ -119,7 +119,6 @@ export class PostController {
       const {
         title,
         description,
-        contactInfo,
         images,
         categoryMain,
         categorySub,
@@ -130,8 +129,6 @@ export class PostController {
       // 验证必填字段
       const missingFields = [];
       if (!title || title.trim() === "") missingFields.push("title");
-      if (!contactInfo || contactInfo.trim() === "")
-        missingFields.push("contactInfo");
       if (!categoryMain) missingFields.push("categoryMain");
 
       if (missingFields.length > 0) {
@@ -177,7 +174,6 @@ export class PostController {
         user_id: userId,
         title: title.trim(),
         content: description ? description.trim() : undefined,
-        contact_info: contactInfo.trim(),
         images:
           images && Array.isArray(images) && images.length > 0
             ? JSON.stringify(images)
@@ -253,7 +249,6 @@ export class PostController {
       const {
         title,
         description,
-        contactInfo,
         images,
         category,
         status: intentStatus,
@@ -305,7 +300,6 @@ export class PostController {
       const updatedPost = await PostService.update(postId, {
         title: title ? title.trim() : undefined,
         content: description ? description.trim() : undefined,
-        contact_info: contactInfo ? contactInfo.trim() : undefined,
         images:
           images && Array.isArray(images) && images.length > 0
             ? JSON.stringify(images)
@@ -677,7 +671,7 @@ export class PostController {
         });
       }
 
-      const { title, description, contactInfo } = req.body;
+      const { title, description } = req.body;
 
       // 验证字段长度和格式
       if (title && title.trim().length > 100) {
@@ -698,7 +692,6 @@ export class PostController {
       const updatedPost = await PostService.update(postId, {
         title: title ? title.trim() : undefined,
         content: description ? description.trim() : undefined,
-        contact_info: contactInfo ? contactInfo.trim() : undefined,
         status: "pending",
       });
 

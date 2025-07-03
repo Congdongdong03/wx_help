@@ -11,7 +11,6 @@ import {
   Canvas,
 } from "@tarojs/components";
 import BottomActionBar from "@/components/BottomActionBar";
-import WechatIdInput from "@/components/WechatIdInput";
 import { BASE_URL } from "@/utils/env";
 import { request } from "@/utils/request";
 import "./index.scss";
@@ -44,7 +43,6 @@ const SUB_CATEGORIES = {
 interface PostFormData {
   title: string;
   description: string;
-  contactInfo: string;
   categoryMain: string;
   categorySub: string;
   cityCode: string;
@@ -68,7 +66,6 @@ const PostForm: React.FC<PostFormProps> = ({ postId }) => {
   const [formData, setFormData] = useState<PostFormData>({
     title: "",
     description: "",
-    contactInfo: "",
     categoryMain: "",
     categorySub: "",
     cityCode: "",
@@ -120,7 +117,6 @@ const PostForm: React.FC<PostFormProps> = ({ postId }) => {
           setFormData({
             title: post.title || "",
             description: post.content || "",
-            contactInfo: post.contact_info || "",
             categoryMain: post.category || "",
             categorySub: post.sub_category || "",
             cityCode: post.city_code || "",
@@ -149,18 +145,11 @@ const PostForm: React.FC<PostFormProps> = ({ postId }) => {
   }, [id]);
 
   useEffect(() => {
-    const {
-      title,
-      description,
-      contactInfo,
-      categoryMain,
-      categorySub,
-      cityCode,
-    } = formData;
+    const { title, description, categoryMain, categorySub, cityCode } =
+      formData;
     const validation = {
       title: title.trim() !== "",
       description: description.trim() !== "",
-      contactInfo: contactInfo.trim() !== "",
       categoryMain: categoryMain !== "",
       categorySub: categorySub !== "",
       cityCode: cityCode !== "",
@@ -172,7 +161,6 @@ const PostForm: React.FC<PostFormProps> = ({ postId }) => {
     const missingFields = [];
     if (!formData.title.trim()) missingFields.push("标题");
     if (!formData.description.trim()) missingFields.push("描述");
-    if (!formData.contactInfo.trim()) missingFields.push("联系方式");
     if (!formData.categoryMain) missingFields.push("分类");
     if (!formData.categorySub) missingFields.push("类型");
     if (!formData.cityCode) missingFields.push("城市");
@@ -204,18 +192,16 @@ const PostForm: React.FC<PostFormProps> = ({ postId }) => {
 
   const handleCityChange = (e: any) => {
     const selectedCity = cities[e.detail.value];
-    setFormData((prev) => ({ ...prev, cityCode: selectedCity.code }));
+    setFormData((prev) => ({
+      ...prev,
+      cityCode: selectedCity.code,
+    }));
   };
 
   const handleChooseImage = () => {
-    const count = 6 - imageFiles.length;
-    if (count <= 0) {
-      Taro.showToast({ title: "最多只能上传6张图", icon: "none" });
-      return;
-    }
     Taro.chooseImage({
-      count: count,
-      sizeType: ["original", "compressed"],
+      count: 6 - imageFiles.length,
+      sizeType: ["compressed"],
       sourceType: ["album", "camera"],
       success: (res) => {
         setImageFiles((prev) => [...prev, ...res.tempFiles]);
@@ -230,60 +216,61 @@ const PostForm: React.FC<PostFormProps> = ({ postId }) => {
   const generateImageFromText = async (
     text: string
   ): Promise<{ path: string }> => {
-    const canvasId = "title-canvas";
-    const width = 600;
-    const height = 300;
-    const ctx = Taro.createCanvasContext(canvasId);
-    ctx.setFillStyle("#fff");
-    ctx.fillRect(0, 0, width, height);
-    ctx.setFillStyle("#222");
-    ctx.setFontSize(40);
-    ctx.setTextAlign && ctx.setTextAlign("center");
-    ctx.setTextBaseline && ctx.setTextBaseline("middle");
-    ctx.fillText(text, width / 2, height / 2);
-    ctx.draw();
-    const tempFilePath: string = await new Promise((resolve, reject) => {
-      setTimeout(() => {
-        Taro.canvasToTempFilePath({
-          canvasId,
-          width,
-          height,
-          success: (res) => resolve(res.tempFilePath),
-          fail: (err) => reject(err),
-        });
-      }, 300);
-    });
-    try {
-      const uploadRes = await Taro.uploadFile({
-        url: `${BASE_API_URL}/posts/upload`,
-        filePath: tempFilePath,
-        name: "file",
-        header: {
-          "x-openid":
-            process.env.NODE_ENV === "development"
-              ? "dev_openid_123"
-              : Taro.getStorageSync("openid") || "",
-        },
-      });
-      let url = "";
-      try {
-        const data = JSON.parse(uploadRes.data);
-        url = data.data.url;
-        if (url.startsWith("/uploads/")) {
-          url = `${BASE_URL}${url}`;
+    return new Promise((resolve) => {
+      const ctx = Taro.createCanvasContext("title-canvas");
+      const canvasWidth = 600;
+      const canvasHeight = 300;
+
+      // 设置背景
+      ctx.setFillStyle("#ffffff");
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+      // 设置文字样式
+      ctx.setFillStyle("#333333");
+      ctx.setFontSize(32);
+      ctx.setTextBaseline("middle");
+
+      // 计算文字位置
+      const maxWidth = canvasWidth - 80;
+      const lines = [];
+      let currentLine = "";
+      const words = text.split("");
+      for (let i = 0; i < words.length; i++) {
+        const testLine = currentLine + words[i];
+        const metrics = ctx.measureText(testLine);
+        if (metrics.width > maxWidth && currentLine !== "") {
+          lines.push(currentLine);
+          currentLine = words[i];
+        } else {
+          currentLine = testLine;
         }
-      } catch (e) {
-        Taro.showToast({ title: "图片上传失败", icon: "none" });
-        throw new Error("图片上传失败，服务器未返回图片地址");
       }
-      if (!url) {
-        Taro.showToast({ title: "图片上传失败", icon: "none" });
-        throw new Error("图片上传失败，未获取到图片URL");
+      if (currentLine) {
+        lines.push(currentLine);
       }
-      return { path: url };
-    } catch (error) {
-      throw error;
-    }
+
+      // 绘制文字
+      const lineHeight = 40;
+      const totalHeight = lines.length * lineHeight;
+      const startY = (canvasHeight - totalHeight) / 2;
+
+      lines.forEach((line, index) => {
+        const y = startY + index * lineHeight + lineHeight / 2;
+        ctx.fillText(line, 40, y);
+      });
+
+      ctx.draw(false, () => {
+        Taro.canvasToTempFilePath({
+          canvasId: "title-canvas",
+          success: (res) => {
+            resolve({ path: res.tempFilePath });
+          },
+          fail: () => {
+            resolve({ path: "" });
+          },
+        });
+      });
+    });
   };
 
   const handleSaveDraft = async () => {
@@ -336,7 +323,6 @@ const PostForm: React.FC<PostFormProps> = ({ postId }) => {
       if (
         !formData.title ||
         !formData.description ||
-        !formData.contactInfo ||
         !formData.categoryMain ||
         !formData.cityCode
       ) {
@@ -381,7 +367,6 @@ const PostForm: React.FC<PostFormProps> = ({ postId }) => {
         status: "publish",
         images: finalImages,
         createTime: new Date().toISOString(),
-        wechatId: formData.contactInfo,
         category: formData.categoryMain,
         city: formData.cityCode,
         price: formData.price || undefined,
@@ -406,7 +391,6 @@ const PostForm: React.FC<PostFormProps> = ({ postId }) => {
         setFormData({
           title: "",
           description: "",
-          contactInfo: "",
           categoryMain: "",
           categorySub: "",
           cityCode: "",
@@ -564,16 +548,6 @@ const PostForm: React.FC<PostFormProps> = ({ postId }) => {
           onInput={(e) => handleInputChange("description", e.detail.value)}
           autoHeight
           maxlength={500}
-        />
-      </View>
-
-      {/* 联系方式 */}
-      <View className="form-item">
-        <Text className="form-label required">联系方式</Text>
-        <WechatIdInput
-          value={formData.contactInfo}
-          onInput={(value) => handleInputChange("contactInfo", value)}
-          placeholder="填写微信号或其他联系方式"
         />
       </View>
 

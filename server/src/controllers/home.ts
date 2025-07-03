@@ -66,7 +66,6 @@ export const getRecommendations = async (
         city: post.city_code,
         category: post.category,
         price: post.price,
-        contactInfo: post.contact_info,
         images: processImages(post.images),
         user: post.users && {
           nickname: post.users.nickname,

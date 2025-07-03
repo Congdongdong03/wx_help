@@ -35,7 +35,6 @@ export class HomeService {
       select: {
         id: true,
         title: true,
-        contact_info: true,
         city_code: true,
         category: true,
         price: true,
@@ -65,7 +64,6 @@ export class HomeService {
       select: {
         id: true,
         title: true,
-        contact_info: true,
         city_code: true,
         category: true,
         price: true,
@@ -95,7 +93,6 @@ export class HomeService {
       select: {
         id: true,
         title: true,
-        contact_info: true,
         city_code: true,
         category: true,
         price: true,
@@ -145,7 +142,6 @@ export class HomeService {
         price: true,
         images: true,
         is_pinned: true,
-        contact_info: true,
         users: {
           select: {
             nickname: true,
