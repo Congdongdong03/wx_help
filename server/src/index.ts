@@ -23,8 +23,9 @@ import { RedisService } from "./services/redis";
 // import { socketService } from "./services/socket"; // 已移除 socket.io 相关代码
 import { createServer } from "http";
 import { WebSocket, WebSocketServer } from "ws";
-import { messageService } from "./services/messageService";
-import { prisma } from "./lib/prisma";
+import { WebSocketRouter } from "./routes/websocketRouter";
+import { WebSocketController } from "./controllers/websocketController";
+import { WebSocketService } from "./services/websocketService";
 
 const app = express();
 const server = createServer(app);
@@ -38,276 +39,32 @@ interface ExtWebSocket extends WebSocket {
 // 初始化 WebSocket 服务
 const wss = new WebSocketServer({ server });
 
-// 维护用户映射：userId => ws
-const userMap = new Map<string, ExtWebSocket>();
-
 // WebSocket 连接处理
 wss.on("connection", function connection(ws: ExtWebSocket, req) {
   console.log("🔌 新 WebSocket 客户端连接:", req.socket.remoteAddress);
 
-  // 为每个连接添加 userId 属性
-  ws.userId = undefined;
+  // 处理连接建立
+  WebSocketRouter.handleConnection(ws);
 
-  // 发送欢迎消息
-  ws.send(
-    JSON.stringify({
-      type: "system",
-      content: "欢迎连接 WebSocket 服务器！",
-      timestamp: Date.now(),
-    })
-  );
-
+  // 处理消息
   ws.on("message", async function incoming(message) {
-    try {
-      const data = JSON.parse(message.toString());
-      console.log("📨 收到 WebSocket 消息:", data);
-
-      // 处理不同类型的消息
-      switch (data.type) {
-        case "auth":
-          console.log("🔐 用户认证:", data.userId);
-          ws.userId = data.userId;
-          userMap.set(data.userId, ws);
-          ws.send(
-            JSON.stringify({
-              type: "auth_success",
-              userId: data.userId,
-              timestamp: Date.now(),
-            })
-          );
-          console.log("📊 当前在线用户:", Array.from(userMap.keys()));
-
-          // === 新增：推送未读消息 ===
-          if (
-            data.userId === "dev_openid_123" ||
-            data.userId === "test_user_2"
-          ) {
-            try {
-              const unreadMessages = await prisma.message.findMany({
-                where: {
-                  receiverId: data.userId,
-                  isRead: false,
-                },
-                orderBy: { createdAt: "asc" },
-              });
-
-              for (const msg of unreadMessages) {
-                ws.send(
-                  JSON.stringify({
-                    type: "chat",
-                    content: msg.content,
-                    senderId: msg.senderId,
-                    toUserId: msg.receiverId,
-                    conversationId: msg.conversationId,
-                    messageType: msg.type || "text", // 添加消息类型
-                    timestamp: msg.createdAt,
-                    messageId: msg.id,
-                    offline: true, // 标记为离线消息
-                  })
-                );
-              }
-
-              // 推送后批量标记为已读
-              if (unreadMessages.length > 0) {
-                await prisma.message.updateMany({
-                  where: {
-                    id: { in: unreadMessages.map((m) => m.id) },
-                  },
-                  data: { isRead: true },
-                });
-              }
-            } catch (err) {
-              console.error("推送未读消息失败:", err);
-            }
-          }
-          break;
-
-        case "sendMessage":
-          console.log("📤 处理发送消息:", data);
-          // 1. 保存消息到数据库
-          const savedMsg = await messageService.sendMessage(
-            data.conversationId, // 会话ID
-            ws.userId!, // 发送者
-            data.toUserId, // 接收者
-            data.content, // 内容
-            data.messageType || data.type || "text" // 消息类型，支持messageType和type字段
-          );
-
-          // 2. 如果对方在线，推送
-          const targetWs = userMap.get(data.toUserId);
-          if (targetWs && targetWs.readyState === 1) {
-            targetWs.send(
-              JSON.stringify({
-                type: "chat",
-                content: data.content,
-                senderId: ws.userId,
-                toUserId: data.toUserId,
-                conversationId: data.conversationId,
-                messageType: data.messageType || data.type || "text", // 添加消息类型
-                timestamp: savedMsg.createdAt,
-                messageId: savedMsg.id,
-                clientTempId: data.clientTempId || null,
-              })
-            );
-            console.log(`✅ 消息已发送给用户: ${data.toUserId}`);
-          } else {
-            console.log(`💾 目标用户 ${data.toUserId} 不在线，消息已存数据库`);
-            // 不推送，只写库
-          }
-
-          // 3. 推送给自己（发送者）——回显
-          if (ws.readyState === 1) {
-            ws.send(
-              JSON.stringify({
-                type: "chat",
-                content: data.content,
-                senderId: ws.userId,
-                toUserId: data.toUserId,
-                conversationId: data.conversationId,
-                messageType: data.messageType || data.type || "text", // 添加消息类型
-                timestamp: savedMsg.createdAt,
-                messageId: savedMsg.id,
-                clientTempId: data.clientTempId || null,
-              })
-            );
-          }
-          break;
-
-        // 处理直接发送的消息类型（text, image）
-        case "text":
-        case "image":
-          console.log(`📤 处理直接发送的${data.type}消息:`, data);
-          if (data.conversationId && data.toUserId && data.content) {
-            // 1. 保存消息到数据库
-            const savedMsg = await messageService.sendMessage(
-              data.conversationId,
-              ws.userId!,
-              data.toUserId,
-              data.content,
-              data.type
-            );
-
-            // 2. 如果对方在线，推送
-            const targetWs = userMap.get(data.toUserId);
-            if (targetWs && targetWs.readyState === 1) {
-              targetWs.send(
-                JSON.stringify({
-                  type: "chat",
-                  content: data.content,
-                  senderId: ws.userId,
-                  toUserId: data.toUserId,
-                  conversationId: data.conversationId,
-                  messageType: data.type,
-                  timestamp: savedMsg.createdAt,
-                  messageId: savedMsg.id,
-                  clientTempId: data.clientTempId || null,
-                })
-              );
-              console.log(`✅ ${data.type}消息已发送给用户: ${data.toUserId}`);
-            } else {
-              console.log(
-                `💾 目标用户 ${data.toUserId} 不在线，${data.type}消息已存数据库`
-              );
-            }
-
-            // 3. 推送给自己（发送者）——回显
-            if (ws.readyState === 1) {
-              ws.send(
-                JSON.stringify({
-                  type: "chat",
-                  content: data.content,
-                  senderId: ws.userId,
-                  toUserId: data.toUserId,
-                  conversationId: data.conversationId,
-                  messageType: data.type,
-                  timestamp: savedMsg.createdAt,
-                  messageId: savedMsg.id,
-                  clientTempId: data.clientTempId || null,
-                })
-              );
-            }
-          } else {
-            console.error("❌ 消息格式不完整，缺少必要字段");
-          }
-          break;
-
-        case "typing":
-          console.log("⌨️ 用户正在输入:", data.conversationId);
-          // 可以在这里实现输入状态推送
-          break;
-
-        case "stopTyping":
-          console.log("⌨️ 用户停止输入:", data.conversationId);
-          // 可以在这里实现停止输入状态推送
-          break;
-
-        case "joinRoom":
-          console.log("🚪 加入房间:", data.conversationId);
-          ws.send(
-            JSON.stringify({
-              type: "room_joined",
-              conversationId: data.conversationId,
-              timestamp: Date.now(),
-            })
-          );
-          break;
-
-        case "leaveRoom":
-          console.log("🚪 离开房间:", data.conversationId);
-          ws.send(
-            JSON.stringify({
-              type: "room_left",
-              conversationId: data.conversationId,
-              timestamp: Date.now(),
-            })
-          );
-          break;
-
-        case "requestOnlineStatus":
-          console.log("📊 请求在线状态:", data.conversationId);
-          // 计算当前在线用户数量
-          const onlineCount = userMap.size;
-          ws.send(
-            JSON.stringify({
-              type: "onlineStatus",
-              conversationId: data.conversationId,
-              onlineCount: onlineCount,
-              timestamp: Date.now(),
-            })
-          );
-          break;
-
-        default:
-          console.log("❓ 未知消息类型:", data.type);
-      }
-    } catch (e) {
-      console.error("❌ WebSocket 消息解析失败:", e);
-      ws.send(
-        JSON.stringify({
-          type: "error",
-          content: "消息格式错误",
-          timestamp: Date.now(),
-        })
-      );
-    }
+    await WebSocketRouter.routeMessage(ws, message.toString());
   });
 
+  // 处理连接断开
   ws.on("close", function close() {
-    console.log("🔌 WebSocket 客户端断开连接");
-    if (ws.userId) {
-      userMap.delete(ws.userId);
-      console.log(`👤 用户 ${ws.userId} 已离线`);
-      console.log("📊 当前在线用户:", Array.from(userMap.keys()));
-    }
+    WebSocketRouter.handleDisconnect(ws);
   });
 
+  // 处理连接错误
   ws.on("error", function error(err) {
-    console.error("❌ WebSocket 错误:", err);
-    if (ws.userId) {
-      userMap.delete(ws.userId);
-    }
+    WebSocketRouter.handleError(ws, err);
   });
 });
+
+// 注意：移除了定时清理任务
+// 依赖 WebSocket 的 close 和 error 事件进行即时清理
+// 这些事件应该能够准确捕捉到所有连接断开情况
 
 // 简单的日志辅助函数
 const log = (
@@ -465,10 +222,30 @@ app.get("/api/health", (req, res) => {
 // WebSocket 状态检查接口
 app.get("/api/socket/status", (req, res) => {
   const clientCount = wss.clients.size;
+  const onlineCount = WebSocketController.getOnlineCount();
+  const diagnostics = WebSocketService.getConnectionDiagnostics();
+
   res.status(200).json({
     status: "running",
     clientCount,
+    onlineCount,
+    diagnostics,
     uptime: process.uptime(),
+    timestamp: Date.now(),
+  });
+});
+
+// WebSocket 手动清理接口（仅用于诊断和调试）
+app.post("/api/socket/cleanup", (req, res) => {
+  const beforeCount = WebSocketService.getOnlineCount();
+  WebSocketService.cleanupDisconnectedUsers();
+  const afterCount = WebSocketService.getOnlineCount();
+
+  res.status(200).json({
+    message: "手动清理完成",
+    beforeCount,
+    afterCount,
+    cleanedCount: beforeCount - afterCount,
     timestamp: Date.now(),
   });
 });
