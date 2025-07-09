@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Taro from "@tarojs/taro";
 import { View, Text, Button, ScrollView } from "@tarojs/components";
 import styles from "./index.module.scss";
@@ -37,7 +37,7 @@ interface FetchPostsResponse {
   stats: Stats;
 }
 
-const MyPostsPage: React.FC = () => {
+const MyPostsPage = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);

@@ -88,7 +88,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // 添加图片服务配置
 const PROJECT_ROOT = __dirname;
-const IMAGES_PATH = path.join(PROJECT_ROOT, "public", "catalogue_images");
+// const IMAGES_PATH = path.join(PROJECT_ROOT, "public", "catalogue_images");
+const IMAGES_PATH = path.join(__dirname, "../src/public/catalogue_images");
 
 console.log("📁 项目根目录:", PROJECT_ROOT);
 console.log("🖼️ 图片目录:", IMAGES_PATH);
@@ -143,6 +144,44 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/wx", wxRoutes);
 app.use("/api/conversations", conversationRoutes);
+
+// 添加 catalogue 路由
+app.get("/api/catalogue/:store", (req: Request, res: Response) => {
+  const { store } = req.params;
+  const fs = require("fs");
+  const path = require("path");
+  const IMAGES_PATH = path.join(__dirname, "public", "catalogue_images");
+  const storeDir = path.join(IMAGES_PATH, store);
+  const PORT = process.env.PORT || 3000;
+  const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+
+  try {
+    if (!fs.existsSync(storeDir)) {
+      return res.json({
+        code: 0,
+        message: "获取成功",
+        data: [],
+      });
+    }
+
+    const files = fs
+      .readdirSync(storeDir)
+      .filter((f: string) => f.endsWith(".jpg") || f.endsWith(".jpeg"))
+      .sort()
+      .map((file: string) => `${baseUrl}/catalogue_images/${store}/${file}`);
+
+    res.json({
+      code: 0,
+      message: "获取成功",
+      data: files,
+    });
+  } catch (error) {
+    res.status(500).json({
+      code: 1,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
 
 // 添加图片调试路由
 app.get("/api/debug/catalogue-images", (req: Request, res: Response) => {
@@ -210,6 +249,59 @@ app.get("/api/debug/catalogue-images", (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: error.message,
+    });
+  }
+});
+
+// 添加从数据库获取目录图片的API路由
+app.get("/api/catalogue-images", async (req: Request, res: Response) => {
+  try {
+    const { PrismaClient } = require("@prisma/client");
+    const prisma = new PrismaClient();
+
+    // 获取最新的目录图片，按商店和页码排序
+    const images = await prisma.catalogue_images.findMany({
+      orderBy: [
+        { store_name: "asc" }, // coles在前，woolworths在后
+        { page_number: "asc" }, // 页码从小到大
+      ],
+      select: {
+        id: true,
+        store_name: true,
+        page_number: true,
+        image_data: true,
+        week_date: true,
+      },
+    });
+
+    console.log("catalogue_images 查询结果:", images);
+
+    console.log(`找到 ${images.length} 张目录图片`);
+
+    // 只返回图片数据数组，按顺序排列
+    const imageDataArray = images.map((img: any) => img.image_data);
+
+    res.json({
+      success: true,
+      code: 0,
+      message: "获取目录图片成功",
+      data: imageDataArray,
+      meta: {
+        total: images.length,
+        stores: [...new Set(images.map((img: any) => img.store_name))],
+        lastUpdate: images.length > 0 ? images[0].week_date : null,
+      },
+    });
+
+    await prisma.$disconnect();
+  } catch (error: any) {
+    console.error("获取目录图片失败:", error);
+    res.status(500).json({
+      success: false,
+      code: 1,
+      error: "获取目录图片失败",
+      message: error.message,
+      data: [],
     });
   }
 });

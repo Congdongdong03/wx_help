@@ -16,6 +16,7 @@ export default defineAppConfig({
     "pages/settings/privacy-policy/index",
     "pages/message/index",
     "pages/messages/chat/index",
+    "pages/catalogue-image/index",
   ],
   window: {
     backgroundTextStyle: "light",

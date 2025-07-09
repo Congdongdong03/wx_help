@@ -1,11 +1,10 @@
-import React from "react";
 import { useVirtualList } from "../../hooks/useVirtualList";
 import "./index.scss";
 
 interface VirtualListProps<T> {
   list: T[];
   itemHeight: number;
-  renderItem: (item: T, index: number) => React.ReactNode;
+  renderItem: (item: T, index: number) => any;
   overscan?: number;
   className?: string;
 }

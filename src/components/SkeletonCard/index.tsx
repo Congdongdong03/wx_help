@@ -5,7 +5,7 @@ interface SkeletonCardProps {
   mockImageHeight: number;
 }
 
-const SkeletonCard: React.FC<SkeletonCardProps> = ({ mockImageHeight }) => {
+const SkeletonCard = ({ mockImageHeight }: SkeletonCardProps) => {
   return (
     <View className="post-card skeleton-card">
       <View

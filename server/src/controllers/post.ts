@@ -502,6 +502,28 @@ export class PostController {
         sort = "latest",
       } = req.query;
 
+      // ===== 新增：城市参数兼容处理 =====
+      let cityCode: string | undefined = undefined;
+      if (city) {
+        const cityStr = String(city).trim();
+        // 允许 city=sydney、city=悉尼、city=SYD
+        const cityRow = await require("../lib/prisma").prisma.cities.findFirst({
+          where: {
+            OR: [
+              { code: cityStr.toUpperCase() },
+              { name: cityStr },
+              { name: { contains: cityStr } },
+            ],
+          },
+        });
+        if (cityRow) {
+          cityCode = cityRow.code;
+        } else {
+          cityCode = cityStr;
+        }
+      }
+      // ===== END =====
+
       // 参数验证
       const pageNumber = parseInt(page as string, 10);
       const limitNumber = parseInt(limit as string, 10);
@@ -539,7 +561,7 @@ export class PostController {
 
       const result = await PostService.findWithFilters({
         category: category as string,
-        city: city as string,
+        city: cityCode,
         keyword: keyword as string,
         page: pageNumber,
         limit: limitNumber,

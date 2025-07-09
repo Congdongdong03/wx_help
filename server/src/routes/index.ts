@@ -5,6 +5,7 @@ import { getCities, getRecommendations } from "../controllers/home";
 import { PostController } from "../controllers/post";
 import { UserController } from "../controllers/user";
 import conversationRouter from "./conversation";
+import { log } from "../utils/monitor";
 
 const router = Router();
 
@@ -13,6 +14,45 @@ router.get("/home/cities", getCities);
 router.get("/home/recommendations", getRecommendations);
 router.get("/posts", PostController.getPosts);
 router.get("/posts/:id", PostController.getPostDetail);
+router.get("/catalogue/:store", (req, res) => {
+  // 获取指定商店的catalogue图片列表
+  const { store } = req.params;
+  const fs = require("fs");
+  const path = require("path");
+
+  try {
+    const IMAGES_PATH = path.join(__dirname, "../public/catalogue_images");
+    const storeDir = path.join(IMAGES_PATH, store);
+
+    if (!fs.existsSync(storeDir)) {
+      return res.json({
+        code: 0,
+        message: "获取成功",
+        data: [],
+      });
+    }
+
+    const files = fs
+      .readdirSync(storeDir)
+      .filter((f: string) => f.endsWith(".jpg") || f.endsWith(".jpeg"))
+      .sort();
+
+    res.json({
+      code: 0,
+      message: "获取成功",
+      data: files,
+    });
+  } catch (error) {
+    log("error", "getCatalogueImages: Error", {
+      message: error instanceof Error ? error.message : String(error),
+      store,
+    });
+    res.status(500).json({
+      code: 1,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
 
 // 需要认证的路由
 router.post("/posts/upload", requireAuth, uploadSingle);

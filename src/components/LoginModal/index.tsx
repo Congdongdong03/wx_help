@@ -1,6 +1,6 @@
 import Taro from "@tarojs/taro";
+import { useState, useEffect } from "react";
 import { View, Text, Button, Image } from "@tarojs/components";
-import React, { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { UserInfo, loginModalEventBus } from "../../app";
 import { useUser } from "../../store/user/hooks";

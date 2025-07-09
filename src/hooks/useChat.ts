@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "@tarojs/taro";
 import Taro from "@tarojs/taro";
 import { Message, PaginationInfo } from "../types/message";
 import { messageService } from "../services/messageService";

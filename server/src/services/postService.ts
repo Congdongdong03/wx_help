@@ -134,6 +134,56 @@ export class PostService {
         ...processedPinnedPosts,
       ];
 
+      // ===== 自动关联 catalogue_images 目录下的图片作为 pinned_content =====
+      let finalPinnedContent = processedPinnedPosts;
+      if (finalPinnedContent.length === 0) {
+        const fs = require("fs");
+        const path = require("path");
+        const IMAGES_PATH = path.join(__dirname, "../public/catalogue_images");
+        const stores = ["coles", "woolworths"];
+        let imageList = [];
+        for (const store of stores) {
+          const dir = path.join(IMAGES_PATH, store);
+          if (fs.existsSync(dir)) {
+            const files = fs
+              .readdirSync(dir)
+              .filter((f: string) => f.endsWith(".jpg") || f.endsWith(".jpeg"))
+              .sort();
+            imageList.push(
+              ...files.map((file: string, index: number) => ({
+                id: `catalogue_${store}_${index}`,
+                url: `/catalogue_images/${store}/${file}`,
+                filename: file,
+                store,
+                title: `${store.toUpperCase()} 打折信息`,
+                content: `${store.toUpperCase()} 每周打折信息`,
+                content_preview: `${store.toUpperCase()} 每周打折信息`,
+                category: "help",
+                sub_category: "",
+                price: "0",
+                updated_at: new Date().toISOString(),
+                created_at: new Date().toISOString(),
+                city_code: "通用",
+                status: "published",
+                images: [`/catalogue_images/${store}/${file}`],
+                cover_image: `/catalogue_images/${store}/${file}`,
+                is_pinned: true,
+                is_weekly_deal: false,
+                users: {
+                  id: 1,
+                  nickname: "系统",
+                  avatar_url: "https://example.com/default-avatar.png",
+                  gender: "unknown",
+                  city: "通用",
+                },
+              }))
+            );
+          }
+        }
+        finalPinnedContent = imageList;
+      }
+      // ===== END =====
+
       return {
         posts: processedPosts,
         pagination: {
@@ -142,7 +192,7 @@ export class PostService {
           totalPosts,
           limit,
         },
-        pinned_content: allPinnedContent,
+        pinned_content: finalPinnedContent,
       };
     } else {
       // 处理其他分类
@@ -191,6 +241,56 @@ export class PostService {
       const processedPosts = posts.map(processPostImages);
       const processedPinnedPosts = pinnedPosts.map(processPostImages);
 
+      // ===== 自动关联 catalogue_images 目录下的图片作为 pinned_content =====
+      let finalPinnedContent = processedPinnedPosts;
+      if (finalPinnedContent.length === 0) {
+        const fs = require("fs");
+        const path = require("path");
+        const IMAGES_PATH = path.join(__dirname, "../public/catalogue_images");
+        const stores = ["coles", "woolworths"];
+        let imageList = [];
+        for (const store of stores) {
+          const dir = path.join(IMAGES_PATH, store);
+          if (fs.existsSync(dir)) {
+            const files = fs
+              .readdirSync(dir)
+              .filter((f: string) => f.endsWith(".jpg") || f.endsWith(".jpeg"))
+              .sort();
+            imageList.push(
+              ...files.map((file: string, index: number) => ({
+                id: `catalogue_${store}_${index}`,
+                url: `/catalogue_images/${store}/${file}`,
+                filename: file,
+                store,
+                title: `${store.toUpperCase()} 打折信息`,
+                content: `${store.toUpperCase()} 每周打折信息`,
+                content_preview: `${store.toUpperCase()} 每周打折信息`,
+                category: "help",
+                sub_category: "",
+                price: "0",
+                updated_at: new Date().toISOString(),
+                created_at: new Date().toISOString(),
+                city_code: "通用",
+                status: "published",
+                images: [`/catalogue_images/${store}/${file}`],
+                cover_image: `/catalogue_images/${store}/${file}`,
+                is_pinned: true,
+                is_weekly_deal: false,
+                users: {
+                  id: 1,
+                  nickname: "系统",
+                  avatar_url: "https://example.com/default-avatar.png",
+                  gender: "unknown",
+                  city: "通用",
+                },
+              }))
+            );
+          }
+        }
+        finalPinnedContent = imageList;
+      }
+      // ===== END =====
+
       return {
         posts: processedPosts,
         pagination: {
@@ -199,7 +299,7 @@ export class PostService {
           totalPosts,
           limit,
         },
-        pinned_content: processedPinnedPosts,
+        pinned_content: finalPinnedContent,
       };
     }
   }
@@ -270,6 +370,56 @@ export class PostService {
     const processedPosts = posts.map(processPostImages);
     const processedPinnedPosts = pinnedPosts.map(processPostImages);
 
+    // ===== 自动关联 catalogue_images 目录下的图片作为 pinned_content =====
+    let finalPinnedContent = processedPinnedPosts;
+    if (finalPinnedContent.length === 0) {
+      const fs = require("fs");
+      const path = require("path");
+      const IMAGES_PATH = path.join(__dirname, "../public/catalogue_images");
+      const stores = ["coles", "woolworths"];
+      let imageList = [];
+      for (const store of stores) {
+        const dir = path.join(IMAGES_PATH, store);
+        if (fs.existsSync(dir)) {
+          const files = fs
+            .readdirSync(dir)
+            .filter((f: string) => f.endsWith(".jpg") || f.endsWith(".jpeg"))
+            .sort();
+          imageList.push(
+            ...files.map((file: string, index: number) => ({
+              id: `catalogue_${store}_${index}`,
+              url: `/catalogue_images/${store}/${file}`,
+              filename: file,
+              store,
+              title: `${store.toUpperCase()} 打折信息`,
+              content: `${store.toUpperCase()} 每周打折信息`,
+              content_preview: `${store.toUpperCase()} 每周打折信息`,
+              category: "help",
+              sub_category: "",
+              price: "0",
+              updated_at: new Date().toISOString(),
+              created_at: new Date().toISOString(),
+              city_code: "通用",
+              status: "published",
+              images: [`/catalogue_images/${store}/${file}`],
+              cover_image: `/catalogue_images/${store}/${file}`,
+              is_pinned: true,
+              is_weekly_deal: false,
+              users: {
+                id: 1,
+                nickname: "系统",
+                avatar_url: "https://example.com/default-avatar.png",
+                gender: "unknown",
+                city: "通用",
+              },
+            }))
+          );
+        }
+      }
+      finalPinnedContent = imageList;
+    }
+    // ===== END =====
+
     return {
       posts: processedPosts,
       pagination: {
@@ -278,7 +428,7 @@ export class PostService {
         totalPosts,
         limit,
       },
-      pinned_content: processedPinnedPosts,
+      pinned_content: finalPinnedContent,
     };
   }
 

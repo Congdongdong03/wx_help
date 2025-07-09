@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { View, ScrollView } from "@tarojs/components";
 import Taro from "@tarojs/taro";
 import PostCard from "../../components/PostCard";

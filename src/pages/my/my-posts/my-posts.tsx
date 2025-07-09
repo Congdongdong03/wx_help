@@ -1,6 +1,10 @@
-import Taro, { useRouter } from "@tarojs/taro";
+import Taro, {
+  useRouter,
+  useState,
+  useEffect,
+  useCallback,
+} from "@tarojs/taro";
 import { View, Text, Image, Button, ScrollView } from "@tarojs/components";
-import React, { useState, useEffect, useCallback } from "react";
 import { request } from "@/utils/request";
 import "./index.scss";
 import { BASE_URL } from "../../../utils/env";

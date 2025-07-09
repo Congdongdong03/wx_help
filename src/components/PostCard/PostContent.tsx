@@ -11,7 +11,7 @@ interface PostContentProps {
   displayTimeText: string;
 }
 
-const PostContent: React.FC<PostContentProps> = ({
+const PostContent = ({
   title,
   description,
   category,

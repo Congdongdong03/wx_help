@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import { useState, useCallback } from "@tarojs/taro";
 import Taro from "@tarojs/taro";
 
 interface CacheItem<T> {

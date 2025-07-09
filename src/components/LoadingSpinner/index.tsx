@@ -7,11 +7,7 @@ interface LoadingSpinnerProps {
   text?: string;
 }
 
-const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
-  size = "medium",
-  color = "#007AFF",
-  text,
-}) => {
+const LoadingSpinner = ({ size = "medium", color = "#007AFF", text }) => {
   return (
     <View
       className={`loading-spinner ${size}`}

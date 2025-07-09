@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import Taro from "@tarojs/taro";
 import { View, Text, Button } from "@tarojs/components";
 import { useUser } from "../../store/user";
@@ -43,7 +43,7 @@ interface UserSwitcherProps {
   onClose: () => void;
 }
 
-const UserSwitcher: React.FC<UserSwitcherProps> = ({ isVisible, onClose }) => {
+const UserSwitcher = ({ isVisible, onClose }: UserSwitcherProps) => {
   const { currentUser } = useUser();
   const dispatch = useDispatch();
   const [isLoading, setIsLoading] = useState(false);

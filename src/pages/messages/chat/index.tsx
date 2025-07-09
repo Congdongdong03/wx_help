@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Taro, { useRouter } from "@tarojs/taro";
 import {
   View,
@@ -38,7 +38,7 @@ interface MessageBubbleProps {
   currentUserAvatar: string;
 }
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({
+const MessageBubble = ({
   message,
   isMyMessage,
   otherUserAvatar,
@@ -179,10 +179,15 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
 };
 
 // 连接状态指示器组件
-const ConnectionStatus: React.FC<{
+interface ConnectionStatusProps {
   isConnected: boolean;
   isConnecting: boolean;
-}> = ({ isConnected, isConnecting }) => {
+}
+
+const ConnectionStatus = ({
+  isConnected,
+  isConnecting,
+}: ConnectionStatusProps) => {
   if (isConnecting) {
     return (
       <View
@@ -237,7 +242,7 @@ const ConnectionStatus: React.FC<{
   );
 };
 
-const ChatWindowPage: React.FC = () => {
+const ChatWindowPage = () => {
   const router = useRouter();
   console.log("Chat page params:", router.params);
   const {

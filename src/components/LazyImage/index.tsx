@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import "./index.scss";
 
 interface LazyImageProps {
@@ -10,7 +10,7 @@ interface LazyImageProps {
   placeholder?: string;
 }
 
-const LazyImage: React.FC<LazyImageProps> = ({
+const LazyImage = ({
   src,
   alt = "",
   className = "",

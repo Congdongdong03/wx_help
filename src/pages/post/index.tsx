@@ -1,5 +1,5 @@
 import Taro from "@tarojs/taro";
-import React, { useState } from "react";
+import { useState } from "react";
 import { View, Text, Button } from "@tarojs/components";
 import "./index.scss";
 

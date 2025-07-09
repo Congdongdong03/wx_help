@@ -1,5 +1,6 @@
 import { View, Image } from "@tarojs/components";
-import React, { useState } from "react";
+import Taro from "@tarojs/taro";
+import { useState } from "react";
 
 interface PostImageProps {
   mockImagePlaceholderHeight?: number;
@@ -8,7 +9,7 @@ interface PostImageProps {
   alt?: string;
 }
 
-const PostImage: React.FC<PostImageProps> = ({
+const PostImage = ({
   mockImagePlaceholderHeight,
   mockImagePlaceholderColor,
   coverImage,

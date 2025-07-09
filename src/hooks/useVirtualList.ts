@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "@tarojs/taro";
 
 interface VirtualListOptions {
   itemHeight: number;
@@ -11,7 +11,7 @@ interface VirtualListResult<T> {
   totalHeight: number;
   startIndex: number;
   endIndex: number;
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: any;
   scrollToIndex: (index: number) => void;
 }
 

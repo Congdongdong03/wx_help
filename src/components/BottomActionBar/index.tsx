@@ -12,7 +12,7 @@ interface BottomActionBarProps {
   publishLoadingText?: string;
 }
 
-const BottomActionBar: React.FC<BottomActionBarProps> = ({
+const BottomActionBar = ({
   onSaveDraft,
   onPublish,
   isSavingDraft = false,

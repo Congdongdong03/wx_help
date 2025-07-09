@@ -1,6 +1,6 @@
 import { View } from "@tarojs/components";
-import React, { useState, useCallback } from "react";
 import Taro from "@tarojs/taro";
+import { useState, useCallback } from "react";
 import { OptimizedPostList } from "../../components/OptimizedPostList";
 import { Post } from "../../types";
 import { handlePostError } from "../../utils/postUtils";

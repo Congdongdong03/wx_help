@@ -14,14 +14,41 @@ interface PostCardProps {
 const DEFAULT_IMAGE_URL =
   "https://images.unsplash.com/photo-1506744038136-46273834b3fb";
 
-const PostCard: React.FC<PostCardProps> = ({ post, isPinned }) => {
+const PostCard = ({ post, isPinned }: PostCardProps) => {
+  const handlePostClick = () => {
+    // Validate that post has a valid ID before navigation
+    if (!post.id || post.id === undefined || post.id === null) {
+      console.warn("Post has no valid ID:", post);
+      Taro.showToast({
+        title: "帖子信息不完整",
+        icon: "none",
+        duration: 2000,
+      });
+      return;
+    }
+
+    // 处理不同类型的帖子
+    if (typeof post.id === "number") {
+      // 真实帖子，跳转到详情页
+      Taro.navigateTo({ url: `/pages/detail/index?id=${post.id}` });
+    } else if (
+      typeof post.id === "string" &&
+      post.id.startsWith("catalogue_")
+    ) {
+      // 宣传图片，跳转到轮播图页面
+      Taro.navigateTo({ url: `/pages/catalogue-image/index?id=${post.id}` });
+    } else {
+      // 其他情况，显示提示
+      Taro.showToast({
+        title: "无法识别的帖子类型",
+        icon: "none",
+        duration: 2000,
+      });
+    }
+  };
+
   return (
-    <View
-      className="post-card"
-      onClick={() =>
-        Taro.navigateTo({ url: `/pages/detail/index?id=${post.id}` })
-      }
-    >
+    <View className="post-card" onClick={handlePostClick}>
       {isPinned && (
         <View className="post-card-pin-indicator">
           <Text>置顶</Text>

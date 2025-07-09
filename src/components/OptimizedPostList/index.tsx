@@ -10,11 +10,7 @@ interface OptimizedPostListProps {
   loading?: boolean;
 }
 
-export const OptimizedPostList: React.FC<OptimizedPostListProps> = ({
-  posts,
-  onPostClick,
-  loading = false,
-}) => {
+export const OptimizedPostList = ({ posts, onPostClick, loading = false }) => {
   const { visibleData, offsetY, handleScroll, totalHeight } = useVirtualList({
     data: posts,
     itemHeight: 300, // 每个卡片的高度（包含margin）

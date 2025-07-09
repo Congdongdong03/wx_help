@@ -1,10 +1,10 @@
-import { Component } from "react";
+import { Component } from "@tarojs/taro";
 import { View, Text } from "@tarojs/components";
 import "./index.scss";
 
 interface Props {
-  children: React.ReactNode;
-  fallback?: React.ReactNode;
+  children: any;
+  fallback?: any;
 }
 
 interface State {
@@ -28,7 +28,7 @@ class ErrorBoundary extends Component<Props, State> {
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: any) {
     console.error("Error caught by boundary:", error, errorInfo);
   }
 

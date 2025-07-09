@@ -1,5 +1,5 @@
 import Taro from "@tarojs/taro";
-import React, { useState } from "react";
+import { useState } from "react";
 import { View, Text, Textarea, Button, Image } from "@tarojs/components";
 import { debounce, throttle } from "../../../utils/debounce";
 import { request, uploadFile } from "../../../utils/request";

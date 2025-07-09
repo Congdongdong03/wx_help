@@ -1,5 +1,5 @@
 import Taro, { useRouter } from "@tarojs/taro";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -59,7 +59,7 @@ interface PostFormProps {
   postId?: string;
 }
 
-const PostForm: React.FC<PostFormProps> = ({ postId }) => {
+const PostForm = ({ postId }: PostFormProps) => {
   const router = useRouter();
   const id = postId || router.params?.id;
 

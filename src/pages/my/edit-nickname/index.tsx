@@ -1,9 +1,9 @@
 import Taro, { useRouter } from "@tarojs/taro";
-import React, { useState, useEffect } from "react";
 import { View, Input, Button, Text } from "@tarojs/components";
 import { debounce, throttle } from "../../../utils/debounce";
 import { useUser } from "../../../store/user/hooks";
 import "./index.scss";
+import { useState, useEffect } from "react";
 
 export default function EditNicknamePage() {
   const router = useRouter();

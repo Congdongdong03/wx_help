@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Taro from "@tarojs/taro";
 import { View, Text, ScrollView, Image, Button } from "@tarojs/components";
 import { Conversation } from "../../types/message";
@@ -12,10 +12,7 @@ interface ConversationItemProps {
   onClick: (conversation: Conversation) => void;
 }
 
-const ConversationItem: React.FC<ConversationItemProps> = ({
-  conversation,
-  onClick,
-}) => {
+const ConversationItem = ({ conversation, onClick }) => {
   const {
     otherUserAvatar,
     otherUserNickname,
@@ -99,7 +96,7 @@ const ConversationItem: React.FC<ConversationItemProps> = ({
   );
 };
 
-const Message: React.FC = () => {
+const Message = () => {
   const { currentUser } = useUser();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Taro, { useRouter } from "@tarojs/taro";
 import { View, Text, Image, Button } from "@tarojs/components";
 import { API_CONFIG } from "../../config/api";
@@ -24,7 +24,7 @@ interface PostDetail {
   };
 }
 
-const PostDetailPage: React.FC = () => {
+const PostDetailPage = () => {
   const router = useRouter();
   const { id } = router.params;
   const [post, setPost] = useState<PostDetail | null>(null);
