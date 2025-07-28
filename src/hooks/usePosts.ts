@@ -128,144 +128,183 @@ export const usePosts = ({
       page: number,
       append: boolean = false
     ) => {
-      if (isLoading) return;
+      if (isLoadingRef.current) {
+        console.log("🚫 loadPosts: Already loading, skipping...");
+        return;
+      }
 
+      console.log("🚀 loadPosts: Starting to load posts...", {
+        city,
+        categoryId,
+        page,
+        append,
+      });
       setIsLoading(true);
       setLoadError(false);
 
       try {
-        const params: any = {
-          page,
-          limit: POSTS_PER_PAGE,
+        const baseParams: any = {
           city,
         };
         if (categoryId && categoryId !== "recommend") {
-          params.category = categoryId;
+          baseParams.category = categoryId;
         }
 
-        console.log("🔍 usePosts: Making API request with params:", params);
+        console.log("🔍 usePosts: Making separate API requests");
         console.log("🔍 usePosts: API URL:", API_CONFIG.getApiUrl("/posts"));
 
-        const res = await Taro.request({
-          url: API_CONFIG.getApiUrl("/posts"),
-          method: "GET",
-          data: params,
-        });
+        // 并行请求置顶帖子和普通帖子
+        const [pinnedResponse, normalResponse] = await Promise.all([
+          // 获取置顶帖子
+          Taro.request({
+            url: API_CONFIG.getApiUrl("/posts/pinned"),
+            method: "GET",
+            data: {
+              ...baseParams,
+              limit: 10, // 置顶帖子固定获取10个
+            },
+          }),
+          // 获取普通帖子
+          Taro.request({
+            url: API_CONFIG.getApiUrl("/posts/normal"),
+            method: "GET",
+            data: {
+              ...baseParams,
+              page,
+              limit: POSTS_PER_PAGE,
+            },
+          }),
+        ]);
 
-        console.log("🔍 usePosts: API response:", res);
+        console.log("🔍 usePosts: Pinned API response:", pinnedResponse);
+        console.log("🔍 usePosts: Normal API response:", normalResponse);
 
-        if (res.data && res.data.code === 0 && res.data.data) {
-          const { posts, pinned_content, pagination, recommend_meta } =
-            res.data.data;
+        // 辅助函数：将API数据映射为FeedPost格式
+        const mapToFeedPost = (item: any): FeedPost => {
+          // Validate that the item has a valid ID
+          if (!item.id || item.id === undefined || item.id === null) {
+            console.warn("Skipping item without valid ID:", item);
+            return null;
+          }
 
-          console.log("原始置顶数据:", pinned_content);
+          // 兼容 images 字段为字符串（JSON数组）、数组、空值
+          let images: string[] = [];
+          if (Array.isArray(item.images)) {
+            images = item.images;
+          } else if (typeof item.images === "string") {
+            try {
+              const parsed = JSON.parse(item.images);
+              if (Array.isArray(parsed)) {
+                images = parsed;
+              }
+            } catch {
+              images = [];
+            }
+          }
+          return {
+            id: item.id,
+            mockImagePlaceholderHeight:
+              PRESET_PLACEHOLDER_HEIGHTS[
+                Math.floor(Math.random() * PRESET_PLACEHOLDER_HEIGHTS.length)
+              ],
+            mockImagePlaceholderColor:
+              PRESET_PLACEHOLDER_COLORS[
+                Math.floor(Math.random() * PRESET_PLACEHOLDER_COLORS.length)
+              ],
+            title: item.title || "无标题",
+            content: item.content || "暂无描述",
+            content_preview:
+              item.content_preview ||
+              (item.content ? item.content.slice(0, 50) + "..." : "暂无描述"),
+            category:
+              CATEGORIES.find((c) => c.id === (item.category || "recommend")) ||
+              CATEGORIES[0],
+            sub_category: item.sub_category || "",
+            price: item.price || undefined,
+            updated_at: item.updated_at || new Date().toISOString(),
+            created_at: item.created_at || new Date().toISOString(),
+            city_code: item.city_code || city,
+            status: item.status || "published",
+            images,
+            cover_image: images[0] || DEFAULT_IMAGE_URL,
+            is_pinned: item.is_pinned || false,
+            is_weekly_deal: item.is_weekly_deal || false,
+            users: item.users
+              ? {
+                  id: item.users.id,
+                  nickname: item.users.nickname || "未知用户",
+                  avatar_url:
+                    item.users.avatar_url ||
+                    "https://example.com/default-avatar.png",
+                  gender: item.users.gender,
+                  city: item.users.city,
+                }
+              : undefined,
+          };
+        };
+
+        // 处理置顶帖子响应
+        let pinnedPosts: FeedPost[] = [];
+        if (
+          pinnedResponse.data &&
+          pinnedResponse.data.code === 0 &&
+          pinnedResponse.data.data
+        ) {
+          const pinnedData = pinnedResponse.data.data.pinned_posts || [];
+          console.log("原始置顶数据:", pinnedData);
+
+          pinnedPosts = pinnedData.map(mapToFeedPost).filter(Boolean);
+          console.log("处理后的置顶帖子:", pinnedPosts);
+        }
+
+        // 处理普通帖子响应
+        let normalPosts: FeedPost[] = [];
+        let pagination = {
+          currentPage: page,
+          totalPages: 1,
+          totalPosts: 0,
+          limit: POSTS_PER_PAGE,
+        };
+        let recommendMeta = null;
+
+        if (
+          normalResponse.data &&
+          normalResponse.data.code === 0 &&
+          normalResponse.data.data
+        ) {
+          const {
+            posts,
+            pagination: paginationData,
+            recommend_meta,
+          } = normalResponse.data.data;
           console.log("原始普通数据:", posts);
 
-          const mapToFeedPost = (item: any): FeedPost => {
-            // Validate that the item has a valid ID
-            if (!item.id || item.id === undefined || item.id === null) {
-              console.warn("Skipping item without valid ID:", item);
-              return null;
-            }
+          normalPosts = posts.map(mapToFeedPost).filter(Boolean);
+          pagination = paginationData;
+          recommendMeta = recommend_meta;
 
-            // 兼容 images 字段为字符串（JSON数组）、数组、空值
-            let images: string[] = [];
-            if (Array.isArray(item.images)) {
-              images = item.images;
-            } else if (typeof item.images === "string") {
-              try {
-                const parsed = JSON.parse(item.images);
-                if (Array.isArray(parsed)) {
-                  images = parsed;
-                }
-              } catch {
-                images = [];
-              }
-            }
-            return {
-              id: item.id,
-              mockImagePlaceholderHeight:
-                PRESET_PLACEHOLDER_HEIGHTS[
-                  Math.floor(Math.random() * PRESET_PLACEHOLDER_HEIGHTS.length)
-                ],
-              mockImagePlaceholderColor:
-                PRESET_PLACEHOLDER_COLORS[
-                  Math.floor(Math.random() * PRESET_PLACEHOLDER_COLORS.length)
-                ],
-              title: item.title || "无标题",
-              content: item.content || "暂无描述",
-              content_preview:
-                item.content_preview ||
-                (item.content ? item.content.slice(0, 50) + "..." : "暂无描述"),
-              category:
-                CATEGORIES.find(
-                  (c) => c.id === (item.category || "recommend")
-                ) || CATEGORIES[0],
-              sub_category: item.sub_category || "",
-              price: item.price || undefined,
-              updated_at: item.updated_at || new Date().toISOString(),
-              created_at: item.created_at || new Date().toISOString(),
-              city_code: item.city_code || city,
-              status: item.status || "published",
-              images,
-              cover_image: images[0] || DEFAULT_IMAGE_URL,
-              is_pinned: item.is_pinned || false,
-              is_weekly_deal: item.is_weekly_deal || false,
-              users: item.users
-                ? {
-                    id: item.users.id,
-                    nickname: item.users.nickname || "未知用户",
-                    avatar_url:
-                      item.users.avatar_url ||
-                      "https://example.com/default-avatar.png",
-                    gender: item.users.gender,
-                    city: item.users.city,
-                  }
-                : undefined,
-            };
-          };
+          console.log("处理后的普通帖子:", normalPosts);
+        }
 
-          const pinned = pinned_content.map(mapToFeedPost).filter(Boolean);
-          const list = posts.map(mapToFeedPost).filter(Boolean);
+        setPinnedPosts(pinnedPosts);
+        setNormalPosts((prevPosts) =>
+          append ? [...prevPosts, ...normalPosts] : normalPosts
+        );
 
-          console.log("处理后的置顶帖子:", pinned);
-          console.log("处理后的普通帖子:", list);
-
-          setPinnedPosts(pinned);
-          setNormalPosts((prevPosts) =>
-            append ? [...prevPosts, ...list] : list
+        if (categoryId !== "recommend") {
+          setDisplayedPosts((prevPosts) =>
+            append ? [...prevPosts, ...normalPosts] : normalPosts
           );
-
-          if (categoryId !== "recommend") {
-            setDisplayedPosts((prevPosts) =>
-              append ? [...prevPosts, ...list] : list
-            );
-          } else {
-            setDisplayedPosts([]);
-          }
-
-          setHasMoreData(page < pagination.totalPages);
-          setCurrentPage(page);
-
-          // 如果是推荐分类，更新推荐元数据
-          if (categoryId === "recommend" && recommend_meta) {
-            setRecommendMeta(recommend_meta);
-          }
-        } else if (res.data && res.data.message) {
-          // 处理API返回错误信息的情况
-          console.log("❌ API返回错误:", res.data.message);
-          console.log("❌ 完整响应数据:", res.data);
-          setPinnedPosts([]);
-          setNormalPosts([]);
-          setDisplayedPosts([]);
-          setHasMoreData(false);
         } else {
-          console.log("❌ API返回数据格式不正确:", res.data);
-          console.log("❌ 响应状态码:", res.statusCode);
-          setPinnedPosts([]);
-          setNormalPosts([]);
           setDisplayedPosts([]);
-          setHasMoreData(false);
+        }
+
+        setHasMoreData(page < pagination.totalPages);
+        setCurrentPage(page);
+
+        // 如果是推荐分类，更新推荐元数据
+        if (categoryId === "recommend" && recommendMeta) {
+          setRecommendMeta(recommendMeta);
         }
       } catch (error) {
         console.error("Failed to load posts:", error);
@@ -276,6 +315,7 @@ export const usePosts = ({
           duration: 2000,
         });
       } finally {
+        console.log("✅ loadPosts: Finished loading posts");
         setIsLoading(false);
       }
     },
@@ -288,14 +328,7 @@ export const usePosts = ({
       console.log("Reached bottom, loading more...");
       loadPosts(selectedCity, selectedCategoryId, currentPage + 1, true);
     }
-  }, [
-    isLoading,
-    hasMoreData,
-    currentPage,
-    loadPosts,
-    selectedCity,
-    selectedCategoryId,
-  ]);
+  }, [isLoading, hasMoreData, currentPage, selectedCity, selectedCategoryId]);
 
   // ------------------ 重试加载 ------------------
   const retryLoad = useCallback(() => {
@@ -303,7 +336,7 @@ export const usePosts = ({
     setCurrentPage(1);
     setHasMoreData(true);
     loadPosts(selectedCity, selectedCategoryId, 1);
-  }, [loadPosts, selectedCity, selectedCategoryId]);
+  }, [selectedCity, selectedCategoryId]);
 
   // ------------------ 下拉刷新 ------------------
   const refresh = useCallback(async () => {
@@ -314,7 +347,7 @@ export const usePosts = ({
     await loadPosts(selectedCity, selectedCategoryId, 1, false);
     setRefreshing(false);
     console.log("下拉刷新完成");
-  }, [loadPosts, selectedCity, selectedCategoryId]);
+  }, [selectedCity, selectedCategoryId]);
 
   // ------------------ 计算属性 ------------------
 

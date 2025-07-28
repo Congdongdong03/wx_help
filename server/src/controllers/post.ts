@@ -486,6 +486,197 @@ export class PostController {
   }
 
   /**
+   * 获取置顶帖子
+   * GET /api/posts/pinned?category=rent&city=melbourne&limit=10
+   */
+  static async getPinnedPosts(req: Request, res: Response) {
+    log("info", "getPinnedPosts: Received request", { query: req.query });
+
+    try {
+      const { category, city, limit = "10" } = req.query;
+
+      // ===== 新增：城市参数兼容处理 =====
+      let cityCode: string | undefined = undefined;
+      if (city) {
+        const cityStr = String(city).trim();
+        // 允许 city=sydney、city=悉尼、city=SYD
+        const cityRow = await require("../lib/prisma").prisma.cities.findFirst({
+          where: {
+            OR: [
+              { code: cityStr.toUpperCase() },
+              { name: cityStr },
+              { name: { contains: cityStr } },
+            ],
+          },
+        });
+        if (cityRow) {
+          cityCode = cityRow.code;
+        } else {
+          cityCode = cityStr;
+        }
+      }
+      // ===== END =====
+
+      // 参数验证
+      const limitNumber = parseInt(limit as string, 10);
+
+      if (isNaN(limitNumber) || limitNumber < 1 || limitNumber > 50) {
+        return res.status(400).json({
+          code: 1,
+          message: "每页数量必须是1-50之间的数字",
+        });
+      }
+
+      if (category) {
+        const validCategories = ["help", "rent", "used", "jobs", "recommend"];
+        if (!validCategories.includes(category as string)) {
+          return res.status(400).json({
+            code: 1,
+            message: "无效的分类",
+          });
+        }
+      }
+
+      const pinnedPosts = await PostService.getPinnedPosts({
+        category: category as string,
+        city: cityCode,
+        limit: limitNumber,
+      });
+
+      log("info", "getPinnedPosts: Success", {
+        count: pinnedPosts.length,
+        filters: { category, city },
+      });
+
+      res.json({
+        code: 0,
+        message: "获取置顶帖子成功",
+        data: {
+          pinned_posts: pinnedPosts,
+        },
+      });
+    } catch (error: any) {
+      log("error", "getPinnedPosts: Error", {
+        message: error.message,
+        stack: error.stack,
+        query: req.query,
+      });
+      res.status(500).json({
+        code: 1,
+        message: "获取置顶帖子失败，请稍后再试",
+      });
+    }
+  }
+
+  /**
+   * 获取普通帖子
+   * GET /api/posts/normal?category=rent&city=melbourne&page=1&limit=20
+   */
+  static async getNormalPosts(req: Request, res: Response) {
+    log("info", "getNormalPosts: Received request", { query: req.query });
+
+    try {
+      const {
+        category,
+        city,
+        keyword,
+        page = "1",
+        limit = "20",
+        sort = "latest",
+      } = req.query;
+
+      // ===== 新增：城市参数兼容处理 =====
+      let cityCode: string | undefined = undefined;
+      if (city) {
+        const cityStr = String(city).trim();
+        // 允许 city=sydney、city=悉尼、city=SYD
+        const cityRow = await require("../lib/prisma").prisma.cities.findFirst({
+          where: {
+            OR: [
+              { code: cityStr.toUpperCase() },
+              { name: cityStr },
+              { name: { contains: cityStr } },
+            ],
+          },
+        });
+        if (cityRow) {
+          cityCode = cityRow.code;
+        } else {
+          cityCode = cityStr;
+        }
+      }
+      // ===== END =====
+
+      // 参数验证
+      const pageNumber = parseInt(page as string, 10);
+      const limitNumber = parseInt(limit as string, 10);
+
+      if (isNaN(pageNumber) || pageNumber < 1) {
+        return res.status(400).json({
+          code: 1,
+          message: "页码必须是大于0的数字",
+        });
+      }
+
+      if (isNaN(limitNumber) || limitNumber < 1 || limitNumber > 50) {
+        return res.status(400).json({
+          code: 1,
+          message: "每页数量必须是1-50之间的数字",
+        });
+      }
+
+      if (category) {
+        const validCategories = ["help", "rent", "used", "jobs", "recommend"];
+        if (!validCategories.includes(category as string)) {
+          return res.status(400).json({
+            code: 1,
+            message: "无效的分类",
+          });
+        }
+      }
+
+      if (sort && !["latest", "popular"].includes(sort as string)) {
+        return res.status(400).json({
+          code: 1,
+          message: "无效的排序方式",
+        });
+      }
+
+      const result = await PostService.getNormalPosts({
+        category: category as string,
+        city: cityCode,
+        keyword: keyword as string,
+        page: pageNumber,
+        limit: limitNumber,
+        sort: sort as "latest" | "popular",
+      });
+
+      log("info", "getNormalPosts: Success", {
+        count: result.posts.length,
+        total: result.pagination.totalPosts,
+        page: pageNumber,
+        filters: { category, city, keyword, sort },
+      });
+
+      res.json({
+        code: 0,
+        message: "获取普通帖子成功",
+        data: result,
+      });
+    } catch (error: any) {
+      log("error", "getNormalPosts: Error", {
+        message: error.message,
+        stack: error.stack,
+        query: req.query,
+      });
+      res.status(500).json({
+        code: 1,
+        message: "获取普通帖子失败，请稍后再试",
+      });
+    }
+  }
+
+  /**
    * 获取帖子列表
    * GET /api/posts?category=rent&city=melbourne&page=1&limit=20
    */

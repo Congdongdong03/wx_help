@@ -1,9 +1,5 @@
-import Taro, {
-  useRouter,
-  useState,
-  useEffect,
-  useCallback,
-} from "@tarojs/taro";
+import Taro, { useRouter } from "@tarojs/taro";
+import { useState, useEffect, useCallback } from "react";
 import { View, Text, Image, Button, ScrollView } from "@tarojs/components";
 import { request } from "@/utils/request";
 import "./index.scss";

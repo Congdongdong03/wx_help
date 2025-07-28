@@ -38,6 +38,271 @@ export interface PostsResult {
 
 export class PostService {
   /**
+   * 获取置顶帖子
+   */
+  static async getPinnedPosts(filters: {
+    city?: string;
+    category?: string;
+    limit?: number;
+  }): Promise<any[]> {
+    const { city, category, limit = 10 } = filters;
+
+    // 构建 where 条件
+    const where: any = {
+      status: "published",
+      is_pinned: true,
+    };
+
+    if (category && category !== "recommend") {
+      where.category = category;
+    }
+
+    if (city) {
+      where.city_code = city;
+    }
+
+    // 获取置顶帖子
+    const pinnedPosts = await prisma.posts.findMany({
+      where,
+      orderBy: { last_polished_at: "desc" },
+      take: limit,
+      include: {
+        users: {
+          select: {
+            id: true,
+            openid: true,
+            nickname: true,
+            avatar_url: true,
+            gender: true,
+            city: true,
+          },
+        },
+      },
+    });
+
+    // 处理推荐分类的特殊逻辑
+    if (category === "recommend") {
+      const [weeklyDeals, processedPinnedPosts] = await Promise.all([
+        // 获取每周特价
+        prisma.weekly_deals.findMany({
+          where: { is_active: true },
+          orderBy: { week_start_date: "desc" },
+          take: limit,
+        }),
+        // 处理置顶帖子
+        Promise.resolve(pinnedPosts.map(processPostImages)),
+      ]);
+
+      // 处理每周特价数据
+      const processedWeeklyDeals = weeklyDeals.map(processPostImages);
+
+      // 合并置顶帖子和每周特价
+      const allPinnedContent = [
+        ...processedWeeklyDeals,
+        ...processedPinnedPosts,
+      ];
+
+      // 自动关联 catalogue_images 目录下的图片作为 pinned_content
+      // 始终包含 Coles 和 Woolworths 的目录图片，优先显示
+      const fs = require("fs");
+      const path = require("path");
+      const IMAGES_PATH = path.join(__dirname, "../public/catalogue_images");
+      const stores = ["coles", "woolworths"];
+      let catalogueImageList = [];
+
+      for (const store of stores) {
+        const dir = path.join(IMAGES_PATH, store);
+        if (fs.existsSync(dir)) {
+          const files = fs
+            .readdirSync(dir)
+            .filter((f: string) => f.endsWith(".jpg") || f.endsWith(".jpeg"))
+            .sort();
+
+          // 为每个商店创建一个汇总帖子，包含所有图片
+          if (files.length > 0) {
+            catalogueImageList.push({
+              id: `catalogue_${store}_summary`,
+              url: `/catalogue_images/${store}/${files[0]}`, // 使用第一张图片作为封面
+              filename: files[0],
+              store,
+              title: `${store.toUpperCase()} 本周打折目录`,
+              content: `${store.toUpperCase()} 本周最新打折信息，包含 ${
+                files.length
+              } 页详细内容`,
+              content_preview: `${store.toUpperCase()} 本周最新打折信息，包含 ${
+                files.length
+              } 页详细内容`,
+              category: "help",
+              sub_category: "",
+              price: "0",
+              updated_at: new Date().toISOString(),
+              created_at: new Date().toISOString(),
+              city_code: "通用",
+              status: "published",
+              images: files.map(
+                (file: string) => `/catalogue_images/${store}/${file}`
+              ), // 包含所有图片
+              cover_image: `/catalogue_images/${store}/${files[0]}`,
+              is_pinned: true,
+              is_weekly_deal: true,
+              total_pages: files.length,
+              users: {
+                id: 1,
+                nickname: "系统",
+                avatar_url: "https://example.com/default-avatar.png",
+                gender: "unknown",
+                city: "通用",
+              },
+            });
+          }
+        }
+      }
+
+      // 合并目录图片、每周特价和置顶帖子
+      const finalPinnedContent = [
+        ...catalogueImageList, // 目录图片优先显示
+        ...processedWeeklyDeals, // 然后是每周特价
+        ...processedPinnedPosts, // 最后是其他置顶帖子
+      ];
+
+      return finalPinnedContent;
+    }
+
+    // 对于非推荐分类，也包含 Coles 和 Woolworths 的目录图片
+    const fs = require("fs");
+    const path = require("path");
+    const IMAGES_PATH = path.join(__dirname, "../public/catalogue_images");
+    const stores = ["coles", "woolworths"];
+    let catalogueImageList = [];
+
+    for (const store of stores) {
+      const dir = path.join(IMAGES_PATH, store);
+      if (fs.existsSync(dir)) {
+        const files = fs
+          .readdirSync(dir)
+          .filter((f: string) => f.endsWith(".jpg") || f.endsWith(".jpeg"))
+          .sort();
+
+        // 为每个商店创建一个汇总帖子，包含所有图片
+        if (files.length > 0) {
+          catalogueImageList.push({
+            id: `catalogue_${store}_summary`,
+            url: `/catalogue_images/${store}/${files[0]}`, // 使用第一张图片作为封面
+            filename: files[0],
+            store,
+            title: `${store.toUpperCase()} 本周打折目录`,
+            content: `${store.toUpperCase()} 本周最新打折信息，包含 ${
+              files.length
+            } 页详细内容`,
+            content_preview: `${store.toUpperCase()} 本周最新打折信息，包含 ${
+              files.length
+            } 页详细内容`,
+            category: "help",
+            sub_category: "",
+            price: "0",
+            updated_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            city_code: "通用",
+            status: "published",
+            images: files.map(
+              (file: string) => `/catalogue_images/${store}/${file}`
+            ), // 包含所有图片
+            cover_image: `/catalogue_images/${store}/${files[0]}`,
+            is_pinned: true,
+            is_weekly_deal: true,
+            total_pages: files.length,
+            users: {
+              id: 1,
+              nickname: "系统",
+              avatar_url: "https://example.com/default-avatar.png",
+              gender: "unknown",
+              city: "通用",
+            },
+          });
+        }
+      }
+    }
+
+    // 合并目录图片和置顶帖子
+    const finalPinnedContent = [
+      ...catalogueImageList, // 目录图片优先显示
+      ...pinnedPosts.map(processPostImages), // 然后是其他置顶帖子
+    ];
+
+    return finalPinnedContent;
+  }
+
+  /**
+   * 获取普通帖子（分页）
+   */
+  static async getNormalPosts(filters: PostFilters): Promise<PostsResult> {
+    const {
+      category,
+      city,
+      keyword,
+      page,
+      limit,
+      status = "published",
+    } = filters;
+    const offset = (page - 1) * limit;
+
+    // 构建 where 条件
+    const where: any = {
+      status,
+      is_pinned: false, // 只获取非置顶帖子
+    };
+
+    if (category && category !== "recommend") {
+      where.category = category;
+    }
+
+    if (city) {
+      where.city_code = city;
+    }
+
+    if (keyword) {
+      where.OR = [
+        { title: { contains: keyword } },
+        { content: { contains: keyword } },
+      ];
+    }
+
+    const [posts, totalPosts] = await Promise.all([
+      // 获取普通帖子
+      prisma.posts.findMany({
+        where,
+        orderBy: { last_polished_at: "desc" },
+        take: limit,
+        skip: offset,
+        include: {
+          users: {
+            select: {
+              id: true,
+              openid: true,
+              nickname: true,
+              avatar_url: true,
+              gender: true,
+              city: true,
+            },
+          },
+        },
+      }),
+      // 获取总数
+      prisma.posts.count({ where }),
+    ]);
+
+    return {
+      posts: posts.map(processPostImages),
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalPosts / limit),
+        totalPosts,
+        limit,
+      },
+    };
+  }
+
+  /**
    * 根据筛选条件获取帖子列表
    */
   static async findWithFilters(filters: PostFilters): Promise<PostsResult> {

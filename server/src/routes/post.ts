@@ -16,6 +16,10 @@ router.get("/my", requireAuth, PostController.getMyPosts);
 // 公开路由
 router.get("/", PostController.getPosts);
 
+// 新增：分离的帖子接口
+router.get("/pinned", PostController.getPinnedPosts);
+router.get("/normal", PostController.getNormalPosts);
+
 // 帖子操作路由（需要认证）
 router.post("/", requireAuth, PostController.createPost);
 router.put("/:id", requireAuth, PostController.updatePost);

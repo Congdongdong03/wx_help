@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Taro, { useRouter } from "@tarojs/taro";
 import { View, Text, Image, Button } from "@tarojs/components";
 import { API_CONFIG } from "../../config/api";
@@ -33,6 +33,7 @@ const PostDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [imgLoaded, setImgLoaded] = useState(false);
 
   // 获取当前登录用户信息
   const { currentUser, userId } = useUser();
@@ -52,9 +53,9 @@ const PostDetailPage = () => {
       console.log("用户状态变化，重新获取帖子数据");
       fetchPostDetail();
     }
-  }, [currentUser?.id]);
+  }, [currentUser?.id, id]);
 
-  const fetchPostDetail = async () => {
+  const fetchPostDetail = useCallback(async () => {
     if (!id) return;
 
     setLoading(true);
@@ -89,7 +90,7 @@ const PostDetailPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
 
   const handleImageClick = (imageUrl: string) => {
     setSelectedImage(imageUrl);
@@ -190,27 +191,33 @@ const PostDetailPage = () => {
     );
   }
 
-  // 兼容 cover_image、images[0]、images 字符串
+  // 解析图片数组
+  const parseImages = (images: any): string[] => {
+    if (Array.isArray(images)) {
+      return images;
+    }
+    if (typeof images === "string") {
+      try {
+        const parsed = JSON.parse(images);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+        if (typeof parsed === "string") {
+          return [parsed];
+        }
+      } catch {
+        return [images];
+      }
+    }
+    return [];
+  };
+
+  const imageList = parseImages(post.images);
   const mainImage =
-    post.cover_image ||
-    (Array.isArray(post.images) && post.images.length > 0 && post.images[0]) ||
-    (typeof post.images === "string"
-      ? (() => {
-          try {
-            const parsed = JSON.parse(post.images);
-            if (Array.isArray(parsed) && parsed.length > 0) return parsed[0];
-            if (typeof parsed === "string") return parsed;
-          } catch {
-            return post.images;
-          }
-        })()
-      : post.images) ||
-    "";
+    post.cover_image || (imageList.length > 0 ? imageList[0] : "");
 
   // 兼容 mockImagePlaceholderColor
   const placeholderColor = post.mockImagePlaceholderColor || "rgb(240,240,240)"; // 默认灰色
-
-  const [imgLoaded, setImgLoaded] = useState(false);
 
   // 判断是否显示联系方式部分
   // 只有当当前登录用户的 openid 不等于帖子发布者 openid 时才显示
@@ -229,43 +236,79 @@ const PostDetailPage = () => {
 
   return (
     <View className="detail-page">
-      <View
-        className="image-main"
-        style={{
-          width: "100%",
-          height: "200rpx",
-          background: placeholderColor,
-          borderRadius: "16rpx",
-          overflow: "hidden",
-          position: "relative",
-        }}
-      >
-        {!imgLoaded && (
-          <View
-            style={{
-              width: "100%",
-              height: "100%",
-              background: placeholderColor,
-              position: "absolute",
-              top: 0,
-              left: 0,
-            }}
-          />
+      <View className="content">
+        {/* 图片网格 */}
+        {imageList.length > 0 && (
+          <View className="image-grid">
+            <View className="grid-container">
+              {imageList.map((imageUrl, index) => (
+                <View
+                  key={index}
+                  className="grid-item"
+                  onClick={() => handleImageClick(imageUrl)}
+                >
+                  <Image className="image" src={imageUrl} mode="aspectFill" />
+                </View>
+              ))}
+            </View>
+          </View>
         )}
-        {mainImage && (
-          <Image
-            className="image"
-            src={mainImage}
-            mode="aspectFill"
-            style={{
-              width: "100%",
-              height: "100%",
-              display: imgLoaded ? "block" : "none",
-            }}
-            onLoad={() => setImgLoaded(true)}
-          />
+
+        {/* 帖子信息 */}
+        <View className="post-info">
+          <Text className="title">{post.title}</Text>
+          <Text className="description">{post.content}</Text>
+          {post.price && (
+            <Text className="price">
+              价格: {post.price}
+              {post.price_unit || "元"}
+            </Text>
+          )}
+        </View>
+
+        {/* 用户信息 */}
+        <View className="user-info">
+          <Image className="avatar" src={post.users.avatar_url} />
+          <View className="user-details">
+            <Text className="nickname">{post.users.nickname}</Text>
+            <Text className="post-time">
+              发布于 {new Date(post.created_at).toLocaleString()}
+            </Text>
+          </View>
+        </View>
+
+        {/* 联系方式 */}
+        {post.contact_info && (
+          <View className="contact-info">
+            <Text className="contact-title">联系方式:</Text>
+            <View className="wechat-id">
+              <Text className="id-text">{post.contact_info}</Text>
+              <Button className="copy-button">复制</Button>
+            </View>
+          </View>
         )}
       </View>
+
+      {/* 私信按钮 */}
+      {shouldShowContactInfo && (
+        <View style={{ padding: "32rpx" }}>
+          <Button
+            style={{
+              backgroundColor: "#07c160",
+              color: "#fff",
+              padding: "24rpx",
+              borderRadius: "16rpx",
+              fontSize: "32rpx",
+              width: "100%",
+            }}
+            onClick={handleMessageSeller}
+          >
+            私信卖家
+          </Button>
+        </View>
+      )}
+
+      {/* 图片预览模态框 */}
       {selectedImage && (
         <View className="image-preview-modal" onClick={handleClosePreview}>
           <View className="modal-content">

@@ -185,14 +185,24 @@ export default function Index() {
 
   // 当城市和分类变化时加载数据
   useEffect(() => {
+    console.log("🔄 useEffect triggered:", {
+      selectedCity,
+      selectedCategoryId,
+      citiesLength: cities.length,
+    });
     if (!selectedCity && cities.length > 0) {
+      console.log("🏙️ Setting default city:", cities[0].value);
       setSelectedCity(cities[0].value);
       return;
     }
     if (selectedCity) {
+      console.log("📡 Loading posts for:", {
+        selectedCity,
+        selectedCategoryId,
+      });
       loadPosts(selectedCity, selectedCategoryId, 1, false);
     }
-  }, [selectedCity, selectedCategoryId, cities, loadPosts]);
+  }, [selectedCity, selectedCategoryId]);
 
   const handleCategoryChange = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
