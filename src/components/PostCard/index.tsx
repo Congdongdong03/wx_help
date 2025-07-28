@@ -66,7 +66,7 @@ const PostCard = ({ post, isPinned }: PostCardProps) => {
         style={{
           height: post.mockImagePlaceholderHeight
             ? `${post.mockImagePlaceholderHeight}rpx`
-            : "400rpx",
+            : "70rpx",
         }}
       />
       <View className="post-card-content">

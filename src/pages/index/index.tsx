@@ -54,6 +54,48 @@ interface RecommendMeta {
 
 // ------------------ MOCK DATA ------------------
 
+// mock 两个置顶帖子
+const pinnedPostsToShow = [
+  {
+    id: 1,
+    title: "Coles 每周打折信息",
+    content: "Coles 本周特价商品：新鲜蔬菜、肉类、日用品等都有大幅折扣！",
+    category: { id: "help", name: "互助", color: "#4CAF50" },
+    price: "0",
+    images: [
+      "https://www.coles.com.au/_next/image?url=https%3A%2F%2Fwww.coles.com.au%2Fcontent%2Fdam%2Fcoles%2Fcusp%2Fhomepage-specials%2F2025%2F9-4-25%2FHeroTile-Roundel-Padding-FG-HalfPrice.png&w=1080&q=90",
+    ],
+    cover_image:
+      "https://www.coles.com.au/_next/image?url=https%3A%2F%2Fwww.coles.com.au%2Fcontent%2Fdam%2Fcoles%2Fcusp%2Fhomepage-specials%2F2025%2F9-4-25%2FHeroTile-Roundel-Padding-FG-HalfPrice.png&w=1080&q=90",
+    is_pinned: true,
+    updated_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    city_code: "通用",
+    status: "published",
+    users: { id: 1, nickname: "管理员", avatar_url: "" },
+    mockImagePlaceholderHeight: 70,
+    mockImagePlaceholderColor: "rgb(250,213,46)",
+  },
+  {
+    id: 2,
+    title: "Woolworths 每周打折信息",
+    content: "Woolworths 本周特价商品：水果、海鲜、零食等都有超值优惠！",
+    category: { id: "help", name: "互助", color: "#2196F3" },
+    price: "0",
+    images: [
+      "https://via.placeholder.com/400x300/2196F3/FFFFFF?text=WWS+Weekly+Deals",
+    ],
+    cover_image:
+      "https://via.placeholder.com/400x300/2196F3/FFFFFF?text=WWS+Weekly+Deals",
+    is_pinned: true,
+    updated_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    city_code: "通用",
+    status: "published",
+    users: { id: 1, nickname: "管理员", avatar_url: "" },
+  },
+];
+
 // ------------------ MASONRY LAYOUT HELPER ------------------
 
 // ------------------ API 数据加载 ------------------
@@ -91,7 +133,6 @@ export default function Index() {
 
     // 计算属性
     isRecommendFirstPage,
-    singlePinnedPost,
     mixedPosts,
     leftColumnPosts,
     rightColumnPosts,
@@ -281,7 +322,7 @@ export default function Index() {
           <>
             {/* 推荐页空状态 */}
             {isRecommendFirstPage &&
-              !singlePinnedPost &&
+              pinnedPostsToShow.length === 0 &&
               mixedPosts.length === 0 && (
                 <View className="empty-state-container">
                   <Text className="empty-state-text">
@@ -317,12 +358,16 @@ export default function Index() {
           </>
         )}
 
-        {(mixedPosts.length > 0 || singlePinnedPost) && (
+        {(mixedPosts.length > 0 || pinnedPostsToShow.length > 0) && (
           <View style={{ padding: "20rpx" }}>
             {/* 置顶帖子 - 跨两列显示 */}
-            {singlePinnedPost && (
+            {pinnedPostsToShow.length > 0 && (
               <View style={{ width: "100%", marginBottom: "20rpx" }}>
-                <PostCard post={singlePinnedPost} isPinned={true} />
+                {pinnedPostsToShow.map((post) => (
+                  <View key={post.id} style={{ marginBottom: "20rpx" }}>
+                    <PostCard post={post} isPinned={true} />
+                  </View>
+                ))}
               </View>
             )}
 

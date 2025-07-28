@@ -86,7 +86,7 @@ interface UsePostsReturn {
 
   // 计算属性
   isRecommendFirstPage: boolean;
-  singlePinnedPost: FeedPost | undefined;
+  pinnedPostsToShow: FeedPost[];
   mixedPosts: FeedPost[];
   leftColumnPosts: FeedPost[];
   rightColumnPosts: FeedPost[];
@@ -322,12 +322,12 @@ export const usePosts = ({
   const isRecommendFirstPage =
     selectedCategoryId === "recommend" && currentPage === 1;
 
-  let singlePinnedPost: FeedPost | undefined = undefined;
+  let pinnedPostsToShow: FeedPost[] = [];
   let mixedPosts: FeedPost[] = [];
 
   if (isRecommendFirstPage && pinnedPosts.length > 0) {
-    singlePinnedPost = pinnedPosts[0];
-    const pinnedIds = new Set(pinnedPosts.map((p) => p.id));
+    pinnedPostsToShow = pinnedPosts.slice(0, 2); // 只取前两个置顶
+    const pinnedIds = new Set(pinnedPostsToShow.map((p) => p.id));
     mixedPosts = normalPosts
       .filter((p) => !pinnedIds.has(p.id))
       .sort(
@@ -350,7 +350,7 @@ export const usePosts = ({
   console.log("loadError:", loadError);
   console.log("selectedCategoryId:", selectedCategoryId);
   console.log("isRecommendFirstPage:", isRecommendFirstPage);
-  console.log("singlePinnedPost:", singlePinnedPost);
+  console.log("pinnedPostsToShow:", pinnedPostsToShow);
   console.log("mixedPosts.length:", mixedPosts.length);
   console.log("leftColumnPosts.length:", leftColumnPosts.length);
   console.log("rightColumnPosts.length:", rightColumnPosts.length);
@@ -381,7 +381,7 @@ export const usePosts = ({
 
     // 计算属性
     isRecommendFirstPage,
-    singlePinnedPost,
+    pinnedPostsToShow,
     mixedPosts,
     leftColumnPosts,
     rightColumnPosts,

@@ -22,6 +22,8 @@ interface PostDetail {
     avatar_url: string;
     openid: string;
   };
+  cover_image?: string;
+  mockImagePlaceholderColor?: string;
 }
 
 const PostDetailPage = () => {
@@ -188,24 +190,27 @@ const PostDetailPage = () => {
     );
   }
 
-  // 兼容 images 字段为字符串、null、undefined等情况，确保 images 一定是数组
-  let images: string[] = [];
-  if (Array.isArray(post.images)) {
-    images = post.images;
-  } else if (typeof post.images === "string") {
-    try {
-      const parsed = JSON.parse(post.images);
-      if (Array.isArray(parsed)) {
-        images = parsed;
-      } else if (parsed) {
-        images = [parsed];
-      }
-    } catch {
-      if (post.images) images = [post.images];
-    }
-  } else if (post.images) {
-    images = [post.images];
-  }
+  // 兼容 cover_image、images[0]、images 字符串
+  const mainImage =
+    post.cover_image ||
+    (Array.isArray(post.images) && post.images.length > 0 && post.images[0]) ||
+    (typeof post.images === "string"
+      ? (() => {
+          try {
+            const parsed = JSON.parse(post.images);
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed[0];
+            if (typeof parsed === "string") return parsed;
+          } catch {
+            return post.images;
+          }
+        })()
+      : post.images) ||
+    "";
+
+  // 兼容 mockImagePlaceholderColor
+  const placeholderColor = post.mockImagePlaceholderColor || "rgb(240,240,240)"; // 默认灰色
+
+  const [imgLoaded, setImgLoaded] = useState(false);
 
   // 判断是否显示联系方式部分
   // 只有当当前登录用户的 openid 不等于帖子发布者 openid 时才显示
@@ -224,63 +229,43 @@ const PostDetailPage = () => {
 
   return (
     <View className="detail-page">
-      <View className="content">
-        {images.length > 0 && (
-          <View className="image-grid">
-            <View className="grid-container">
-              {images.map((image, index) => (
-                <View
-                  key={index}
-                  className="grid-item"
-                  onClick={() => handleImageClick(image)}
-                >
-                  <Image className="image" src={image} mode="aspectFill" />
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        <View className="post-info">
-          <Text className="title">{post.title}</Text>
-          <Text className="description">{post.content}</Text>
-          {post.price && <Text className="price">¥{post.price}</Text>}
-        </View>
-
-        <View className="user-info">
-          <Image
-            className="avatar"
-            src={
-              post.users?.avatar_url || "https://example.com/default-avatar.png"
-            }
+      <View
+        className="image-main"
+        style={{
+          width: "100%",
+          height: "200rpx",
+          background: placeholderColor,
+          borderRadius: "16rpx",
+          overflow: "hidden",
+          position: "relative",
+        }}
+      >
+        {!imgLoaded && (
+          <View
+            style={{
+              width: "100%",
+              height: "100%",
+              background: placeholderColor,
+              position: "absolute",
+              top: 0,
+              left: 0,
+            }}
           />
-          <View className="user-details">
-            <Text className="nickname">
-              {post.users?.nickname || "未知用户"}
-            </Text>
-            <Text className="post-time">
-              {new Date(post.created_at).toLocaleDateString()}
-            </Text>
-          </View>
-        </View>
-
-        {/* 条件渲染：只有当不是帖子发布者时才显示私信按钮 */}
-        {shouldShowContactInfo && (
-          <View className="contact-info">
-            <Text className="contact-title">联系卖家</Text>
-            <View className="wechat-id">
-              <Button
-                className="message-seller-button"
-                onClick={handleMessageSeller}
-                style={{ marginLeft: "0px" }}
-              >
-                私信卖家
-              </Button>
-            </View>
-          </View>
+        )}
+        {mainImage && (
+          <Image
+            className="image"
+            src={mainImage}
+            mode="aspectFill"
+            style={{
+              width: "100%",
+              height: "100%",
+              display: imgLoaded ? "block" : "none",
+            }}
+            onLoad={() => setImgLoaded(true)}
+          />
         )}
       </View>
-
       {selectedImage && (
         <View className="image-preview-modal" onClick={handleClosePreview}>
           <View className="modal-content">
