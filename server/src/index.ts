@@ -10,6 +10,7 @@ import adminRoutes from "./routes/admin";
 import authRoutes from "./routes/auth";
 import wxRoutes from "./routes/wx";
 import conversationRoutes from "./routes/conversation";
+import indexRoutes from "./routes/index";
 // 移除旧的数据库初始化
 // import { initializeDatabase } from "./config/database";
 
@@ -103,6 +104,13 @@ if (!fs.existsSync(IMAGES_PATH)) {
 // 静态文件服务
 app.use(
   "/catalogue_images",
+  express.static(path.join(__dirname, "public/catalogue_images"))
+);
+app.use("/crm", express.static(path.join(__dirname, "crm")));
+
+// 静态文件服务
+app.use(
+  "/catalogue_images",
   express.static(IMAGES_PATH, {
     setHeaders: (res) => {
       res.set("Access-Control-Allow-Origin", "*");
@@ -144,6 +152,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/wx", wxRoutes);
 app.use("/api/conversations", conversationRoutes);
+app.use("/api", indexRoutes);
 
 // 添加 catalogue 路由
 app.get("/api/catalogue/:store", (req: Request, res: Response) => {

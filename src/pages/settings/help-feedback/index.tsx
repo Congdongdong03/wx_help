@@ -1,162 +1,157 @@
 import Taro from "@tarojs/taro";
 import { useState } from "react";
 import { View, Text, Textarea, Button, Image } from "@tarojs/components";
-import { debounce, throttle } from "../../../utils/debounce";
-import { request, uploadFile } from "../../../utils/request";
+import { request } from "../../../utils/request";
 import "./index.scss";
-
-interface FAQItem {
-  id: string;
-  question: string;
-  answer: string;
-}
-
-const faqs: FAQItem[] = [
-  {
-    id: "q1",
-    question: "如何发布信息？",
-    answer:
-      "在首页点击底部的发布按钮，选择对应的分类，填写信息并上传图片即可。",
-  },
-  {
-    id: "q2",
-    question: "信息审核需要多久？",
-    answer: "我们会在24小时内完成审核，请耐心等待。",
-  },
-  {
-    id: "q3",
-    question: "如何避免交易被骗？",
-    answer:
-      "请尽量选择当面交易，核实对方身份。对于线上交易，警惕要求提前支付或向陌生账户转账的行为。",
-  },
-  {
-    id: "q4",
-    question: "信用等级是如何计算的？",
-    answer: "信用等级会根据您的发帖历史、交易评价、举报情况等综合计算。",
-  },
-];
 
 export default function HelpFeedbackPage() {
   const [feedbackText, setFeedbackText] = useState("");
-  const [feedbackImage, setFeedbackImage] = useState<string | null>(null);
-  const [expandedFAQ, setExpandedFAQ] = useState<string | null>(null);
+  const [feedbackImage, setFeedbackImage] = useState("");
+  const [feedbackType, setFeedbackType] = useState("advice");
+  const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null);
 
-  const handleToggleFAQ = (id: string) => {
-    setExpandedFAQ(expandedFAQ === id ? null : id);
+  const handleFeedbackTextChange = (e) => {
+    setFeedbackText(e.detail.value);
   };
 
-  const handleFeedbackTextChange = debounce((e) => {
-    setFeedbackText(e.detail.value);
-  }, 300);
+  const handleToggleFAQ = (index: number) => {
+    setExpandedFAQ(expandedFAQ === index ? null : index);
+  };
 
-  const handleChooseImage = throttle(() => {
+  const handleChooseImage = () => {
     Taro.chooseImage({
       count: 1,
-      sizeType: ["original", "compressed"],
+      sizeType: ["compressed"],
       sourceType: ["album", "camera"],
       success: (res) => {
         setFeedbackImage(res.tempFilePaths[0]);
       },
-      fail: (err) => {
-        if (err.errMsg.includes("cancel")) return;
-        Taro.showToast({ title: "选择图片失败", icon: "none" });
+      fail: (error) => {
+        console.error("选择图片失败:", error);
+        Taro.showToast({
+          title: "选择图片失败",
+          icon: "none",
+        });
       },
     });
-  }, 1000);
-
-  const handleRemoveImage = () => {
-    setFeedbackImage(null);
   };
 
-  const handleSubmitFeedback = throttle(async () => {
+  const handleRemoveImage = () => {
+    setFeedbackImage("");
+  };
+
+  const handleSubmitFeedback = async () => {
     if (!feedbackText.trim()) {
-      Taro.showToast({ title: "请填写反馈内容后再提交", icon: "none" });
+      Taro.showToast({ title: "请填写反馈内容", icon: "none" });
       return;
     }
 
     Taro.showLoading({ title: "提交中..." });
 
     try {
-      let imageUrl = null;
-
+      // 如果有图片，先上传图片
+      let imageUrl = "";
       if (feedbackImage) {
         try {
-          const uploadResult = await uploadFile<{ url: string }>(
-            "/api/upload",
-            feedbackImage,
-            {
-              name: "file",
-              retryCount: 3,
-              retryDelay: 1000,
-            }
-          );
-          imageUrl = uploadResult.url;
-        } catch (error) {
-          console.error("图片上传失败:", error);
+          const uploadRes = await Taro.uploadFile({
+            url: "http://localhost:3000/api/posts/upload",
+            filePath: feedbackImage,
+            name: "file",
+            header: {
+              "x-openid": "dev_openid_123", // 开发环境使用
+            },
+          });
+
+          const uploadData = JSON.parse(uploadRes.data);
+          if (uploadData.code === 0) {
+            imageUrl = uploadData.data.url;
+          }
+        } catch (uploadError) {
+          console.error("图片上传失败:", uploadError);
           Taro.showToast({
-            title: "图片上传失败，是否继续提交？",
+            title: "图片上传失败，但反馈内容已提交",
             icon: "none",
-            duration: 2000,
           });
         }
       }
 
-      await request("/api/feedback", {
+      // 提交反馈
+      await request("http://localhost:3000/api/feedback-submit", {
         method: "POST",
         data: {
           content: feedbackText.trim(),
-          imageUrl,
+          type: feedbackType,
+          image: imageUrl,
         },
-        retryCount: 3,
-        retryDelay: 1000,
-        retryableStatusCodes: [408, 429, 500, 502, 503, 504],
       });
 
       Taro.hideLoading();
       Taro.showToast({
-        title: "反馈已提交，我们会尽快查看～",
+        title: "反馈已提交",
         icon: "success",
         duration: 2000,
       });
 
+      // 重置表单
       setFeedbackText("");
-      setFeedbackImage(null);
+      setFeedbackImage("");
+      setFeedbackType("advice");
     } catch (error) {
       Taro.hideLoading();
-
-      let errorMessage = "提交失败，请稍后重试";
-      if (error.message?.includes("HTTP 429")) {
-        errorMessage = "提交过于频繁，请稍后再试";
-      } else if (error.message?.includes("HTTP 5")) {
-        errorMessage = "服务器暂时不可用，请稍后再试";
-      }
-
       Taro.showToast({
-        title: errorMessage,
+        title: "提交失败，请稍后重试",
         icon: "none",
         duration: 2000,
       });
     }
-  }, 2000);
+  };
+
+  const faqData = [
+    {
+      question: "如何发布商品信息？",
+      answer:
+        "在首页点击帮帮按钮，填写商品信息并上传图片即可发布。发布前请确保信息真实准确。",
+    },
+    {
+      question: "如何联系卖家？",
+      answer:
+        "在商品详情页面点击联系卖家按钮，可以通过私信功能与卖家进行沟通。",
+    },
+    {
+      question: "如何举报虚假信息？",
+      answer:
+        "在商品详情页面点击举报按钮，选择举报原因并提交。我们会尽快处理您的举报。",
+    },
+    {
+      question: "如何修改个人信息？",
+      answer: "在我的页面点击头像或昵称，可以修改个人资料信息。",
+    },
+    {
+      question: "忘记密码怎么办？",
+      answer:
+        "目前我们使用微信授权登录，无需密码。如果遇到登录问题，请尝试重新授权或联系客服。",
+    },
+  ];
 
   return (
     <View className="help-feedback-page">
+      {/* FAQ 部分 */}
       <View className="section faq-section">
-        <Text className="section-title">常见问题 Q&A</Text>
-        {faqs.map((faq) => (
-          <View key={faq.id} className="faq-item">
+        <Text className="section-title">常见问题</Text>
+        {faqData.map((faq, index) => (
+          <View key={index} className="faq-item">
             <View
               className={`faq-question ${
-                expandedFAQ === faq.id ? "expanded" : ""
+                expandedFAQ === index ? "expanded" : ""
               }`}
-              onClick={() => handleToggleFAQ(faq.id)}
+              onClick={() => handleToggleFAQ(index)}
             >
               <Text>{faq.question}</Text>
               <Text className="faq-arrow">
-                {expandedFAQ === faq.id ? "▲" : "▼"}
+                {expandedFAQ === index ? "▼" : "▶"}
               </Text>
             </View>
-            {expandedFAQ === faq.id && (
+            {expandedFAQ === index && (
               <View className="faq-answer">
                 <Text>{faq.answer}</Text>
               </View>
@@ -165,33 +160,67 @@ export default function HelpFeedbackPage() {
         ))}
       </View>
 
+      {/* 反馈提交部分 */}
       <View className="section feedback-submission-section">
         <Text className="section-title">提交反馈</Text>
+
+        {/* 反馈类型选择 */}
+        <View style={{ marginBottom: "20rpx" }}>
+          <Text
+            style={{
+              fontSize: "28rpx",
+              color: "#333",
+              marginBottom: "10rpx",
+              display: "block",
+            }}
+          >
+            反馈类型：
+          </Text>
+          <View style={{ display: "flex", gap: "20rpx" }}>
+            {[
+              { value: "advice", label: "建议" },
+              { value: "bug", label: "问题" },
+              { value: "report", label: "举报" },
+            ].map((type) => (
+              <Button
+                key={type.value}
+                size="mini"
+                type={feedbackType === type.value ? "primary" : "default"}
+                onClick={() => setFeedbackType(type.value)}
+                style={{ fontSize: "24rpx" }}
+              >
+                {type.label}
+              </Button>
+            ))}
+          </View>
+        </View>
+
         <Textarea
           className="feedback-textarea"
           placeholder="请详细描述您遇到的问题或建议（必填）"
           value={feedbackText}
           onInput={handleFeedbackTextChange}
-          maxlength={500} // Optional: limit length
+          maxlength={500}
           autoHeight
         />
 
+        {/* 图片上传 */}
         <View className="image-uploader-container">
           {feedbackImage ? (
             <View className="image-preview-item">
               <Image
+                className="preview-image"
                 src={feedbackImage}
                 mode="aspectFill"
-                className="preview-image"
               />
               <View className="remove-image-btn" onClick={handleRemoveImage}>
-                <Text>✕</Text>
+                ×
               </View>
             </View>
           ) : (
             <View className="add-image-btn" onClick={handleChooseImage}>
               <Text className="plus-icon">+</Text>
-              <Text>添加图片 (可选, 最多1张)</Text>
+              <Text>添加图片</Text>
             </View>
           )}
         </View>
@@ -200,7 +229,7 @@ export default function HelpFeedbackPage() {
           className="submit-feedback-btn"
           type="primary"
           onClick={handleSubmitFeedback}
-          disabled={!feedbackText.trim()} // Disable if no text
+          disabled={!feedbackText.trim()}
         >
           提交反馈
         </Button>
@@ -208,8 +237,3 @@ export default function HelpFeedbackPage() {
     </View>
   );
 }
-
-// Optional: Page configuration
-definePageConfig({
-  navigationBarTitleText: "帮助与反馈",
-});

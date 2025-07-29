@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>PDF上传测试</title>
+    <meta charset="UTF-8" />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .upload-section {
+        border: 1px solid #ddd;
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 8px;
+      }
+      .btn {
+        background: #007bff;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      .btn:hover {
+        background: #0056b3;
+      }
+      .status {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .status.success {
+        background: #d4edda;
+        color: #155724;
+      }
+      .status.error {
+        background: #f8d7da;
+        color: #721c24;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>PDF上传测试页面</h1>
+
+    <div class="upload-section">
+      <h2>Coles PDF上传</h2>
+      <input type="file" id="coles-pdf" accept=".pdf" style="display: none" />
+      <button
+        class="btn"
+        onclick="document.getElementById('coles-pdf').click()"
+      >
+        选择PDF文件
+      </button>
+      <button
+        class="btn"
+        onclick="uploadPDF('coles')"
+        id="coles-upload-btn"
+        disabled
+      >
+        上传Coles PDF
+      </button>
+      <div id="coles-status"></div>
+    </div>
+
+    <div class="upload-section">
+      <h2>Woolworths PDF上传</h2>
+      <input type="file" id="wws-pdf" accept=".pdf" style="display: none" />
+      <button class="btn" onclick="document.getElementById('wws-pdf').click()">
+        选择PDF文件
+      </button>
+      <button
+        class="btn"
+        onclick="uploadPDF('wws')"
+        id="wws-upload-btn"
+        disabled
+      >
+        上传Woolworths PDF
+      </button>
+      <div id="wws-status"></div>
+    </div>
+
+    <div class="upload-section">
+      <h2>状态检查</h2>
+      <button class="btn" onclick="checkStatus()">检查目录状态</button>
+      <div id="status-result"></div>
+    </div>
+
+    <script>
+      const API_BASE = "http://localhost:3000/api";
+      let selectedFiles = {};
+
+      // 文件选择处理
+      document.getElementById("coles-pdf").addEventListener("change", (e) => {
+        handleFileSelect("coles", e.target.files[0]);
+      });
+
+      document.getElementById("wws-pdf").addEventListener("change", (e) => {
+        handleFileSelect("wws", e.target.files[0]);
+      });
+
+      function handleFileSelect(store, file) {
+        if (!file) return;
+
+        if (!file.type.includes("pdf")) {
+          showStatus(store, "请选择PDF文件", "error");
+          return;
+        }
+
+        if (file.size > 50 * 1024 * 1024) {
+          showStatus(store, "文件大小不能超过50MB", "error");
+          return;
+        }
+
+        selectedFiles[store] = file;
+        document.getElementById(`${store}-upload-btn`).disabled = false;
+        showStatus(
+          store,
+          `已选择文件: ${file.name} (${(file.size / 1024 / 1024).toFixed(
+            2
+          )} MB)`,
+          "success"
+        );
+      }
+
+      async function uploadPDF(store) {
+        const file = selectedFiles[store];
+        if (!file) {
+          showStatus(store, "请先选择PDF文件", "error");
+          return;
+        }
+
+        const btn = document.getElementById(`${store}-upload-btn`);
+        btn.disabled = true;
+        btn.textContent = "上传中...";
+
+        try {
+          const formData = new FormData();
+          formData.append("pdf", file);
+          formData.append("store", store);
+
+          const response = await fetch(`${API_BASE}/admin/catalogue/upload`, {
+            method: "POST",
+            headers: { "X-Openid": "dev_openid_123" },
+            body: formData,
+          });
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.error || "上传失败");
+          }
+
+          showStatus(store, `✅ 上传成功！${result.data.message}`, "success");
+
+          // 延迟检查状态
+          setTimeout(() => {
+            checkStatus();
+          }, 1000);
+        } catch (error) {
+          console.error("上传失败:", error);
+          showStatus(store, `❌ 上传失败: ${error.message}`, "error");
+        } finally {
+          btn.disabled = false;
+          btn.textContent = `上传${
+            store === "coles" ? "Coles" : "Woolworths"
+          } PDF`;
+        }
+      }
+
+      async function checkStatus() {
+        try {
+          const response = await fetch(`${API_BASE}/admin/catalogue/status`, {
+            headers: { "X-Openid": "dev_openid_123" },
+          });
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.error || "获取状态失败");
+          }
+
+          const status = result.data;
+          let html = "<h3>当前状态:</h3>";
+
+          for (const [store, data] of Object.entries(status)) {
+            const storeName = store === "coles" ? "Coles" : "Woolworths";
+            if (data.exists) {
+              html += `
+                            <div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <strong>${storeName}:</strong><br>
+                                PDF文件: ${data.pdfCount || 0} 个<br>
+                                图片数量: ${data.imageCount} 张<br>
+                                文件大小: ${data.totalSize} MB<br>
+                                更新时间: ${new Date(
+                                  data.lastUpdate
+                                ).toLocaleString()}<br>
+                                状态: ${
+                                  data.isRecent ? "✅ 最新" : "⚠️ 需要更新"
+                                }
+                                ${
+                                  data.pdfCount > 0
+                                    ? `<br><button class="btn" onclick="viewPDF('${store}')">查看PDF</button>`
+                                    : ""
+                                }
+                            </div>
+                        `;
+            } else {
+              html += `
+                            <div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <strong>${storeName}:</strong> 无数据
+                            </div>
+                        `;
+            }
+          }
+
+          document.getElementById("status-result").innerHTML = html;
+        } catch (error) {
+          console.error("获取状态失败:", error);
+          document.getElementById(
+            "status-result"
+          ).innerHTML = `<div class="status error">❌ 获取状态失败: ${error.message}</div>`;
+        }
+      }
+
+      function showStatus(store, message, type) {
+        const statusDiv = document.getElementById(`${store}-status`);
+        statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+      }
+
+      function viewPDF(store) {
+        const url = `http://localhost:3000/catalogue-pdf/${store}`;
+        window.open(url, "_blank");
+      }
+
+      // 页面加载时检查状态
+      window.onload = function () {
+        checkStatus();
+      };
+    </script>
+  </body>
+</html>
