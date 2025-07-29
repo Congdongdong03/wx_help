@@ -5,6 +5,7 @@ import { getCities, getRecommendations } from "../controllers/home";
 import { PostController } from "../controllers/post";
 import { UserController } from "../controllers/user";
 import conversationRouter from "./conversation";
+import adminRouter from "./admin";
 import { log } from "../utils/monitor";
 
 const router = Router();
@@ -67,5 +68,8 @@ router.post("/user/logout", requireAuth, UserController.logout);
 
 // 会话相关路由
 router.use("/conversations", conversationRouter);
+
+// 管理员路由
+router.use("/admin", adminRouter);
 
 export default router;

@@ -25,6 +25,42 @@ router.post(
 // 获取所有帖子（管理员视图）
 router.get("/posts", requireAuth, AdminPostController.getAllPosts);
 
+// 获取最近帖子
+router.get("/posts/recent", requireAuth, async (req, res) => {
+  try {
+    const { limit = 30 } = req.query;
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
+
+    const posts = await prisma.posts.findMany({
+      orderBy: { created_at: "desc" },
+      take: limitNum,
+      include: {
+        users: {
+          select: {
+            id: true,
+            nickname: true,
+            avatar_url: true,
+          },
+        },
+      },
+    });
+
+    res.json({
+      code: 0,
+      message: "获取成功",
+      data: {
+        posts,
+        total: posts.length,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      code: 1,
+      message: "获取最近帖子失败",
+    });
+  }
+});
+
 // 管理员删除帖子
 router.delete("/posts/:id", requireAuth, AdminPostController.deletePost);
 
@@ -37,6 +73,64 @@ router.get(
   requireAuth,
   AdminPostController.getCatalogueImages
 );
+
+// 获取用户列表
+router.get("/users", requireAuth, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, keyword } = req.query;
+    const pageNum = Math.max(1, parseInt(page as string));
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit as string)));
+    const offset = (pageNum - 1) * limitNum;
+
+    const where: any = {};
+    if (keyword) {
+      where.OR = [
+        { nickname: { contains: keyword as string } },
+        { username: { contains: keyword as string } },
+      ];
+    }
+
+    const [users, total] = await Promise.all([
+      prisma.users.findMany({
+        where,
+        orderBy: { created_at: "desc" },
+        take: limitNum,
+        skip: offset,
+        select: {
+          id: true,
+          nickname: true,
+          username: true,
+          avatar_url: true,
+          status: true,
+          created_at: true,
+          last_login_at: true,
+          _count: {
+            select: { posts: true },
+          },
+        },
+      }),
+      prisma.users.count({ where }),
+    ]);
+
+    res.json({
+      code: 0,
+      message: "获取成功",
+      data: {
+        users,
+        pagination: {
+          current: pageNum,
+          total,
+          totalPages: Math.ceil(total / limitNum),
+        },
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      code: 1,
+      message: "获取用户列表失败",
+    });
+  }
+});
 
 // =========================
 // 管理后台统计数据接口（兼容前端 /api/admin/stats 请求）

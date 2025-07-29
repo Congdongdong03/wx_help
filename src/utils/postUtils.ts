@@ -140,6 +140,12 @@ export const mapToFeedPost = (item: any): FeedPost => {
 export const distributePosts = (
   posts: FeedPost[]
 ): [FeedPost[], FeedPost[]] => {
+  // 确保 posts 是数组
+  if (!Array.isArray(posts)) {
+    console.warn("distributePosts: posts is not an array:", posts);
+    return [[], []];
+  }
+
   const leftColumn: FeedPost[] = [];
   const rightColumn: FeedPost[] = [];
   let leftHeight = 0;
