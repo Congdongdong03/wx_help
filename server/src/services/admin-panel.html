@@ -481,7 +481,8 @@
           .forEach((content) => content.classList.remove("active"));
 
         event.target.classList.add("active");
-        document.getElementById(`${tab}-tab`).classList.add("active");
+        const tabElement = document.getElementById(`${tab}-tab`);
+        if (tabElement) tabElement.classList.add("active");
 
         currentTab = tab;
 
@@ -521,12 +522,14 @@
       }
 
       function search() {
-        currentKeyword = document.getElementById("search-input").value.trim();
+        const searchInput = document.getElementById("search-input");
+        currentKeyword = searchInput ? searchInput.value.trim() : "";
         refreshCurrentTab();
       }
 
       function clearSearch() {
-        document.getElementById("search-input").value = "";
+        const searchInput = document.getElementById("search-input");
+        if (searchInput) searchInput.value = "";
         currentKeyword = "";
         refreshCurrentTab();
       }
@@ -541,14 +544,18 @@
 
           if (data.success) {
             const stats = data.data;
-            document.getElementById("pending-count").textContent =
-              stats.status.pending || 0;
-            document.getElementById("published-count").textContent =
-              stats.status.published || 0;
-            document.getElementById("failed-count").textContent =
-              stats.status.failed || 0;
-            document.getElementById("today-count").textContent =
-              stats.today.total || 0;
+            const pendingCountEl = document.getElementById("pending-count");
+            const publishedCountEl = document.getElementById("published-count");
+            const failedCountEl = document.getElementById("failed-count");
+            const todayCountEl = document.getElementById("today-count");
+
+            if (pendingCountEl)
+              pendingCountEl.textContent = stats.status.pending || 0;
+            if (publishedCountEl)
+              publishedCountEl.textContent = stats.status.published || 0;
+            if (failedCountEl)
+              failedCountEl.textContent = stats.status.failed || 0;
+            if (todayCountEl) todayCountEl.textContent = stats.today.total || 0;
           }
         } catch (error) {
           console.warn("加载统计失败:", error);
@@ -849,9 +856,8 @@
         const body = { action };
 
         if (action === "reject") {
-          const reason = document
-            .getElementById(`reason-${postId}`)
-            .value.trim();
+          const reasonElement = document.getElementById(`reason-${postId}`);
+          const reason = reasonElement ? reasonElement.value.trim() : "";
           if (!reason) {
             showToast("请输入拒绝原因", "error");
             return;
@@ -865,8 +871,11 @@
             `[onclick*="${postId}"]`
           );
           actionBtns.forEach((btn) => {
-            btn.disabled = true;
-            btn.textContent = action === "approve" ? "处理中..." : "拒绝中...";
+            if (btn) {
+              btn.disabled = true;
+              btn.textContent =
+                action === "approve" ? "处理中..." : "拒绝中...";
+            }
           });
 
           const response = await fetch(
@@ -908,14 +917,16 @@
       // 显示/隐藏拒绝表单
       function showRejectForm(postId) {
         const form = document.getElementById(`reject-form-${postId}`);
-        form.classList.add("show");
-        document.getElementById(`reason-${postId}`).focus();
+        const reasonInput = document.getElementById(`reason-${postId}`);
+        if (form) form.classList.add("show");
+        if (reasonInput) reasonInput.focus();
       }
 
       function hideRejectForm(postId) {
         const form = document.getElementById(`reject-form-${postId}`);
-        form.classList.remove("show");
-        document.getElementById(`reason-${postId}`).value = "";
+        const reasonInput = document.getElementById(`reason-${postId}`);
+        if (form) form.classList.remove("show");
+        if (reasonInput) reasonInput.value = "";
       }
 
       // 获取状态文本

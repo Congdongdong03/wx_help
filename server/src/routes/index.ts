@@ -7,6 +7,8 @@ import { UserController } from "../controllers/user";
 import conversationRouter from "./conversation";
 import adminRouter from "./admin";
 import feedbackRouter from "./feedback";
+import statisticsRouter from "./statistics";
+import exportRouter from "./export";
 import { log } from "../utils/monitor";
 import { prisma } from "../lib/prisma";
 
@@ -174,5 +176,11 @@ router.use("/conversations", conversationRouter);
 
 // 管理员路由
 router.use("/admin", adminRouter);
+
+// 统计路由
+router.use("/statistics", statisticsRouter);
+
+// 导出路由
+router.use("/export", exportRouter);
 
 export default router;

@@ -223,3 +223,46 @@ model sensitive_word {
   
   @@unique([word, category], name: "word_category")
 }
+
+// 统计快照表 - 用于存储每日/每周/每月的统计数据
+model statistics_snapshot {
+  id          Int      @id @default(autoincrement())
+  date        DateTime @db.Date // 统计日期
+  period_type String   // daily, weekly, monthly
+  metric_name String   // 指标名称
+  metric_value Float   // 指标值
+  metadata    String?  // 额外数据，JSON格式
+  created_at  DateTime @default(now())
+  
+  @@unique([date, period_type, metric_name], name: "unique_statistic")
+  @@index([date, period_type])
+  @@index([metric_name])
+}
+
+// 统计指标配置表 - 用于配置需要统计的指标
+model statistics_config {
+  id          Int      @id @default(autoincrement())
+  metric_name String   @unique // 指标名称
+  display_name String  // 显示名称
+  description String?  // 描述
+  unit        String?  // 单位
+  category    String   // 分类：user_growth, content_production, content_moderation, user_feedback
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+}
+
+// 用户行为统计表 - 用于存储用户行为数据
+model user_behavior_stats {
+  id          Int      @id @default(autoincrement())
+  user_id     Int
+  action_type String   // login, post, comment, like, favorite, view
+  target_type String?  // post, comment, user
+  target_id   Int?     // 目标ID
+  metadata    String?  // 额外数据，JSON格式
+  created_at  DateTime @default(now())
+  
+  @@index([user_id, action_type])
+  @@index([created_at])
+  @@index([action_type, created_at])
+}
