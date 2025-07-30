@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { PostService } from "../services/postService";
 import { PostModel } from "../models/post";
 import { AuthenticatedRequest } from "../middleware/auth";
+import { sensitiveWordService } from "../services/sensitiveWordService";
 
 // 统一的日志函数
 const log = (
@@ -169,6 +170,32 @@ export class PostController {
         });
       }
 
+      // 敏感词检测
+      const textToCheck = `${title} ${description || ""}`.trim();
+      const sensitiveResult = await sensitiveWordService.checkSensitiveWords(
+        textToCheck
+      );
+
+      let postStatus = "pending";
+      let reviewStatus = "pending";
+      let sensitiveWords = null;
+
+      if (sensitiveResult.hasSensitiveWords) {
+        postStatus = "review_required";
+        reviewStatus = "pending";
+        sensitiveWords = JSON.stringify({
+          words: sensitiveResult.matchedWords,
+          categories: sensitiveResult.categories,
+        });
+
+        log("warn", "createPost: Sensitive words detected", {
+          postId: null,
+          userId,
+          matchedWords: sensitiveResult.matchedWords,
+          categories: sensitiveResult.categories,
+        });
+      }
+
       // 使用 PostService 创建帖子
       const newPost = await PostService.create({
         user_id: userId,
@@ -181,7 +208,9 @@ export class PostController {
         category: categoryMain,
         sub_category: categorySub,
         city_code: cityCode || undefined,
-        status: "pending", // 默认设置为待审核状态
+        status: postStatus as any,
+        review_status: reviewStatus,
+        sensitive_words: sensitiveWords || undefined,
         price: price || undefined,
       });
 
@@ -296,6 +325,36 @@ export class PostController {
         });
       }
 
+      // 敏感词检测（仅在发布时检测）
+      let postStatus = intentStatus === "draft" ? "draft" : "pending";
+      let reviewStatus = "pending";
+      let sensitiveWords = null;
+
+      if (intentStatus === "publish") {
+        const textToCheck = `${title || existingPost.title} ${
+          description || existingPost.content || ""
+        }`.trim();
+        const sensitiveResult = await sensitiveWordService.checkSensitiveWords(
+          textToCheck
+        );
+
+        if (sensitiveResult.hasSensitiveWords) {
+          postStatus = "review_required";
+          reviewStatus = "pending";
+          sensitiveWords = JSON.stringify({
+            words: sensitiveResult.matchedWords,
+            categories: sensitiveResult.categories,
+          });
+
+          log("warn", "updatePost: Sensitive words detected", {
+            postId,
+            userId,
+            matchedWords: sensitiveResult.matchedWords,
+            categories: sensitiveResult.categories,
+          });
+        }
+      }
+
       // 更新帖子
       const updatedPost = await PostService.update(postId, {
         title: title ? title.trim() : undefined,
@@ -306,7 +365,9 @@ export class PostController {
             : undefined,
         category,
         city_code: cityCode || undefined,
-        status: intentStatus === "draft" ? "draft" : "pending",
+        status: postStatus as any,
+        review_status: reviewStatus,
+        sensitive_words: sensitiveWords,
         price: price || undefined,
       });
 

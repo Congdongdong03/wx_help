@@ -22,6 +22,8 @@ export interface PostCreateInput {
   sub_category?: string;
   city_code?: string;
   status: posts_status;
+  review_status?: string;
+  sensitive_words?: string;
   price?: string;
 }
 

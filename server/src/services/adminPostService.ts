@@ -16,21 +16,47 @@ export interface AdminPostFilters {
 
 export class AdminPostService {
   /**
-   * 获取待审核帖子列表
+   * 获取待审核帖子列表（包括普通待审核和敏感词审核）
    */
   static async getPendingPosts(filters: {
     category?: string;
     keyword?: string;
     page: number;
     limit: number;
+    reviewType?: "all" | "normal" | "sensitive"; // 新增：审核类型过滤
   }) {
-    const { category, keyword, page, limit } = filters;
+    const { category, keyword, page, limit, reviewType = "all" } = filters;
     const offset = (page - 1) * limit;
 
-    const where: any = { status: "pending" };
+    // 构建查询条件
+    const where: any = {};
+
+    // 根据审核类型设置状态条件
+    if (reviewType === "normal") {
+      where.status = "pending";
+    } else if (reviewType === "sensitive") {
+      where.status = "review_required";
+      where.sensitive_words = { not: null };
+    } else {
+      // "all" - 包含所有需要审核的帖子
+      where.OR = [
+        { status: "pending" },
+        {
+          status: "review_required",
+          sensitive_words: { not: null },
+        },
+      ];
+    }
 
     if (category && category !== "all") {
-      where.category = category;
+      if (reviewType === "sensitive") {
+        // 敏感词分类过滤
+        where.sensitive_words = {
+          contains: `"categories":["${category}"]`,
+        };
+      } else {
+        where.category = category;
+      }
     }
 
     if (keyword) {
@@ -60,7 +86,7 @@ export class AdminPostService {
       prisma.posts.count({ where }),
     ]);
 
-    // 处理图片数据
+    // 处理图片数据和敏感词信息
     const processedPosts = posts.map((post) => {
       let images = [];
       if (post.images) {
@@ -72,12 +98,29 @@ export class AdminPostService {
           console.warn(`Failed to parse images for post ${post.id}`);
         }
       }
+
+      // 处理敏感词信息
+      let sensitiveWordsInfo = null;
+      if (post.sensitive_words) {
+        try {
+          sensitiveWordsInfo = JSON.parse(post.sensitive_words);
+        } catch (e) {
+          console.warn(`Failed to parse sensitive words for post ${post.id}`);
+        }
+      }
+
       return {
         ...post,
         images,
         preview_image: images.length > 0 ? images[0] : null,
         author_nickname: post.users?.nickname,
         author_avatar: post.users?.avatar_url,
+        sensitive_words_info: sensitiveWordsInfo,
+        // 添加审核类型标识
+        review_type:
+          post.status === "review_required" && post.sensitive_words
+            ? "sensitive"
+            : "normal",
       };
     });
 
@@ -304,6 +347,41 @@ export class AdminPostService {
 
       return { success: true };
     });
+  }
+
+  /**
+   * 批量删除帖子
+   */
+  static async batchDeletePosts(postIds: number[], adminId?: number) {
+    const results = [];
+    let successCount = 0;
+
+    for (const postId of postIds) {
+      try {
+        const result = await this.deletePost(postId, adminId);
+        results.push({
+          id: postId,
+          success: true,
+          message: "删除成功",
+        });
+        successCount++;
+      } catch (error: any) {
+        results.push({
+          id: postId,
+          success: false,
+          message: error.message || "删除失败",
+        });
+      }
+    }
+
+    return {
+      results,
+      summary: {
+        total: postIds.length,
+        success: successCount,
+        failed: postIds.length - successCount,
+      },
+    };
   }
 
   /**

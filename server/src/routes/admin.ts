@@ -284,38 +284,75 @@ router.post(
   AdminPostController.batchReviewPosts
 );
 
+// 批量删除帖子
+router.delete(
+  "/posts/batch-delete",
+  requireAuth,
+  AdminPostController.batchDeletePosts
+);
+
 // 获取所有帖子（管理员视图）
 router.get("/posts", requireAuth, AdminPostController.getAllPosts);
 
 // 获取最近帖子
 router.get("/posts/recent", requireAuth, async (req, res) => {
   try {
-    const { limit = 30 } = req.query;
+    const { page = "1", limit = "10" } = req.query;
+    const pageNum = Math.max(1, parseInt(page as string));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
+    const offset = (pageNum - 1) * limitNum;
 
-    const posts = await prisma.posts.findMany({
-      orderBy: { created_at: "desc" },
-      take: limitNum,
-      include: {
-        users: {
-          select: {
-            id: true,
-            nickname: true,
-            avatar_url: true,
+    const [posts, total] = await Promise.all([
+      prisma.posts.findMany({
+        orderBy: { created_at: "desc" },
+        take: limitNum,
+        skip: offset,
+        include: {
+          users: {
+            select: {
+              id: true,
+              nickname: true,
+              avatar_url: true,
+            },
           },
         },
-      },
-    });
+      }),
+      prisma.posts.count({}),
+    ]);
+
+    // 处理帖子数据，添加作者信息
+    const processedPosts = posts.map((post) => ({
+      ...post,
+      author: post.users?.nickname || "无",
+      author_nickname: post.users?.nickname || "无",
+      images: post.images
+        ? (() => {
+            try {
+              return Array.isArray(post.images)
+                ? post.images
+                : JSON.parse(post.images);
+            } catch {
+              return [];
+            }
+          })()
+        : [],
+    }));
 
     res.json({
       code: 0,
       message: "获取成功",
       data: {
-        posts,
-        total: posts.length,
+        posts: processedPosts,
+        pagination: {
+          current: pageNum,
+          pageSize: limitNum,
+          total,
+          totalPages: Math.ceil(total / limitNum),
+        },
       },
     });
   } catch (error) {
+    console.error("获取最近帖子失败:", error);
     res.status(500).json({
       code: 1,
       message: "获取最近帖子失败",
@@ -403,10 +440,16 @@ router.get("/users", requireAuth, async (req, res) => {
 router.get("/stats", async (req, res) => {
   try {
     // 统计各状态帖子数量
-    const [pending, published, failed] = await Promise.all([
+    const [pending, published, failed, reviewRequired] = await Promise.all([
       prisma.posts.count({ where: { status: "pending" } }),
       prisma.posts.count({ where: { status: "published" } }),
       prisma.posts.count({ where: { status: "failed" } }),
+      prisma.posts.count({
+        where: {
+          status: "review_required",
+          sensitive_words: { not: null },
+        },
+      }),
     ]);
 
     // 统计今日审核（已发布+已拒绝）
@@ -437,7 +480,7 @@ router.get("/stats", async (req, res) => {
       success: true,
       code: 0,
       data: {
-        status: { pending, published, failed },
+        status: { pending, published, failed, reviewRequired },
         today: {
           approved: approvedToday,
           rejected: rejectedToday,

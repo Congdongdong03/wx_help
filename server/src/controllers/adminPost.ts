@@ -19,14 +19,20 @@ const log = (
 
 export class AdminPostController {
   /**
-   * 获取待审核帖子列表
-   * GET /api/admin/posts/pending?page=1&limit=20&category=rent&keyword=搜索词
+   * 获取待审核帖子列表（包括普通待审核和敏感词审核）
+   * GET /api/admin/posts/pending?page=1&limit=20&category=rent&keyword=搜索词&reviewType=all
    */
   static async getPendingPosts(req: AuthenticatedRequest, res: Response) {
     log("info", "getPendingPosts: Received request", { query: req.query });
 
     try {
-      const { page = "1", limit = "20", category, keyword } = req.query;
+      const {
+        page = "1",
+        limit = "20",
+        category,
+        keyword,
+        reviewType = "all",
+      } = req.query;
 
       // 参数验证
       const pageNumber = parseInt(page as string, 10);
@@ -46,17 +52,27 @@ export class AdminPostController {
         });
       }
 
+      // 验证审核类型参数
+      if (!["all", "normal", "sensitive"].includes(reviewType as string)) {
+        return res.status(400).json({
+          code: 1,
+          message: "无效的审核类型，必须是 all、normal 或 sensitive",
+        });
+      }
+
       const result = await AdminPostService.getPendingPosts({
         category: category as string,
         keyword: keyword as string,
         page: pageNumber,
         limit: limitNumber,
+        reviewType: reviewType as "all" | "normal" | "sensitive",
       });
 
       log("info", "getPendingPosts: Success", {
         count: result.posts.length,
         total: result.pagination.total,
         page: pageNumber,
+        reviewType,
       });
 
       res.json({
@@ -196,6 +212,57 @@ export class AdminPostController {
       res.status(500).json({
         code: 1,
         message: "批量操作失败",
+      });
+    }
+  }
+
+  /**
+   * 批量删除帖子
+   * DELETE /api/admin/posts/batch-delete
+   */
+  static async batchDeletePosts(req: AuthenticatedRequest, res: Response) {
+    log("info", "batchDeletePosts: Received request", { body: req.body });
+
+    try {
+      const { postIds } = req.body;
+
+      if (!Array.isArray(postIds) || postIds.length === 0) {
+        return res.status(400).json({
+          code: 1,
+          message: "请选择要删除的帖子",
+        });
+      }
+
+      if (postIds.length > 50) {
+        return res.status(400).json({
+          code: 1,
+          message: "单次批量删除不能超过50个帖子",
+        });
+      }
+
+      const result = await AdminPostService.batchDeletePosts(
+        postIds,
+        req.user!.id
+      );
+
+      log("info", "batchDeletePosts: Completed", {
+        total: postIds.length,
+        success: result.summary.success,
+      });
+
+      res.json({
+        code: 0,
+        message: `批量删除完成，成功删除 ${result.summary.success}/${postIds.length} 个帖子`,
+        data: result,
+      });
+    } catch (error: any) {
+      log("error", "batchDeletePosts: Error", {
+        message: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({
+        code: 1,
+        message: "批量删除失败",
       });
     }
   }

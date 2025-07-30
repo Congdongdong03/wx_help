@@ -76,6 +76,9 @@ model posts {
   price            String?
   price_unit       String?
   status           posts_status? @default(pending)
+  review_status    String?       @default("pending") // pending, approved, rejected
+  review_note      String?       // 审核备注
+  sensitive_words  String?       // 检测到的敏感词，JSON格式
   last_polished_at DateTime      @default(now())
   view_count       Int?          @default(0)
   favorite_count   Int?          @default(0)
@@ -145,6 +148,8 @@ enum posts_status {
   pending
   published
   failed
+  review_required
+  rejected
 }
 
 enum users_status {
@@ -207,4 +212,14 @@ model Message {
   isRead         Boolean      @default(false)
   createdAt      DateTime     @default(now())
   conversation   Conversation @relation(fields: [conversationId], references: [id])
+}
+
+// 敏感词表
+model sensitive_word {
+  id         Int      @id @default(autoincrement())
+  word       String
+  category   String   // porn, political, advertisement, illegal, url
+  createdAt  DateTime @default(now())
+  
+  @@unique([word, category], name: "word_category")
 }
