@@ -32,8 +32,6 @@ const PostDetailPage = () => {
   const [post, setPost] = useState<PostDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [imgLoaded, setImgLoaded] = useState(false);
 
   // 获取当前登录用户信息
   const { currentUser, userId } = useUser();
@@ -93,11 +91,36 @@ const PostDetailPage = () => {
   }, [id]);
 
   const handleImageClick = (imageUrl: string) => {
-    setSelectedImage(imageUrl);
-  };
+    // 解析图片数组
+    const parseImages = (images: any): string[] => {
+      if (Array.isArray(images)) {
+        return images;
+      }
+      if (typeof images === "string") {
+        try {
+          const parsed = JSON.parse(images);
+          if (Array.isArray(parsed)) {
+            return parsed;
+          }
+          if (typeof parsed === "string") {
+            return [parsed];
+          }
+        } catch {
+          return [images];
+        }
+      }
+      return [];
+    };
 
-  const handleClosePreview = () => {
-    setSelectedImage(null);
+    const imageList = parseImages(post?.images);
+
+    if (imageList.length > 0) {
+      // 使用微信原生的图片预览
+      Taro.previewImage({
+        current: imageUrl,
+        urls: imageList,
+      });
+    }
   };
 
   const handleMessageSeller = async () => {
@@ -193,26 +216,56 @@ const PostDetailPage = () => {
 
   // 解析图片数组
   const parseImages = (images: any): string[] => {
+    console.log("=== 图片数据解析调试 ===");
+    console.log("原始图片数据:", images);
+    console.log("数据类型:", typeof images);
+
     if (Array.isArray(images)) {
-      return images;
+      console.log("图片数据是数组，长度:", images.length);
+      // 过滤掉无效的图片URL
+      const validImages = images.filter((url: string) => {
+        const isValid = url && typeof url === "string" && url.trim() !== "";
+        if (!isValid) {
+          console.log("过滤掉无效图片URL:", url);
+        }
+        return isValid;
+      });
+      console.log("有效图片数量:", validImages.length);
+      return validImages.slice(0, 9); // 最多显示9张图片
     }
     if (typeof images === "string") {
       try {
         const parsed = JSON.parse(images);
+        console.log("解析后的图片数据:", parsed);
         if (Array.isArray(parsed)) {
-          return parsed;
+          console.log("解析后是数组，长度:", parsed.length);
+          // 过滤掉无效的图片URL
+          const validImages = parsed.filter((url: string) => {
+            const isValid = url && typeof url === "string" && url.trim() !== "";
+            if (!isValid) {
+              console.log("过滤掉无效图片URL:", url);
+            }
+            return isValid;
+          });
+          console.log("有效图片数量:", validImages.length);
+          return validImages.slice(0, 9); // 最多显示9张图片
         }
         if (typeof parsed === "string") {
-          return [parsed];
+          console.log("解析后是字符串");
+          return parsed.trim() ? [parsed] : [];
         }
-      } catch {
-        return [images];
+      } catch (error) {
+        console.log("JSON解析失败，作为单个图片处理:", error);
+        return images.trim() ? [images] : [];
       }
     }
+    console.log("无法解析图片数据，返回空数组");
     return [];
   };
 
   const imageList = parseImages(post.images);
+  console.log("最终图片列表:", imageList);
+
   const mainImage =
     post.cover_image || (imageList.length > 0 ? imageList[0] : "");
 
@@ -234,6 +287,19 @@ const PostDetailPage = () => {
   console.log("帖子发布者openid:", post?.users?.openid);
   console.log("是否显示私信按钮:", shouldShowContactInfo);
 
+  // 格式化联系方式文本，每8个字符换行
+  const formatContactInfo = (text: string): string => {
+    if (!text) return "";
+
+    // 移除多余的空格
+    const cleanText = text.trim();
+
+    // 每8个字符插入换行符
+    const formattedText = cleanText.replace(/(.{8})/g, "$1\n").trim();
+
+    return formattedText;
+  };
+
   return (
     <View className="detail-page">
       <View className="content">
@@ -247,7 +313,21 @@ const PostDetailPage = () => {
                   className="grid-item"
                   onClick={() => handleImageClick(imageUrl)}
                 >
-                  <Image className="image" src={imageUrl} mode="aspectFill" />
+                  <Image
+                    className="image"
+                    src={imageUrl}
+                    mode="aspectFill"
+                    onError={(e) => {
+                      console.log(`图片加载失败 [${index}]:`, imageUrl, e);
+                      console.log("错误详情:", e.detail);
+                    }}
+                    onLoad={() => {
+                      console.log(`图片加载成功 [${index}]:`, imageUrl);
+                    }}
+                    style={{
+                      backgroundColor: placeholderColor,
+                    }}
+                  />
                 </View>
               ))}
             </View>
@@ -282,7 +362,9 @@ const PostDetailPage = () => {
           <View className="contact-info">
             <Text className="contact-title">联系方式:</Text>
             <View className="wechat-id">
-              <Text className="id-text">{post.contact_info}</Text>
+              <Text className="id-text">
+                {formatContactInfo(post.contact_info)}
+              </Text>
               <Button className="copy-button">复制</Button>
             </View>
           </View>
@@ -305,19 +387,6 @@ const PostDetailPage = () => {
           >
             私信卖家
           </Button>
-        </View>
-      )}
-
-      {/* 图片预览模态框 */}
-      {selectedImage && (
-        <View className="image-preview-modal" onClick={handleClosePreview}>
-          <View className="modal-content">
-            <Image
-              className="preview-image"
-              src={selectedImage}
-              mode="aspectFit"
-            />
-          </View>
         </View>
       )}
     </View>

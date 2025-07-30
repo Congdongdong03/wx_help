@@ -229,34 +229,27 @@ const PostForm = ({ postId }: PostFormProps) => {
       ctx.setFillStyle("#333333");
       ctx.setFontSize(32);
       ctx.setTextBaseline("middle");
+      ctx.setTextAlign("center"); // 设置文字水平居中对齐
 
-      // 计算文字位置
-      const maxWidth = canvasWidth - 80;
+      // 计算文字位置 - 每8个字符换行
+      const maxCharsPerLine = 8; // 每行最多8个字符
       const lines = [];
-      let currentLine = "";
-      const words = text.split("");
-      for (let i = 0; i < words.length; i++) {
-        const testLine = currentLine + words[i];
-        const metrics = ctx.measureText(testLine);
-        if (metrics.width > maxWidth && currentLine !== "") {
-          lines.push(currentLine);
-          currentLine = words[i];
-        } else {
-          currentLine = testLine;
-        }
-      }
-      if (currentLine) {
-        lines.push(currentLine);
+
+      // 按8个字符分割文字
+      for (let i = 0; i < text.length; i += maxCharsPerLine) {
+        const line = text.slice(i, i + maxCharsPerLine);
+        lines.push(line);
       }
 
-      // 绘制文字
+      // 绘制文字 - 完全居中
       const lineHeight = 40;
       const totalHeight = lines.length * lineHeight;
       const startY = (canvasHeight - totalHeight) / 2;
+      const centerX = canvasWidth / 2; // 画布中心X坐标
 
       lines.forEach((line, index) => {
         const y = startY + index * lineHeight + lineHeight / 2;
-        ctx.fillText(line, 40, y);
+        ctx.fillText(line, centerX, y); // 使用centerX实现水平居中
       });
 
       ctx.draw(false, () => {
