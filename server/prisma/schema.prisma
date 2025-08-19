@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -227,7 +227,7 @@ model sensitive_word {
 // 统计快照表 - 用于存储每日/每周/每月的统计数据
 model statistics_snapshot {
   id          Int      @id @default(autoincrement())
-  date        DateTime @db.Date // 统计日期
+  date        DateTime // 统计日期
   period_type String   // daily, weekly, monthly
   metric_name String   // 指标名称
   metric_value Float   // 指标值
