@@ -1,6 +1,5 @@
 import "dotenv/config";
 import express, { Request, Response, NextFunction } from "express";
-// import { Logtail } from "@logtail/node";
 import cors from "cors";
 import { config } from "./config";
 import userRoutes from "./routes/user";
@@ -21,7 +20,6 @@ import fs from "fs";
 import { requireAuth } from "./middleware/auth";
 import { errorHandler, notFoundHandler } from "./middleware/error";
 import { RedisService } from "./services/redis";
-// import { socketService } from "./services/socket"; // 已移除 socket.io 相关代码
 import { createServer } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import { WebSocketRouter } from "./routes/websocketRouter";
@@ -106,7 +104,6 @@ app.use(
   "/catalogue_images",
   express.static(path.join(__dirname, "public/catalogue_images"))
 );
-app.use("/crm", express.static(path.join(__dirname, "crm")));
 
 // 静态文件服务
 app.use(

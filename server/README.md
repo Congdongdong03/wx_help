@@ -5,7 +5,7 @@ BangBang 小程序的后端服务器。
 ## 环境要求
 
 - Node.js >= 14
-- MySQL >= 8.0
+- MySQL >= 8.0 或 SQLite
 - Redis >= 6.0
 
 ## 安装
@@ -29,8 +29,6 @@ npm install
 cp .env.example .env
 ```
 
-然后编辑 `.env` 文件，填入相应的配置信息。
-
 4. 初始化数据库
 
 ```bash
@@ -53,8 +51,42 @@ src/
   ├── models/         # 数据模型
   ├── routes/         # 路由
   ├── services/       # 服务
-  ├── types/          # 类型定义
   └── utils/          # 工具函数
+
+scripts/
+  ├── create-all-test-data.ts    # 创建测试数据
+  ├── final-check.ts             # 系统验证
+  ├── fix-database-permanently.sh # 数据库修复
+  └── start-studio.sh            # 启动 Prisma Studio
+
+tools/
+  └── create-pinned-posts.ts     # 创建置顶帖子
+```
+
+## 开发工具
+
+### 创建测试数据
+
+```bash
+npx ts-node scripts/create-all-test-data.ts
+```
+
+### 系统验证
+
+```bash
+npx ts-node scripts/final-check.ts
+```
+
+### 创建置顶帖子
+
+```bash
+npx ts-node tools/create-pinned-posts.ts
+```
+
+### 启动 Prisma Studio
+
+```bash
+./scripts/start-studio.sh
 ```
 
 ## API 文档

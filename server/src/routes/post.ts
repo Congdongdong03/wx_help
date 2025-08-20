@@ -5,9 +5,6 @@ import { requireAuth, optionalAuth } from "../middleware/auth";
 
 const router = Router();
 
-router.use(express.json());
-router.use(express.urlencoded({ extended: true }));
-
 // ============ 具体路由要放在参数路由之前 ============
 
 // 用户路由（需要认证）

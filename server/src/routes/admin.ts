@@ -13,9 +13,6 @@ const execAsync = promisify(exec);
 const router = Router();
 const prisma = new PrismaClient();
 
-router.use(express.json());
-router.use(express.urlencoded({ extended: true }));
-
 // 配置multer用于文件上传
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
