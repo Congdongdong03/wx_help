@@ -18,13 +18,6 @@ export const selectIsLoading = (state: RootState): boolean =>
 export const selectError = (state: RootState): string | null =>
   state.user.error;
 
-// 用户ID选择器
-export const selectUserId = (state: RootState): string | number | null =>
-  state.user.currentUser?.id || null;
-
-export const selectUserOpenid = (state: RootState): string | null =>
-  state.user.currentUser?.openid || null;
-
 // 用户基本信息选择器
 export const selectUserNickname = (state: RootState): string =>
   state.user.currentUser?.nickName || "";
@@ -32,7 +25,7 @@ export const selectUserNickname = (state: RootState): string =>
 export const selectUserAvatar = (state: RootState): string =>
   state.user.currentUser?.avatarUrl || "";
 
-// 组合选择器 - 使用 createSelector 进行 memoization
+// 组合选择器
 export const selectUserBasicInfo = createSelector(
   [selectCurrentUser, selectIsLoggedIn],
   (currentUser, isLoggedIn) => ({
@@ -44,7 +37,7 @@ export const selectUserBasicInfo = createSelector(
   })
 );
 
-// 登录状态选择器 - 使用 createSelector 进行 memoization
+// 登录状态选择器
 export const selectLoginStatus = createSelector(
   [selectIsLoggedIn, selectIsLoading, selectError],
   (isLoggedIn, isLoading, error) => ({

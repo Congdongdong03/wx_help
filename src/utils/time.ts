@@ -9,7 +9,6 @@ export const formatRelativeTime = (date: Date): string => {
   } else if (seconds < 86400) {
     return `${Math.floor(seconds / 3600)}小时前`;
   } else if (seconds < 2592000) {
-    // 30 days
     return `${Math.floor(seconds / 86400)}天前`;
   } else {
     const year = date.getFullYear();

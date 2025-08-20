@@ -55,8 +55,6 @@ interface EnvConfig {
   BASE_URL: string;
   API_PORT: number;
   ENV: "development" | "production";
-  LOCAL_IP: string;
-  SOCKET_SERVER_URL: string;
 }
 
 // 统一配置（开发和生产都一样）
@@ -69,10 +67,8 @@ const baseConfig: EnvConfig = {
     process.env.NODE_ENV === "production"
       ? "production"
       : "development",
-  LOCAL_IP: "192.168.20.18",
-  SOCKET_SERVER_URL: getSmartSocketUrl(),
 };
 
 export const config: EnvConfig = baseConfig;
-export const { BASE_URL, API_PORT, ENV, LOCAL_IP, SOCKET_SERVER_URL } = config;
+export const { BASE_URL, API_PORT, ENV } = config;
 export const getSocketServerUrl = getSmartSocketUrl;

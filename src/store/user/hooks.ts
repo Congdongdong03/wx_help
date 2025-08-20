@@ -7,8 +7,6 @@ import {
   selectError,
   selectUserBasicInfo,
   selectLoginStatus,
-  selectUserId,
-  selectUserOpenid,
   selectUserNickname,
   selectUserAvatar,
 } from "./selectors";
@@ -40,8 +38,6 @@ export const useUser = () => {
   const error = useSelector(selectError);
 
   // 用户信息
-  const userId = useSelector(selectUserId);
-  const userOpenid = useSelector(selectUserOpenid);
   const userNickname = useSelector(selectUserNickname);
   const userAvatar = useSelector(selectUserAvatar);
 
@@ -95,8 +91,6 @@ export const useUser = () => {
     isLoggedIn,
     isLoading,
     error,
-    userId,
-    userOpenid,
     userNickname,
     userAvatar,
     userBasicInfo,
@@ -108,32 +102,5 @@ export const useUser = () => {
     updateUser,
     initializeUserState,
     clearUserError,
-  };
-};
-
-/**
- * 简化的用户登录状态Hook
- */
-export const useUserLoginStatus = () => {
-  const { isLoggedIn, isLoading, error } = useUser();
-
-  return {
-    isLoggedIn,
-    isLoading,
-    error,
-  };
-};
-
-/**
- * 用户基本信息Hook
- */
-export const useUserBasicInfo = () => {
-  const { currentUser, userNickname, userAvatar, userOpenid } = useUser();
-
-  return {
-    currentUser,
-    nickname: userNickname,
-    avatar: userAvatar,
-    openid: userOpenid,
   };
 };

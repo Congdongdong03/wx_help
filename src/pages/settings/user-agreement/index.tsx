@@ -1,9 +1,8 @@
 import Taro from "@tarojs/taro";
 import { View, Text, ScrollView } from "@tarojs/components";
-import "./index.scss"; // We'll create this SCSS file next
+import "./index.scss";
 
 export default function UserAgreementPage() {
-  // TODO: Replace this with your actual User Agreement content
   const agreementTitle = "帮帮用户协议";
   const agreementContent = `
 欢迎使用帮帮！
@@ -42,7 +41,6 @@ export default function UserAgreementPage() {
   );
 }
 
-// Optional: Page configuration
 definePageConfig({
   navigationBarTitleText: "用户协议",
 });

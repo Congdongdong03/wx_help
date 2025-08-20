@@ -11,9 +11,6 @@ interface PostCardProps {
   isPinned?: boolean;
 }
 
-const DEFAULT_IMAGE_URL =
-  "https://images.unsplash.com/photo-1506744038136-46273834b3fb";
-
 const PostCard = ({ post, isPinned }: PostCardProps) => {
   const handlePostClick = () => {
     // Validate that post has a valid ID before navigation
@@ -61,7 +58,10 @@ const PostCard = ({ post, isPinned }: PostCardProps) => {
       )}
       <Image
         className="post-card-image"
-        src={post.cover_image || DEFAULT_IMAGE_URL}
+        src={
+          post.cover_image ||
+          "https://images.unsplash.com/photo-1506744038136-46273834b3fb"
+        }
         mode="aspectFill"
         style={{
           height: post.mockImagePlaceholderHeight

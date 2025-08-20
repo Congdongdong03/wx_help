@@ -34,8 +34,3 @@ export const SUB_CATEGORIES = {
     { label: "提供帮助", value: "offer_help", icon: "帮助" },
   ],
 };
-
-export const POSTS_PER_PAGE = 10;
-
-export const DEFAULT_IMAGE_URL =
-  "https://images.unsplash.com/photo-1506744038136-46273834b3fb";

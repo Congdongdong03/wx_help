@@ -4,9 +4,7 @@ import Taro from "@tarojs/taro";
 function getCurrentUserId(): string {
   try {
     const storedOpenId = Taro.getStorageSync("openid");
-    console.log("getCurrentUserId - Stored OpenID from storage:", storedOpenId);
     if (process.env.NODE_ENV === "development") {
-      // 在开发环境下，如果存储中没有 openid，则使用硬编码的 dev_openid_123 作为回退
       return storedOpenId || "dev_openid_123";
     }
     return storedOpenId || "";
@@ -36,14 +34,11 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
 
 /**
  * 延迟函数
- * @param ms 延迟时间（毫秒）
  */
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * 带重试机制的网络请求
- * @param url 请求地址
- * @param options 请求配置
  */
 export async function request<T = any>(
   url: string,
@@ -80,7 +75,6 @@ export async function request<T = any>(
         );
         attempt++;
         if (attempt <= retryCount) {
-          console.log(`请求失败，${retryDelay}ms后进行第${attempt}次重试...`);
           await delay(retryDelay);
           continue;
         }
@@ -97,7 +91,6 @@ export async function request<T = any>(
       ) {
         attempt++;
         if (attempt <= retryCount) {
-          console.log(`网络错误，${retryDelay}ms后进行第${attempt}次重试...`);
           await delay(retryDelay);
           continue;
         }
@@ -110,9 +103,6 @@ export async function request<T = any>(
 
 /**
  * 带重试机制的上传文件
- * @param url 上传地址
- * @param filePath 文件路径
- * @param options 上传配置
  */
 export async function uploadFile<T = any>(
   url: string,
@@ -155,7 +145,6 @@ export async function uploadFile<T = any>(
         );
         attempt++;
         if (attempt <= retryCount) {
-          console.log(`上传失败，${retryDelay}ms后进行第${attempt}次重试...`);
           await delay(retryDelay);
           continue;
         }
@@ -172,7 +161,6 @@ export async function uploadFile<T = any>(
       ) {
         attempt++;
         if (attempt <= retryCount) {
-          console.log(`网络错误，${retryDelay}ms后进行第${attempt}次重试...`);
           await delay(retryDelay);
           continue;
         }

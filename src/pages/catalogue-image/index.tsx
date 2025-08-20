@@ -39,11 +39,13 @@ const CatalogueImagePage = () => {
         return;
       }
       const [, store, index] = match;
+
       // 获取该商店的所有图片
       const response = await Taro.request({
         url: `${BASE_URL}/api/catalogue/${store}`,
         method: "GET",
       });
+
       if (response.statusCode === 200 && response.data.code === 0) {
         const catalogueImages = response.data.data.map(
           (file: string, idx: number) => ({
@@ -75,8 +77,8 @@ const CatalogueImagePage = () => {
   };
 
   const generateMockImages = (store: string): CatalogueImage[] => {
-    // 生成模拟的图片数据
-    const imageCount = 20; // 假设每个商店有20张图片
+    // 生成模拟的图片数据 - 减少到10张
+    const imageCount = 10;
     return Array.from({ length: imageCount }, (_, index) => ({
       id: `catalogue_${store}_${index}`,
       url: `/catalogue_images/${store}/20250704_page${index + 1}.jpg`,

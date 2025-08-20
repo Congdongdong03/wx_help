@@ -1,6 +1,6 @@
 import Taro from "@tarojs/taro";
 import { useState } from "react";
-import { View, Text, Textarea, Button, Image } from "@tarojs/components";
+import { View, Text, Textarea, Button } from "@tarojs/components";
 import { request } from "../../../utils/request";
 import "./index.scss";
 
@@ -27,7 +27,6 @@ export default function HelpFeedbackPage() {
         setFeedbackImage(res.tempFilePaths[0]);
       },
       fail: (error) => {
-        console.error("选择图片失败:", error);
         Taro.showToast({
           title: "选择图片失败",
           icon: "none",
@@ -54,11 +53,11 @@ export default function HelpFeedbackPage() {
       if (feedbackImage) {
         try {
           const uploadRes = await Taro.uploadFile({
-            url: "http://localhost:3000/api/posts/upload",
+            url: "/api/posts/upload",
             filePath: feedbackImage,
             name: "file",
             header: {
-              "x-openid": "dev_openid_123", // 开发环境使用
+              "x-openid": "dev_openid_123",
             },
           });
 
@@ -67,7 +66,6 @@ export default function HelpFeedbackPage() {
             imageUrl = uploadData.data.url;
           }
         } catch (uploadError) {
-          console.error("图片上传失败:", uploadError);
           Taro.showToast({
             title: "图片上传失败，但反馈内容已提交",
             icon: "none",
@@ -76,7 +74,7 @@ export default function HelpFeedbackPage() {
       }
 
       // 提交反馈
-      await request("http://localhost:3000/api/feedback-submit", {
+      await request("/api/feedback-submit", {
         method: "POST",
         data: {
           content: feedbackText.trim(),
@@ -133,6 +131,12 @@ export default function HelpFeedbackPage() {
     },
   ];
 
+  const feedbackTypes = [
+    { value: "advice", label: "建议" },
+    { value: "bug", label: "问题" },
+    { value: "report", label: "举报" },
+  ];
+
   return (
     <View className="help-feedback-page">
       {/* FAQ 部分 */}
@@ -165,29 +169,16 @@ export default function HelpFeedbackPage() {
         <Text className="section-title">提交反馈</Text>
 
         {/* 反馈类型选择 */}
-        <View style={{ marginBottom: "20rpx" }}>
-          <Text
-            style={{
-              fontSize: "28rpx",
-              color: "#333",
-              marginBottom: "10rpx",
-              display: "block",
-            }}
-          >
-            反馈类型：
-          </Text>
-          <View style={{ display: "flex", gap: "20rpx" }}>
-            {[
-              { value: "advice", label: "建议" },
-              { value: "bug", label: "问题" },
-              { value: "report", label: "举报" },
-            ].map((type) => (
+        <View className="feedback-type-section">
+          <Text className="feedback-type-label">反馈类型：</Text>
+          <View className="feedback-type-buttons">
+            {feedbackTypes.map((type) => (
               <Button
                 key={type.value}
                 size="mini"
                 type={feedbackType === type.value ? "primary" : "default"}
                 onClick={() => setFeedbackType(type.value)}
-                style={{ fontSize: "24rpx" }}
+                className="feedback-type-btn"
               >
                 {type.label}
               </Button>
@@ -208,10 +199,9 @@ export default function HelpFeedbackPage() {
         <View className="image-uploader-container">
           {feedbackImage ? (
             <View className="image-preview-item">
-              <Image
+              <Text
                 className="preview-image"
-                src={feedbackImage}
-                mode="aspectFill"
+                style={{ backgroundImage: `url(${feedbackImage})` }}
               />
               <View className="remove-image-btn" onClick={handleRemoveImage}>
                 ×

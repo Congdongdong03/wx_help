@@ -142,11 +142,9 @@ export class UserService {
 
   /**
    * 检查登录状态
-   * TODO: 实现登录状态检查接口
    */
   static async checkLoginStatus(): Promise<boolean> {
     try {
-      // 暂时使用获取用户信息来检查登录状态
       const userInfo = await this.getUserInfo();
       return userInfo !== null;
     } catch (error) {

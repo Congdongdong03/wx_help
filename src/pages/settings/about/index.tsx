@@ -3,22 +3,19 @@ import { View, Text, Button } from "@tarojs/components";
 import "./index.scss";
 
 export default function AboutPage() {
-  const appVersion = "1.0.0"; // Placeholder version
+  const appVersion = "1.0.0";
 
   const navigateToPolicy = (type: "user-agreement" | "privacy-policy") => {
-    // TODO: Create these pages and update URLs
     if (type === "user-agreement") {
       Taro.navigateTo({ url: "/pages/settings/user-agreement/index" });
     } else if (type === "privacy-policy") {
       Taro.navigateTo({ url: "/pages/settings/privacy-policy/index" });
     }
-    console.log("Navigate to:", type);
   };
 
   return (
     <View className="about-page">
       <View className="about-section logo-section">
-        {/* You can add a logo Image here if you have one */}
         <Text className="app-name">帮帮</Text>
         <Text className="app-version">版本号：{appVersion}</Text>
       </View>
@@ -39,16 +36,10 @@ export default function AboutPage() {
           <Text className="arrow">&gt;</Text>
         </View>
       </View>
-
-      {/* Optional: Add copyright or other info here */}
-      {/* <View className="footer-info">
-        <Text>版权所有 © 2024</Text>
-      </View> */}
     </View>
   );
 }
 
-// Optional: Page configuration if needed
 definePageConfig({
   navigationBarTitleText: "关于帮帮",
 });

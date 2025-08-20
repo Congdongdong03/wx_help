@@ -2,13 +2,6 @@ import Taro from "@tarojs/taro";
 import { API_CONFIG } from "../config/api";
 import { Conversation, Message, MessagesResponse } from "../types/message";
 
-// REMOVED: Mock data for demonstration purposes
-// let mockConversations: Conversation[] = [...];
-// let mockMessages: Message[] = [...];
-
-// REMOVED: Helper to simulate network delay
-// const simulateDelay = (ms: number) => new Promise((res) => setTimeout(res, ms));
-
 export const messageService = {
   /**
    * Fetches a list of conversations for the current user.
@@ -19,9 +12,6 @@ export const messageService = {
     currentUserId: string
   ): Promise<Conversation[]> => {
     try {
-      console.log(
-        `[messageService.fetchConversations] Sending x-openid: ${currentUserId}`
-      );
       const res = await Taro.request({
         url: API_CONFIG.getApiUrl("/conversations/list"),
         method: "GET",
@@ -38,7 +28,6 @@ export const messageService = {
       ) {
         return res.data.data as Conversation[];
       } else {
-        console.error("API returned error or invalid data:", res);
         throw new Error("Failed to fetch conversations");
       }
     } catch (err) {
@@ -73,9 +62,6 @@ export const messageService = {
         params.append("before", before.toString());
       }
 
-      console.log(
-        `[messageService.fetchMessages] Sending x-openid: ${userOpenId}`
-      );
       const res = await Taro.request({
         url: API_CONFIG.getApiUrl(
           `/conversations/${conversationId}/messages?${params}`
@@ -95,7 +81,6 @@ export const messageService = {
       ) {
         return res.data.data as MessagesResponse;
       } else {
-        console.error("API returned error or invalid data:", res);
         throw new Error("Failed to fetch messages");
       }
     } catch (err) {
@@ -121,9 +106,6 @@ export const messageService = {
     type: "text" | "image" = "text"
   ): Promise<Message> => {
     try {
-      console.log(
-        `[messageService.sendMessage] Sending x-openid: ${userOpenId}, receiverId: ${receiverId}`
-      );
       const res = await Taro.request({
         url: API_CONFIG.getApiUrl(`/conversations/${conversationId}/messages`),
         method: "POST",
@@ -141,7 +123,6 @@ export const messageService = {
       if (res.statusCode === 200 && res.data.code === 0 && res.data.data) {
         return res.data.data as Message;
       } else {
-        console.error("API returned error or invalid data:", res);
         throw new Error("Failed to send message");
       }
     } catch (err) {
@@ -161,9 +142,6 @@ export const messageService = {
     userOpenId: string
   ): Promise<void> => {
     try {
-      console.log(
-        `[messageService.markMessagesAsRead] Sending x-openid: ${userOpenId}`
-      );
       const res = await Taro.request({
         url: API_CONFIG.getApiUrl(`/conversations/${conversationId}/mark-read`),
         method: "POST",
@@ -176,7 +154,6 @@ export const messageService = {
       if (res.statusCode === 200 && res.data.code === 0) {
         console.log("Messages marked as read successfully");
       } else {
-        console.error("API returned error or invalid data:", res);
         throw new Error("Failed to mark messages as read");
       }
     } catch (err) {
@@ -191,14 +168,10 @@ export const messageService = {
     currentUserId: string
   ): Promise<string> => {
     try {
-      // 验证参数
       if (!currentUserId || currentUserId === "undefined") {
         throw new Error("currentUserId is required and cannot be undefined");
       }
 
-      console.log(
-        `[messageService.findOrCreateConversation] Sending x-openid: ${currentUserId}`
-      );
       const res = await Taro.request({
         url: API_CONFIG.getApiUrl("/conversations/find-or-create"),
         method: "POST",

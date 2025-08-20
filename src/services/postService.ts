@@ -24,16 +24,15 @@ interface PostListResponse {
 const CACHE_CONFIG = {
   POST_LIST: {
     expiresIn: 5 * 60 * 1000, // 5分钟
-    maxSize: 10, // 最多缓存10页
+    maxSize: 10,
   },
   POST_DETAIL: {
     expiresIn: 10 * 60 * 1000, // 10分钟
-    maxSize: 50, // 最多缓存50个帖子详情
+    maxSize: 50,
   },
 };
 
 export function usePostService() {
-  // 创建列表缓存和详情缓存
   const listCache = useCache<PostListResponse>(CACHE_CONFIG.POST_LIST);
   const detailCache = useCache<Post>(CACHE_CONFIG.POST_DETAIL);
 
@@ -44,14 +43,12 @@ export function usePostService() {
   ): Promise<PostListResponse> => {
     const cacheKey = `post_list_${page}_${pageSize}`;
 
-    // 尝试从缓存获取
     const cachedData = listCache.get(cacheKey);
     if (cachedData) {
       return cachedData;
     }
 
     try {
-      // 从API获取数据
       const { data } = await Taro.request({
         url: "/api/posts",
         method: "GET",
@@ -61,9 +58,7 @@ export function usePostService() {
         },
       });
 
-      // 存入缓存
       listCache.set(cacheKey, data);
-
       return data;
     } catch (error) {
       console.error("Failed to fetch post list:", error);
@@ -75,22 +70,18 @@ export function usePostService() {
   const getPostDetail = async (id: string): Promise<Post> => {
     const cacheKey = `post_detail_${id}`;
 
-    // 尝试从缓存获取
     const cachedData = detailCache.get(cacheKey);
     if (cachedData) {
       return cachedData;
     }
 
     try {
-      // 从API获取数据
       const { data } = await Taro.request({
         url: `/api/posts/${id}`,
         method: "GET",
       });
 
-      // 存入缓存
       detailCache.set(cacheKey, data);
-
       return data;
     } catch (error) {
       console.error("Failed to fetch post detail:", error);

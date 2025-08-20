@@ -1,17 +1,16 @@
 // src/pages/my/index.scss
-// Styles for the "My" page (/pages/my/index)
 
 .my-page {
-  background-color: #f8f9fa; // Light page background
+  background-color: #f8f9fa;
   min-height: 100vh;
-  padding-top: 20rpx; // Overall top padding
+  padding-top: 20rpx;
 
   .user-info-section {
     display: flex;
     align-items: center;
     background-color: #fff;
     padding: 30rpx 40rpx;
-    margin: 0 20rpx 30rpx 20rpx; // Side and bottom margin
+    margin: 0 20rpx 30rpx 20rpx;
     border-radius: 16rpx;
     box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
     cursor: pointer;
@@ -21,21 +20,21 @@
       height: 120rpx;
       border-radius: 50%;
       margin-right: 30rpx;
-      background-color: #ffc0cb; // Pink color
+      background-color: #ffc0cb;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 40rpx; // Adjust size as needed
+      font-size: 40rpx;
       font-weight: bold;
       color: white;
-      position: relative; // Needed for pseudo-element if we use it for text
+      position: relative;
     }
 
     .user-details {
       flex-grow: 1;
-      display: flex; // Allow nickname and indicator to be in a row
-      align-items: center; // Vertically align nickname and indicator
-      justify-content: space-between; // Push indicator to the right
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
     .user-nickname {
@@ -53,10 +52,10 @@
 
   .menu-list {
     background-color: #fff;
-    margin: 0 20rpx; // Side margin
+    margin: 0 20rpx;
     border-radius: 16rpx;
     box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
-    overflow: hidden; // Ensure border-radius clips children if needed
+    overflow: hidden;
 
     .menu-item {
       display: flex;
@@ -70,6 +69,15 @@
 
       &:last-child {
         border-bottom: none;
+      }
+
+      .message-badge {
+        background-color: red;
+        border-radius: 50%;
+        width: 20rpx;
+        height: 20rpx;
+        margin-left: auto;
+        margin-right: 20rpx;
       }
 
       .menu-arrow {

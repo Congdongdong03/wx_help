@@ -21,13 +21,9 @@ interface Category {
 
 interface FeedPost {
   id: string | number;
-  mockImagePlaceholderHeight?: number;
-  mockImagePlaceholderColor?: string;
   title: string;
   content: string;
-  content_preview?: string;
   category: Category;
-  sub_category?: string;
   price?: string | number;
   updated_at: string;
   created_at: string;
@@ -41,15 +37,7 @@ interface FeedPost {
     id: number;
     nickname: string;
     avatar_url: string;
-    gender?: string;
-    city?: string;
   };
-}
-
-interface RecommendMeta {
-  weekly_deals_count: number;
-  pinned_posts_count: number;
-  total_pinned: number;
 }
 
 // ------------------ MOCK DATA ------------------
@@ -62,19 +50,14 @@ const pinnedPostsToShow = [
     content: "Coles 本周特价商品：新鲜蔬菜、肉类、日用品等都有大幅折扣！",
     category: { id: "help", name: "互助", color: "#4CAF50" },
     price: "0",
-    images: [
-      "https://www.coles.com.au/_next/image?url=https%3A%2F%2Fwww.coles.com.au%2Fcontent%2Fdam%2Fcoles%2Fcusp%2Fhomepage-specials%2F2025%2F9-4-25%2FHeroTile-Roundel-Padding-FG-HalfPrice.png&w=1080&q=90",
-    ],
-    cover_image:
-      "https://www.coles.com.au/_next/image?url=https%3A%2F%2Fwww.coles.com.au%2Fcontent%2Fdam%2Fcoles%2Fcusp%2Fhomepage-specials%2F2025%2F9-4-25%2FHeroTile-Roundel-Padding-FG-HalfPrice.png&w=1080&q=90",
+    images: ["/catalogue_images/coles/20250704_page1.jpg"],
+    cover_image: "/catalogue_images/coles/20250704_page1.jpg",
     is_pinned: true,
     updated_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
     city_code: "通用",
     status: "published",
     users: { id: 1, nickname: "管理员", avatar_url: "" },
-    mockImagePlaceholderHeight: 70,
-    mockImagePlaceholderColor: "rgb(250,213,46)",
   },
   {
     id: 2,
@@ -82,11 +65,8 @@ const pinnedPostsToShow = [
     content: "Woolworths 本周特价商品：水果、海鲜、零食等都有超值优惠！",
     category: { id: "help", name: "互助", color: "#2196F3" },
     price: "0",
-    images: [
-      "https://via.placeholder.com/400x300/2196F3/FFFFFF?text=WWS+Weekly+Deals",
-    ],
-    cover_image:
-      "https://via.placeholder.com/400x300/2196F3/FFFFFF?text=WWS+Weekly+Deals",
+    images: ["/catalogue_images/woolworths/20250704_page1.jpg"],
+    cover_image: "/catalogue_images/woolworths/20250704_page1.jpg",
     is_pinned: true,
     updated_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
@@ -95,8 +75,6 @@ const pinnedPostsToShow = [
     users: { id: 1, nickname: "管理员", avatar_url: "" },
   },
 ];
-
-// ------------------ MASONRY LAYOUT HELPER ------------------
 
 // ------------------ API 数据加载 ------------------
 
@@ -143,7 +121,6 @@ export default function Index() {
 
   // 获取城市列表
   useEffect(() => {
-    console.log("开始加载城市列表...");
     Taro.request({
       url: `${BASE_URL}/api/home/cities`,
       method: "GET",
@@ -153,19 +130,16 @@ export default function Index() {
       },
     })
       .then((res) => {
-        console.log("城市API响应:", res);
         if (res.data && res.data.code === 0) {
           const cityOptions = res.data.data.map((city: any) => ({
             label: city.name,
             value: city.code,
           }));
-          console.log("解析后的城市选项:", cityOptions);
           setCities(cityOptions);
           if (cityOptions.length > 0 && !selectedCity) {
             setSelectedCity(cityOptions[0].value);
           }
         } else {
-          console.warn("城市API返回格式不正确:", res.data);
           Taro.showToast({
             title: "获取城市列表失败",
             icon: "none",
@@ -185,21 +159,11 @@ export default function Index() {
 
   // 当城市和分类变化时加载数据
   useEffect(() => {
-    console.log("🔄 useEffect triggered:", {
-      selectedCity,
-      selectedCategoryId,
-      citiesLength: cities.length,
-    });
     if (!selectedCity && cities.length > 0) {
-      console.log("🏙️ Setting default city:", cities[0].value);
       setSelectedCity(cities[0].value);
       return;
     }
     if (selectedCity) {
-      console.log("📡 Loading posts for:", {
-        selectedCity,
-        selectedCategoryId,
-      });
       loadPosts(selectedCity, selectedCategoryId, 1, false);
     }
   }, [selectedCity, selectedCategoryId]);

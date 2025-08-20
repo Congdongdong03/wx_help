@@ -1,26 +1,26 @@
 export interface Conversation {
   id: string;
-  postId: string; // 添加 postId 字段
+  postId: string;
   otherUserId: string;
   otherUserNickname: string;
   otherUserAvatar: string;
   postTitle: string;
   lastMessagePreview: string;
-  lastMessageTime: string; // Already formatted, e.g., "昨天 17:30" or "06-25"
+  lastMessageTime: string;
   unreadCount: number;
 }
 
 export interface Message {
   id: string;
   conversationId: string;
-  senderId: string; // The user ID who sent the message
-  receiverId: string; // The user ID who received the message
-  type: "text" | "image"; // 消息类型：文本或图片
-  content: string; // 文本消息的内容，或图片消息的URL
-  timestamp: string; // ISO string for precise sorting, will be formatted for display
+  senderId: string;
+  receiverId: string;
+  type: "text" | "image";
+  content: string;
+  timestamp: string;
   isRead: boolean;
   status?: "pending" | "sent" | "failed";
-  clientTempId?: string; // 客户端临时ID，用于乐观更新
+  clientTempId?: string;
 }
 
 export interface PaginationInfo {

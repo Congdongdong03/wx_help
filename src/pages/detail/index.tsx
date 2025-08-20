@@ -13,9 +13,7 @@ interface PostDetail {
   images: string[];
   category: string;
   price?: string;
-  status: string;
   created_at: string;
-  updated_at: string;
   users: {
     id: number;
     nickname: string;
@@ -34,7 +32,7 @@ const PostDetailPage = () => {
   const [error, setError] = useState(false);
 
   // 获取当前登录用户信息
-  const { currentUser, userId } = useUser();
+  const { currentUser } = useUser();
 
   useEffect(() => {
     if (id) {
@@ -48,7 +46,6 @@ const PostDetailPage = () => {
   // 监听用户状态变化，重新获取帖子数据
   useEffect(() => {
     if (id && currentUser) {
-      console.log("用户状态变化，重新获取帖子数据");
       fetchPostDetail();
     }
   }, [currentUser?.id, id]);
@@ -60,7 +57,6 @@ const PostDetailPage = () => {
     setError(false);
 
     try {
-      console.log("Fetching post detail for ID:", id);
       const res = await Taro.request({
         url: API_CONFIG.getApiUrl(`/posts/${id}`),
         method: "GET",
@@ -69,17 +65,13 @@ const PostDetailPage = () => {
         },
       });
 
-      console.log("API Response:", res);
-
       if (res.statusCode === 200 && res.data) {
         if (res.data.code === 0 && res.data.data) {
           setPost(res.data.data);
         } else {
-          console.error("API returned error:", res.data);
           setError(true);
         }
       } else {
-        console.error("API request failed:", res);
         setError(true);
       }
     } catch (err) {
@@ -91,27 +83,6 @@ const PostDetailPage = () => {
   }, [id]);
 
   const handleImageClick = (imageUrl: string) => {
-    // 解析图片数组
-    const parseImages = (images: any): string[] => {
-      if (Array.isArray(images)) {
-        return images;
-      }
-      if (typeof images === "string") {
-        try {
-          const parsed = JSON.parse(images);
-          if (Array.isArray(parsed)) {
-            return parsed;
-          }
-          if (typeof parsed === "string") {
-            return [parsed];
-          }
-        } catch {
-          return [images];
-        }
-      }
-      return [];
-    };
-
     const imageList = parseImages(post?.images);
 
     if (imageList.length > 0) {
@@ -148,12 +119,6 @@ const PostDetailPage = () => {
         });
         return;
       }
-
-      console.log("Creating conversation with:", {
-        postId: id,
-        otherUserId: post.users.openid,
-        currentUserOpenid: currentUserOpenid,
-      });
 
       const conversationId = await messageService.findOrCreateConversation(
         id,
@@ -216,56 +181,34 @@ const PostDetailPage = () => {
 
   // 解析图片数组
   const parseImages = (images: any): string[] => {
-    console.log("=== 图片数据解析调试 ===");
-    console.log("原始图片数据:", images);
-    console.log("数据类型:", typeof images);
-
     if (Array.isArray(images)) {
-      console.log("图片数据是数组，长度:", images.length);
       // 过滤掉无效的图片URL
       const validImages = images.filter((url: string) => {
-        const isValid = url && typeof url === "string" && url.trim() !== "";
-        if (!isValid) {
-          console.log("过滤掉无效图片URL:", url);
-        }
-        return isValid;
+        return url && typeof url === "string" && url.trim() !== "";
       });
-      console.log("有效图片数量:", validImages.length);
       return validImages.slice(0, 9); // 最多显示9张图片
     }
     if (typeof images === "string") {
       try {
         const parsed = JSON.parse(images);
-        console.log("解析后的图片数据:", parsed);
         if (Array.isArray(parsed)) {
-          console.log("解析后是数组，长度:", parsed.length);
           // 过滤掉无效的图片URL
           const validImages = parsed.filter((url: string) => {
-            const isValid = url && typeof url === "string" && url.trim() !== "";
-            if (!isValid) {
-              console.log("过滤掉无效图片URL:", url);
-            }
-            return isValid;
+            return url && typeof url === "string" && url.trim() !== "";
           });
-          console.log("有效图片数量:", validImages.length);
           return validImages.slice(0, 9); // 最多显示9张图片
         }
         if (typeof parsed === "string") {
-          console.log("解析后是字符串");
           return parsed.trim() ? [parsed] : [];
         }
       } catch (error) {
-        console.log("JSON解析失败，作为单个图片处理:", error);
         return images.trim() ? [images] : [];
       }
     }
-    console.log("无法解析图片数据，返回空数组");
     return [];
   };
 
   const imageList = parseImages(post.images);
-  console.log("最终图片列表:", imageList);
-
   const mainImage =
     post.cover_image || (imageList.length > 0 ? imageList[0] : "");
 
@@ -278,14 +221,6 @@ const PostDetailPage = () => {
     currentUser &&
     post?.users?.openid &&
     currentUser.openid !== post.users.openid;
-
-  // 调试信息
-  console.log("=== 帖子详情页权限调试 ===");
-  console.log("当前用户:", currentUser);
-  console.log("帖子发布者:", post?.users);
-  console.log("当前用户openid:", currentUser?.openid);
-  console.log("帖子发布者openid:", post?.users?.openid);
-  console.log("是否显示私信按钮:", shouldShowContactInfo);
 
   // 格式化联系方式文本，每8个字符换行
   const formatContactInfo = (text: string): string => {
@@ -319,10 +254,6 @@ const PostDetailPage = () => {
                     mode="aspectFill"
                     onError={(e) => {
                       console.log(`图片加载失败 [${index}]:`, imageUrl, e);
-                      console.log("错误详情:", e.detail);
-                    }}
-                    onLoad={() => {
-                      console.log(`图片加载成功 [${index}]:`, imageUrl);
                     }}
                     style={{
                       backgroundColor: placeholderColor,

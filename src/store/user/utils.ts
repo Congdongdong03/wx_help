@@ -12,7 +12,6 @@ export const getUserFromStorage = (): UserInfo | null => {
   try {
     const userInfo = Taro.getStorageSync(USER_STORAGE_KEY);
     if (userInfo && userInfo.openid) {
-      console.log("从本地存储获取用户信息:", userInfo);
       return userInfo;
     }
   } catch (error) {
@@ -27,7 +26,6 @@ export const getUserFromStorage = (): UserInfo | null => {
 export const saveUserToStorage = (userInfo: UserInfo): void => {
   try {
     Taro.setStorageSync(USER_STORAGE_KEY, userInfo);
-    console.log("用户信息已保存到本地存储:", userInfo);
   } catch (error) {
     console.error("保存用户信息到本地存储失败:", error);
   }
@@ -40,7 +38,6 @@ export const clearUserFromStorage = (): void => {
   try {
     Taro.removeStorageSync(USER_STORAGE_KEY);
     Taro.removeStorageSync(TOKEN_STORAGE_KEY);
-    console.log("用户信息已从本地存储清除");
   } catch (error) {
     console.error("清除本地存储用户信息失败:", error);
   }
@@ -73,7 +70,6 @@ export const getUserToken = (): string | null => {
 export const saveUserToken = (token: string): void => {
   try {
     Taro.setStorageSync(TOKEN_STORAGE_KEY, token);
-    console.log("用户Token已保存");
   } catch (error) {
     console.error("保存用户Token失败:", error);
   }

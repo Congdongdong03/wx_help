@@ -1,9 +1,8 @@
 import Taro from "@tarojs/taro";
 import { View, Text, ScrollView } from "@tarojs/components";
-import "../user-agreement/index.scss"; // Re-use the same SCSS as UserAgreement
+import "./index.scss";
 
 export default function PrivacyPolicyPage() {
-  // TODO: Replace this with your actual Privacy Policy content
   const policyTitle = "帮帮隐私政策";
   const policyContent = `
 欢迎来到帮帮！我们深知个人信息对您的重要性，并会尽全力保护您的个人信息安全可靠。
@@ -33,8 +32,6 @@ export default function PrivacyPolicyPage() {
 
   return (
     <ScrollView scrollY className="policy-page">
-      {" "}
-      {/* Use same class from user-agreement.scss */}
       <View className="policy-content">
         <Text className="policy-title">{policyTitle}</Text>
         <Text className="policy-text">{policyContent}</Text>
@@ -43,7 +40,6 @@ export default function PrivacyPolicyPage() {
   );
 }
 
-// Optional: Page configuration
 definePageConfig({
   navigationBarTitleText: "隐私政策",
 });

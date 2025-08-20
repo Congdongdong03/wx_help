@@ -46,7 +46,7 @@
         font-weight: 500;
 
         &.expanded {
-          color: #007bff; // Highlight color when expanded
+          color: #007bff;
         }
 
         .faq-arrow {
@@ -61,7 +61,7 @@
         color: #555;
         padding: 15rpx 5rpx 5rpx 5rpx;
         line-height: 1.6;
-        background-color: #f9f9f9; // Slight background for answer
+        background-color: #f9f9f9;
         border-radius: 8rpx;
         margin-top: 10rpx;
       }
@@ -69,9 +69,29 @@
   }
 
   .feedback-submission-section {
+    .feedback-type-section {
+      margin-bottom: 20rpx;
+
+      .feedback-type-label {
+        font-size: 28rpx;
+        color: #333;
+        margin-bottom: 10rpx;
+        display: block;
+      }
+
+      .feedback-type-buttons {
+        display: flex;
+        gap: 20rpx;
+
+        .feedback-type-btn {
+          font-size: 24rpx;
+        }
+      }
+    }
+
     .feedback-textarea {
       width: 100%;
-      min-height: 200rpx; // Or use autoHeight prop in Textarea
+      min-height: 200rpx;
       padding: 20rpx;
       border: 1rpx solid #ddd;
       border-radius: 8rpx;
@@ -91,11 +111,14 @@
         border: 1rpx dashed #ccc;
         border-radius: 8rpx;
         overflow: hidden;
-        display: inline-block; // To be on the same line as add button if needed
+        display: inline-block;
 
         .preview-image {
           width: 100%;
           height: 100%;
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
         }
 
         .remove-image-btn {
@@ -127,7 +150,7 @@
         align-items: center;
         color: #007bff;
         cursor: pointer;
-        background-color: #f0f8ff; // Light blue background
+        background-color: #f0f8ff;
 
         .plus-icon {
           font-size: 60rpx;
@@ -145,14 +168,11 @@
       padding: 20rpx 0;
       font-size: 32rpx;
       font-weight: bold;
-      // Taro Button uses type="primary" for default blue styling
-      // background-color: #007bff;
-      // color: #fff;
       border-radius: 40rpx;
       margin-top: 20rpx;
 
       &[disabled] {
-        background-color: #cccccc !important; // Ensure override if needed
+        background-color: #cccccc !important;
         color: #888888 !important;
       }
     }

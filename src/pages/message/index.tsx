@@ -4,7 +4,6 @@ import { View, Text, ScrollView, Image, Button } from "@tarojs/components";
 import { Conversation } from "../../types/message";
 import { messageService } from "../../services/messageService";
 import { useUser } from "../../store/user/hooks";
-
 import "./index.scss";
 
 interface ConversationItemProps {
@@ -12,7 +11,7 @@ interface ConversationItemProps {
   onClick: (conversation: Conversation) => void;
 }
 
-const ConversationItem = ({ conversation, onClick }) => {
+const ConversationItem = ({ conversation, onClick }: ConversationItemProps) => {
   const {
     otherUserAvatar,
     otherUserNickname,
@@ -26,71 +25,18 @@ const ConversationItem = ({ conversation, onClick }) => {
   };
 
   return (
-    <View
-      className="conversation-item"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        padding: "20rpx",
-        borderBottom: "2rpx solid #eee",
-      }}
-      onClick={handleClick}
-    >
+    <View className="conversation-item" onClick={handleClick}>
       <Image
         className="avatar"
         src={otherUserAvatar || "https://via.placeholder.com/50"}
-        style={{
-          width: "100rpx",
-          height: "100rpx",
-          borderRadius: "50%",
-          backgroundColor: "#ddd",
-          marginRight: "20rpx",
-        }}
       />
-      <View className="content" style={{ flex: 1 }}>
-        <Text className="nickname" style={{ fontWeight: "bold" }}>
-          {otherUserNickname}
-        </Text>
-        <Text
-          className="last-message"
-          style={{ color: "#666", fontSize: "24rpx" }}
-        >
-          {lastMessagePreview}
-        </Text>
+      <View className="content">
+        <Text className="nickname">{otherUserNickname}</Text>
+        <Text className="last-message">{lastMessagePreview}</Text>
       </View>
-      <View
-        className="meta"
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "flex-end",
-        }}
-      >
-        <Text
-          className="updated-at"
-          style={{ fontSize: "20rpx", color: "#999" }}
-        >
-          {lastMessageTime}
-        </Text>
-        {unreadCount > 0 && (
-          <View
-            className="unread-badge"
-            style={{
-              backgroundColor: "red",
-              color: "white",
-              borderRadius: "50%",
-              width: "36rpx",
-              height: "36rpx",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              fontSize: "20rpx",
-              marginTop: "10rpx",
-            }}
-          >
-            {unreadCount}
-          </View>
-        )}
+      <View className="meta">
+        <Text className="updated-at">{lastMessageTime}</Text>
+        {unreadCount > 0 && <View className="unread-badge">{unreadCount}</View>}
       </View>
     </View>
   );
@@ -140,60 +86,49 @@ const Message = () => {
 
   if (!currentUser?.openid) {
     return (
-      <View
-        className="message-list-page"
-        style={{ textAlign: "center", padding: "40rpx" }}
-      >
-        <Text>请先登录以查看会话</Text>
-        <Button
-          onClick={() => Taro.navigateTo({ url: "/pages/my/index" })}
-          style={{ marginTop: "20rpx" }}
-        >
-          去登录
-        </Button>
+      <View className="message-list-page">
+        <View className="login-prompt">
+          <Text>请先登录以查看会话</Text>
+          <Button
+            className="login-button"
+            onClick={() => Taro.navigateTo({ url: "/pages/my/index" })}
+          >
+            去登录
+          </Button>
+        </View>
       </View>
     );
   }
 
   if (loading) {
     return (
-      <View
-        className="message-list-page"
-        style={{ textAlign: "center", padding: "40rpx" }}
-      >
-        <Text>加载中...</Text>
+      <View className="message-list-page">
+        <View className="loading-state">
+          <Text>加载中...</Text>
+        </View>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View
-        className="message-list-page"
-        style={{ textAlign: "center", padding: "40rpx", color: "red" }}
-      >
-        <Text>加载失败，请重试。</Text>
-        <Button onClick={fetchConversations} style={{ marginTop: "20rpx" }}>
-          重新加载
-        </Button>
+      <View className="message-list-page">
+        <View className="error-state">
+          <Text>加载失败，请重试。</Text>
+          <Button className="retry-button" onClick={fetchConversations}>
+            重新加载
+          </Button>
+        </View>
       </View>
     );
   }
 
   return (
     <View className="message-list-page">
-      <View
-        className="header"
-        style={{
-          textAlign: "center",
-          padding: "30rpx",
-          borderBottom: "2rpx solid #eee",
-          fontWeight: "bold",
-        }}
-      >
+      <View className="header">
         <Text>我的消息</Text>
       </View>
-      <ScrollView scrollY style={{ height: "calc(100vh - 100rpx)" }}>
+      <ScrollView scrollY className="conversations-list">
         {conversations.length > 0 ? (
           conversations.map((conversation) => (
             <ConversationItem
@@ -203,9 +138,7 @@ const Message = () => {
             />
           ))
         ) : (
-          <View
-            style={{ textAlign: "center", padding: "40rpx", color: "#999" }}
-          >
+          <View className="empty-state">
             <Text>暂无会话</Text>
           </View>
         )}

@@ -1,30 +1,6 @@
 import Taro from "@tarojs/taro";
 import { FeedPost, Category } from "../types";
-import {
-  PRESET_PLACEHOLDER_HEIGHTS,
-  PRESET_PLACEHOLDER_COLORS,
-  CATEGORIES,
-} from "../constants";
-
-export const formatRelativeTime = (date: Date): string => {
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (days > 0) {
-    return `${days}天前`;
-  }
-  if (hours > 0) {
-    return `${hours}小时前`;
-  }
-  if (minutes > 0) {
-    return `${minutes}分钟前`;
-  }
-  return "刚刚";
-};
+import { CATEGORIES } from "../constants";
 
 export const handlePostError = (error: any): void => {
   console.error("Post operation error:", error);
@@ -105,25 +81,16 @@ export const mapToFeedPost = (item: any): FeedPost => {
       images = [];
     }
   }
+
   return {
     id: item.id,
-    mockImagePlaceholderHeight:
-      PRESET_PLACEHOLDER_HEIGHTS[
-        Math.floor(Math.random() * PRESET_PLACEHOLDER_HEIGHTS.length)
-      ],
-    mockImagePlaceholderColor:
-      PRESET_PLACEHOLDER_COLORS[
-        Math.floor(Math.random() * PRESET_PLACEHOLDER_COLORS.length)
-      ],
     title: item.title,
     content: item.content,
-    content_preview: item.content_preview,
     category: {
       id: item.category_id,
       name: CATEGORIES.find((cat) => cat.id === item.category_id)?.name || "",
       color: CATEGORIES.find((cat) => cat.id === item.category_id)?.color || "",
     },
-    sub_category: item.sub_category,
     price: item.price,
     updated_at: item.updated_at,
     created_at: item.created_at,
@@ -140,7 +107,6 @@ export const mapToFeedPost = (item: any): FeedPost => {
 export const distributePosts = (
   posts: FeedPost[]
 ): [FeedPost[], FeedPost[]] => {
-  // 确保 posts 是数组
   if (!Array.isArray(posts)) {
     console.warn("distributePosts: posts is not an array:", posts);
     return [[], []];
@@ -152,18 +118,16 @@ export const distributePosts = (
   let rightHeight = 0;
 
   posts.forEach((post) => {
-    // 估算卡片高度 (图片高度 + 内容高度)
-    const imageHeight = post.mockImagePlaceholderHeight || 300;
-    const contentHeight = 180; // 估算的内容区域高度
+    const imageHeight = 300; // 固定图片高度
+    const contentHeight = 180;
     const cardHeight = imageHeight + contentHeight;
 
-    // 选择高度较小的列
     if (leftHeight <= rightHeight) {
       leftColumn.push(post);
-      leftHeight += cardHeight + 20; // 加上margin
+      leftHeight += cardHeight + 20;
     } else {
       rightColumn.push(post);
-      rightHeight += cardHeight + 20; // 加上margin
+      rightHeight += cardHeight + 20;
     }
   });
 

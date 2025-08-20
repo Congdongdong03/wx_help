@@ -11,16 +11,9 @@
     align-items: center;
     padding: 60rpx 0;
     margin-bottom: 40rpx;
-    background-color: #fff; // Optional: if you want a card look
-    border-radius: 16rpx; // Optional
-    box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05); // Optional
-
-    // If you add an Image for the logo:
-    // .app-logo {
-    //   width: 150rpx;
-    //   height: 150rpx;
-    //   margin-bottom: 20rpx;
-    // }
+    background-color: #fff;
+    border-radius: 16rpx;
+    box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
 
     .app-name {
       font-size: 48rpx;
@@ -39,7 +32,7 @@
     background-color: #fff;
     border-radius: 16rpx;
     box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
-    overflow: hidden; // To clip border-radius for items
+    overflow: hidden;
 
     .link-item {
       display: flex;
@@ -60,12 +53,5 @@
         color: #bbb;
       }
     }
-  }
-
-  .footer-info {
-    margin-top: 60rpx;
-    text-align: center;
-    font-size: 24rpx;
-    color: #aaa;
   }
 }

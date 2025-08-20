@@ -1,13 +1,13 @@
 import Taro from "@tarojs/taro";
 import store from "../store";
-import { selectUserOpenid } from "../store/user/selectors";
+import { selectCurrentUser } from "../store/user/selectors";
 
 // 获取当前用户ID（从Redux状态）
 function getCurrentUserId(): string {
   try {
     const state = store.getState();
-    const openid = selectUserOpenid(state);
-    return openid || "dev_openid_123";
+    const currentUser = selectCurrentUser(state);
+    return currentUser?.openid || "dev_openid_123";
   } catch (error) {
     console.error("获取用户信息失败:", error);
     return "dev_openid_123";
@@ -34,14 +34,11 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
 
 /**
  * 延迟函数
- * @param ms 延迟时间（毫秒）
  */
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * 带重试机制的网络请求（使用Redux状态管理）
- * @param url 请求地址
- * @param options 请求配置
  */
 export async function requestWithRedux<T = any>(
   url: string,
@@ -78,7 +75,6 @@ export async function requestWithRedux<T = any>(
         );
         attempt++;
         if (attempt <= retryCount) {
-          console.log(`请求失败，${retryDelay}ms后进行第${attempt}次重试...`);
           await delay(retryDelay);
           continue;
         }
@@ -95,7 +91,6 @@ export async function requestWithRedux<T = any>(
       ) {
         attempt++;
         if (attempt <= retryCount) {
-          console.log(`网络错误，${retryDelay}ms后进行第${attempt}次重试...`);
           await delay(retryDelay);
           continue;
         }
@@ -108,9 +103,6 @@ export async function requestWithRedux<T = any>(
 
 /**
  * 带重试机制的上传文件（使用Redux状态管理）
- * @param url 上传地址
- * @param filePath 文件路径
- * @param options 上传配置
  */
 export async function uploadFileWithRedux<T = any>(
   url: string,
@@ -153,7 +145,6 @@ export async function uploadFileWithRedux<T = any>(
         );
         attempt++;
         if (attempt <= retryCount) {
-          console.log(`上传失败，${retryDelay}ms后进行第${attempt}次重试...`);
           await delay(retryDelay);
           continue;
         }
@@ -170,7 +161,6 @@ export async function uploadFileWithRedux<T = any>(
       ) {
         attempt++;
         if (attempt <= retryCount) {
-          console.log(`网络错误，${retryDelay}ms后进行第${attempt}次重试...`);
           await delay(retryDelay);
           continue;
         }

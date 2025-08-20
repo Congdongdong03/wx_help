@@ -5,9 +5,6 @@ export default defineAppConfig({
     "pages/my/my-posts/my-posts",
     "pages/publish/index",
     "pages/detail/index",
-    "pages/post/index",
-    "pages/post/form/index",
-    "pages/my-posts/index",
     "pages/my/edit-nickname/index",
     "pages/my/favorites/index",
     "pages/settings/about/index",
@@ -15,7 +12,6 @@ export default defineAppConfig({
     "pages/settings/user-agreement/index",
     "pages/settings/privacy-policy/index",
     "pages/message/index",
-    "pages/messages/chat/index",
     "pages/catalogue-image/index",
   ],
   window: {
