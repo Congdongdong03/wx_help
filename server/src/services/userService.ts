@@ -20,9 +20,7 @@ export class UserService {
    */
   static async findByOpenid(openid: string): Promise<users | null> {
     return await prisma.users.findUnique({
-      where: {
-        openid: openid,
-      },
+      where: { openid },
     });
   }
 
@@ -31,9 +29,7 @@ export class UserService {
    */
   static async findById(id: number): Promise<users | null> {
     return await prisma.users.findUnique({
-      where: {
-        id: id,
-      },
+      where: { id },
     });
   }
 
@@ -41,7 +37,6 @@ export class UserService {
    * 创建新用户
    */
   static async create(userData: UserCreateInput): Promise<users> {
-    // 过滤掉 undefined 值
     const data: any = {
       openid: userData.openid,
       status: "active",
@@ -58,9 +53,7 @@ export class UserService {
     if (userData.province !== undefined) data.province = userData.province;
     if (userData.country !== undefined) data.country = userData.country;
 
-    return await prisma.users.create({
-      data,
-    });
+    return await prisma.users.create({ data });
   }
 
   /**
@@ -96,7 +89,6 @@ export class UserService {
     const user = await this.findByOpenid(openid);
 
     if (user && user.status === "active") {
-      // 更新最后登录时间
       await this.updateLastLogin(user.id);
       return user;
     }
@@ -109,61 +101,15 @@ export class UserService {
    */
   static async getUserStats(userId: number) {
     const [postsCount, favoritesCount] = await Promise.all([
-      // 用户发布的帖子数量
-      prisma.posts.count({
-        where: { user_id: userId },
-      }),
-      // 用户收藏的帖子数量
-      prisma.favorite.count({
-        where: { user_id: userId },
-      }),
+      prisma.posts.count({ where: { user_id: userId } }),
+      prisma.favorite.count({ where: { user_id: userId } }),
     ]);
 
-    return {
-      postsCount,
-      favoritesCount,
-    };
+    return { postsCount, favoritesCount };
   }
 
   /**
-   * 软删除用户（设置为不活跃状态）
-   */
-  static async softDelete(id: number): Promise<users> {
-    return await prisma.users.update({
-      where: { id },
-      data: {
-        status: "inactive",
-        updated_at: new Date(),
-      },
-    });
-  }
-
-  /**
-   * 获取用户的安全信息
-   */
-  static async getSafeUserInfo(id: number) {
-    return await prisma.users.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        openid: true,
-        nickname: true,
-        avatar_url: true,
-        email: true,
-        phone: true,
-        city: true,
-        province: true,
-        country: true,
-        status: true,
-        last_login_at: true,
-        created_at: true,
-        updated_at: true,
-      },
-    });
-  }
-
-  /**
-   * 检查用户名是否存在
+   * 检查用户名是否已存在
    */
   static async isUsernameExists(username: string): Promise<boolean> {
     const user = await prisma.users.findFirst({
@@ -173,12 +119,38 @@ export class UserService {
   }
 
   /**
-   * 检查邮箱是否存在
+   * 检查邮箱是否已存在
    */
   static async isEmailExists(email: string): Promise<boolean> {
     const user = await prisma.users.findFirst({
       where: { email },
     });
     return !!user;
+  }
+
+  /**
+   * 获取安全的用户信息（不包含敏感字段）
+   */
+  static async getSafeUserInfo(userId: number): Promise<any> {
+    const user = await prisma.users.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        nickname: true,
+        avatar_url: true,
+        phone: true,
+        email: true,
+        city: true,
+        province: true,
+        country: true,
+        status: true,
+        created_at: true,
+        updated_at: true,
+        last_login_at: true,
+        // 不包含 openid 等敏感信息
+      },
+    });
+    return user;
   }
 }

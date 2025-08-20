@@ -1,6 +1,6 @@
 import express from "express";
 import { PrismaClient } from "@prisma/client";
-import statisticsService from "../services/statisticsService";
+import { statisticsService } from "../services/statisticsService";
 import { requireAuth } from "../middleware/auth";
 
 const router = express.Router();
@@ -132,8 +132,8 @@ router.get("/time-range", requireAuth, async (req, res) => {
     }
 
     const stats = await statisticsService.getTimeRangeStats(
-      startDate,
-      endDate,
+      startDate.toISOString(),
+      endDate.toISOString(),
       period_type as "daily" | "weekly" | "monthly"
     );
 
@@ -197,13 +197,11 @@ router.post("/record-behavior", requireAuth, async (req, res) => {
       });
     }
 
-    await statisticsService.recordUserBehavior(
-      userId,
-      action_type,
+    await statisticsService.recordUserBehavior(userId, action_type, {
       target_type,
       target_id,
-      metadata
-    );
+      metadata,
+    });
 
     res.json({
       success: true,

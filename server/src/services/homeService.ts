@@ -7,24 +7,18 @@ export class HomeService {
    */
   static async getAllCities() {
     return await prisma.cities.findMany({
-      where: {
-        is_active: true,
-      },
+      where: { is_active: true },
       select: {
         name: true,
         code: true,
         is_hot: true,
       },
-      orderBy: [
-        { is_hot: "desc" }, // 热门城市排在前面
-        { sort_order: "asc" },
-        { name: "asc" },
-      ],
+      orderBy: [{ is_hot: "desc" }, { sort_order: "asc" }, { name: "asc" }],
     });
   }
 
   /**
-   * 获取置顶帖子（全局，不受城市限制）
+   * 获取置顶帖子
    */
   static async getPinnedPosts() {
     const posts = await prisma.posts.findMany({
@@ -46,13 +40,13 @@ export class HomeService {
           },
         },
       },
-      orderBy: { last_polished_at: "desc" },
+      orderBy: { created_at: "desc" },
     });
-    return posts.map(processPostImages);
+    return posts.map(this.processPostImages);
   }
 
   /**
-   * 根据城市获取普通帖子（非置顶）
+   * 根据城市获取普通帖子
    */
   static async getNormalPostsByCity(city: string) {
     const posts = await prisma.posts.findMany({
@@ -75,9 +69,9 @@ export class HomeService {
           },
         },
       },
-      orderBy: { last_polished_at: "desc" },
+      orderBy: { created_at: "desc" },
     });
-    return posts.map(processPostImages);
+    return posts.map(this.processPostImages);
   }
 
   /**
@@ -104,30 +98,31 @@ export class HomeService {
           },
         },
       },
-      orderBy: { last_polished_at: "desc" },
+      orderBy: { created_at: "desc" },
     });
-    return posts.map(processPostImages);
+    return posts.map(this.processPostImages);
   }
 
   /**
-   * 获取数据库中所有城市（调试用）
+   * 处理帖子图片数据
    */
-  static async getAllCitiesInDatabase() {
-    const cities = await prisma.posts.findMany({
-      select: {
-        city_code: true,
-      },
-      distinct: ["city_code"],
-      where: {
-        status: "published",
-      },
-    });
-
-    return cities.map((item) => item.city_code).filter(Boolean);
+  private static processPostImages(post: any) {
+    return {
+      ...post,
+      images: (() => {
+        if (!post.images) return [];
+        if (Array.isArray(post.images)) return post.images;
+        try {
+          return JSON.parse(post.images);
+        } catch {
+          return [];
+        }
+      })(),
+    };
   }
 
   /**
-   * 获取所有帖子数据（调试用）
+   * 获取所有帖子
    */
   static async getAllPosts() {
     const posts = await prisma.posts.findMany({
@@ -142,6 +137,7 @@ export class HomeService {
         price: true,
         images: true,
         is_pinned: true,
+        created_at: true,
         users: {
           select: {
             nickname: true,
@@ -149,23 +145,23 @@ export class HomeService {
           },
         },
       },
-      orderBy: [{ is_pinned: "desc" }, { last_polished_at: "desc" }],
+      orderBy: { created_at: "desc" },
     });
-    return posts.map(processPostImages);
+    return posts.map(this.processPostImages);
   }
-}
 
-function processPostImages(post: any) {
-  return {
-    ...post,
-    images: (() => {
-      if (!post.images) return [];
-      if (Array.isArray(post.images)) return post.images;
-      try {
-        return JSON.parse(post.images);
-      } catch {
-        return [];
-      }
-    })(),
-  };
+  /**
+   * 获取数据库中所有城市
+   */
+  static async getAllCitiesInDatabase() {
+    return await prisma.cities.findMany({
+      select: {
+        name: true,
+        code: true,
+        is_hot: true,
+        is_active: true,
+      },
+      orderBy: [{ is_hot: "desc" }, { sort_order: "asc" }, { name: "asc" }],
+    });
+  }
 }

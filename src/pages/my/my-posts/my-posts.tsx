@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { View, Text, Image, Button, ScrollView } from "@tarojs/components";
 import { request } from "@/utils/request";
 import "./index.scss";
-import { BASE_URL } from "../../../utils/env";
+import { BASE_URL } from "../../../config/env";
 
 // --- API Integration START ---
 const BASE_API_URL = `${BASE_URL}/api`; // 确保这是您后端API的正确地址

@@ -1,15 +1,15 @@
 {
   "miniprogramRoot": "./dist",
   "projectname": "wx_help",
-  "description": "wx_help",
+  "description": "帮帮小程序",
   "appid": "touristappid",
   "setting": {
     "urlCheck": false,
-    "es6": false,
-    "enhance": false,
-    "compileHotReLoad": false,
-    "postcss": false,
-    "minified": false
+    "es6": true,
+    "enhance": true,
+    "compileHotReLoad": true,
+    "postcss": true,
+    "minified": true
   },
   "compileType": "miniprogram"
 }

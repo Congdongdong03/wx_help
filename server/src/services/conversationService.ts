@@ -1,42 +1,12 @@
 import { PrismaClient } from "@prisma/client";
-import { messageService as backendMessageService } from "./messageService";
-
-// 定义查询结果的类型
-interface PostWithUser {
-  id: number;
-  title: string;
-  users: {
-    id: number;
-    nickname: string | null;
-    avatar_url: string | null;
-  };
-}
-
-interface UserInfo {
-  openid: string | null;
-  nickname: string | null;
-  avatar_url: string | null;
-}
-
-interface MessageInfo {
-  id: string;
-  conversationId: string;
-  type: string;
-  content: string;
-  createdAt: Date;
-}
 
 const prisma = new PrismaClient();
 
-class ConversationService {
+export class ConversationService {
   /**
-   * Finds an existing conversation or creates a new one.
-   * @param postId The ID of the post associated with the conversation.
-   * @param currentUserId The ID of the current authenticated user.
-   * @param otherUserId The ID of the other participant in the conversation.
-   * @returns The conversation object.
+   * 查找或创建对话
    */
-  public async findOrCreateConversation(
+  async findOrCreateConversation(
     postId: number,
     currentUserId: string,
     otherUserId: string
@@ -69,15 +39,14 @@ class ConversationService {
         },
       });
     }
+
     return conversation;
   }
 
   /**
-   * Fetches a list of conversations for the current user, optimizing for N+1 query problem.
-   * @param currentUserId The ID of the current authenticated user.
-   * @returns A formatted list of conversations.
+   * 获取用户的对话列表
    */
-  public async fetchConversations(currentUserId: string) {
+  async getConversations(currentUserId: string) {
     const conversations = await prisma.conversation.findMany({
       where: {
         OR: [
@@ -85,213 +54,240 @@ class ConversationService {
           { participant2Id: currentUserId },
         ],
       },
-      orderBy: {
-        updatedAt: "desc",
-      },
-    });
-
-    const postIds = [...new Set(conversations.map((conv) => conv.postId))];
-    const userIds = [
-      ...new Set(
-        conversations.flatMap((conv) => [
-          conv.participant1Id,
-          conv.participant2Id,
-        ])
-      ),
-    ];
-
-    const [posts, users, latestMessages, unreadCounts] = await Promise.all([
-      prisma.posts.findMany({
-        where: { id: { in: postIds } },
-        select: {
-          id: true,
-          title: true,
-          users: {
-            select: {
-              id: true,
-              nickname: true,
-              avatar_url: true,
+      orderBy: { updatedAt: "desc" },
+      include: {
+        post: {
+          select: {
+            id: true,
+            title: true,
+            users: {
+              select: {
+                id: true,
+                nickname: true,
+                avatar_url: true,
+              },
             },
           },
         },
-      }),
-      prisma.users.findMany({
-        where: { openid: { in: userIds } },
-        select: { openid: true, nickname: true, avatar_url: true },
-      }),
-      prisma.message.findMany({
-        where: {
-          conversationId: { in: conversations.map((c) => c.id) },
-        },
-        distinct: ["conversationId"],
-        orderBy: { createdAt: "desc" },
-      }),
-      Promise.all(
-        conversations.map((conv) =>
-          prisma.message.count({
-            where: {
-              conversationId: conv.id,
-              isRead: false,
-              senderId: { not: currentUserId },
-            },
-          })
-        )
-      ),
-    ]);
+      },
+    });
 
-    const postsMap = new Map(
-      posts.map((post: PostWithUser) => [post.id, post])
-    );
-    const usersMap = new Map(
-      users
-        .filter((user: UserInfo) => user.openid !== null)
-        .map((user: UserInfo) => [user.openid!, user])
-    );
-    const latestMessagesMap = new Map(
-      latestMessages.map((msg: MessageInfo) => [msg.conversationId, msg])
-    );
-
-    const formattedConversations = conversations.map((conv, index) => {
-      const otherParticipantId =
+    return conversations.map((conv) => {
+      const otherUserId =
         conv.participant1Id === currentUserId
           ? conv.participant2Id
           : conv.participant1Id;
-      const otherUser = usersMap.get(otherParticipantId);
-      const post = postsMap.get(conv.postId);
-      const lastMessage = latestMessagesMap.get(conv.id);
-      const unreadCount = unreadCounts[index]; // Assuming order is preserved
-
-      let lastMessagePreview = "暂无消息";
-      if (lastMessage) {
-        if (lastMessage.type === "image") {
-          lastMessagePreview = "[图片]";
-        } else {
-          lastMessagePreview = lastMessage.content;
-        }
-      }
 
       return {
         id: conv.id,
         postId: conv.postId,
-        otherUserId: otherParticipantId,
-        otherUserNickname: otherUser?.nickname || "未知用户",
-        otherUserAvatar: otherUser?.avatar_url || "",
-        postTitle: post?.title || "",
-        lastMessagePreview: lastMessagePreview,
-        lastMessageTime: lastMessage?.createdAt
-          ? this.formatTime(lastMessage.createdAt)
-          : "",
-        unreadCount: unreadCount,
+        postTitle: conv.post.title,
+        otherUserId,
+        updatedAt: conv.updatedAt,
+        post: conv.post,
       };
     });
-
-    return formattedConversations;
   }
 
   /**
-   * Fetches messages for a given conversation with pagination.
-   * @param conversationId The ID of the conversation.
-   * @param page The page number for pagination.
-   * @param limit The number of messages per page.
-   * @param before Optional: message ID to fetch messages before (for infinite scrolling).
-   * @returns An object containing messages and pagination details.
+   * 获取对话详情
    */
-  public async fetchMessages(
-    conversationId: string,
-    page: number,
-    limit: number,
-    before?: number
-  ) {
-    return await backendMessageService.fetchMessages(
-      conversationId,
-      page,
-      limit,
-      before
-    );
-  }
-
-  /**
-   * Marks messages in a conversation as read for a specific user.
-   * @param conversationId The ID of the conversation.
-   * @param currentUserId The ID of the user for whom to mark messages as read.
-   */
-  public async markMessagesAsRead(
-    conversationId: string,
-    currentUserId: string
-  ) {
-    await backendMessageService.markMessagesAsRead(
-      conversationId,
-      currentUserId
-    );
-  }
-
-  /**
-   * Sends a new message in a conversation.
-   * @param conversationId The ID of the conversation.
-   * @param senderId The ID of the sender.
-   * @param receiverId The ID of the receiver.
-   * @param content The content of the message.
-   * @param type The type of the message (e.g., 'text', 'image').
-   * @returns The newly created message object.
-   */
-  public async sendMessage(
-    conversationId: string,
-    senderId: string,
-    receiverId: string,
-    content: string,
-    type: "text" | "image"
-  ) {
-    return await backendMessageService.sendMessage(
-      conversationId,
-      senderId,
-      receiverId,
-      content,
-      type
-    );
-  }
-
-  /**
-   * Fetches a single message by its ID.
-   * @param messageId The ID of the message to fetch.
-   * @returns The message object.
-   */
-  public async fetchSingleMessage(messageId: string) {
-    return await prisma.message.findUnique({
-      where: { id: messageId },
-    });
-  }
-
-  /**
-   * Gets the total unread message count for a user.
-   * @param currentUserId The ID of the current authenticated user.
-   * @returns The count of unread messages.
-   */
-  public async getUnreadCount(currentUserId: string) {
-    return await prisma.message.count({
+  async getConversationById(conversationId: string, currentUserId: string) {
+    const conversation = await prisma.conversation.findFirst({
       where: {
-        receiverId: currentUserId,
+        id: conversationId,
+        OR: [
+          { participant1Id: currentUserId },
+          { participant2Id: currentUserId },
+        ],
+      },
+      include: {
+        post: {
+          select: {
+            id: true,
+            title: true,
+            users: {
+              select: {
+                id: true,
+                nickname: true,
+                avatar_url: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!conversation) {
+      throw new Error("对话不存在或无权限访问");
+    }
+
+    return conversation;
+  }
+
+  /**
+   * 删除对话
+   */
+  async deleteConversation(conversationId: string, currentUserId: string) {
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        OR: [
+          { participant1Id: currentUserId },
+          { participant2Id: currentUserId },
+        ],
+      },
+    });
+
+    if (!conversation) {
+      throw new Error("对话不存在或无权限删除");
+    }
+
+    await prisma.conversation.delete({
+      where: { id: conversationId },
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * 获取对话列表（别名方法）
+   */
+  async fetchConversations(currentUserId: string) {
+    return this.getConversations(currentUserId);
+  }
+
+  /**
+   * 获取消息列表
+   */
+  async fetchMessages(
+    conversationId: string,
+    currentUserId: string,
+    page: number = 1,
+    limit: number = 20
+  ) {
+    const offset = (page - 1) * limit;
+
+    // 验证用户是否有权限访问此对话
+    await this.getConversationById(conversationId, currentUserId);
+
+    const messages = await prisma.message.findMany({
+      where: {
+        conversationId: conversationId,
+      },
+      orderBy: { createdAt: "desc" },
+      skip: offset,
+      take: limit,
+    });
+
+    const total = await prisma.message.count({
+      where: {
+        conversationId: conversationId,
+      },
+    });
+
+    return {
+      messages: messages.reverse(), // 返回时按时间正序
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalMessages: total,
+        limit,
+      },
+    };
+  }
+
+  /**
+   * 标记消息为已读
+   */
+  async markMessagesAsRead(conversationId: string, currentUserId: string) {
+    // 验证用户是否有权限访问此对话
+    await this.getConversationById(conversationId, currentUserId);
+
+    await prisma.message.updateMany({
+      where: {
+        conversationId: conversationId,
+        senderId: { not: currentUserId },
+        isRead: false,
+      },
+      data: {
+        isRead: true,
+      },
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * 发送消息
+   */
+  async sendMessage(conversationId: string, senderId: string, content: string) {
+    // 验证用户是否有权限访问此对话
+    const conversation = await this.getConversationById(
+      conversationId,
+      senderId
+    );
+
+    // 确定接收者ID
+    const receiverId =
+      conversation.participant1Id === senderId
+        ? conversation.participant2Id
+        : conversation.participant1Id;
+
+    const message = await prisma.message.create({
+      data: {
+        conversationId: conversationId,
+        senderId: senderId,
+        receiverId: receiverId,
+        content: content,
+        type: "text",
+        createdAt: new Date(),
         isRead: false,
       },
     });
+
+    // 更新对话的最后更新时间
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { updatedAt: new Date() },
+    });
+
+    return message;
   }
 
-  private formatTime(date: Date): string {
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const seconds = Math.floor(diff / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
+  /**
+   * 获取单条消息
+   */
+  async fetchSingleMessage(messageId: string) {
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+    });
 
-    if (days > 0) {
-      return `${days} 天前`;
-    } else if (hours > 0) {
-      return `${hours} 小时前`;
-    } else if (minutes > 0) {
-      return `${minutes} 分钟前`;
-    } else {
-      return "刚刚";
+    if (!message) {
+      throw new Error("消息不存在");
     }
+
+    return message;
+  }
+
+  /**
+   * 获取未读消息数量
+   */
+  async getUnreadCount(currentUserId: string) {
+    const unreadCount = await prisma.message.count({
+      where: {
+        senderId: { not: currentUserId },
+        isRead: false,
+        conversation: {
+          OR: [
+            { participant1Id: currentUserId },
+            { participant2Id: currentUserId },
+          ],
+        },
+      },
+    });
+
+    return unreadCount;
   }
 }
 

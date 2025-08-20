@@ -1,7 +1,7 @@
 import Taro from "@tarojs/taro";
 import { useState, useEffect } from "react";
 import { View, Text, ScrollView, Button } from "@tarojs/components";
-import { BASE_URL } from "../../utils/env";
+import { BASE_URL } from "../../config/env";
 import { clearLoginState, checkLoginAndShowModal } from "../../app";
 import "./index.scss";
 import LoginModal from "../../components/LoginModal";

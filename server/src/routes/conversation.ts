@@ -168,9 +168,9 @@ router.get(
 
       const messagesResult = await conversationService.fetchMessages(
         conversationId,
+        currentUserId as string,
         parsedPage,
-        parsedLimit,
-        before ? parseInt(before as string) : undefined
+        parsedLimit
       );
 
       console.log(
@@ -265,9 +265,7 @@ router.post(
       const newMessage = await conversationService.sendMessage(
         conversationId,
         currentUserId as string,
-        receiverId,
-        content,
-        type
+        content
       );
 
       res.json({

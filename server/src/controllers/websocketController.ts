@@ -54,7 +54,7 @@ export class WebSocketController {
       // 推送后批量标记为已读
       if (unreadMessages.length > 0) {
         await WebSocketService.markMessagesAsRead(
-          unreadMessages.map((m) => m.id)
+          unreadMessages.map((m: any) => m.id)
         );
       }
     } catch (err) {

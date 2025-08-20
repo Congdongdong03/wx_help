@@ -3,19 +3,7 @@ import { Request, Response } from "express";
 import { prisma } from "../lib/prisma";
 import { AdminPostService } from "../services/adminPostService";
 import { AuthenticatedRequest } from "../middleware/auth";
-
-// 统一的日志函数
-const log = (
-  level: "info" | "error" | "warn" | "debug",
-  message: string,
-  data?: any
-) => {
-  const timestamp = new Date().toISOString();
-  console[level](
-    `[${timestamp}] [AdminPostController] ${message}`,
-    data !== undefined ? JSON.stringify(data) : ""
-  );
-};
+import { log } from "../utils/logger";
 
 export class AdminPostController {
   /**
@@ -187,7 +175,7 @@ export class AdminPostController {
         });
       }
 
-      const result = await AdminPostService.batchReviewPosts(
+      const result = await AdminPostService.batchReviewPostsWithAdmin(
         postIds,
         action,
         req.user!.id

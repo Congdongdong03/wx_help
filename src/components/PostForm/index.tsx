@@ -11,7 +11,7 @@ import {
   Canvas,
 } from "@tarojs/components";
 import BottomActionBar from "@/components/BottomActionBar";
-import { BASE_URL } from "@/utils/env";
+import { BASE_URL } from "@/config/env";
 import { request } from "@/utils/request";
 import "./index.scss";
 

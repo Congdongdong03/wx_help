@@ -2,15 +2,7 @@
 import { Request, Response } from "express";
 import { UserService } from "../services/userService";
 import { AuthenticatedRequest } from "../middleware/auth";
-
-// 统一的日志函数
-const log = (
-  level: "info" | "error" | "warn" | "debug",
-  message: string,
-  data?: any
-) => {
-  console[level](message, data);
-};
+import { log } from "../utils/logger";
 
 export class UserController {
   /**

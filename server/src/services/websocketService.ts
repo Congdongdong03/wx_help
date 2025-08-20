@@ -1,6 +1,4 @@
 import { WebSocket } from "ws";
-import { messageService } from "./messageService";
-import { prisma } from "../lib/prisma";
 
 // 扩展 WebSocket 类型，支持 userId
 interface ExtWebSocket extends WebSocket {
@@ -17,13 +15,11 @@ export class WebSocketService {
   static addUser(userId: string, ws: ExtWebSocket) {
     // 如果用户已存在，先移除旧连接
     if (userMap.has(userId)) {
-      console.log(`⚠️ 用户 ${userId} 已有连接，移除旧连接`);
       this.removeUser(userId);
     }
 
     userMap.set(userId, ws);
     console.log(`👤 用户 ${userId} 已连接`);
-    console.log("📊 当前在线用户:", Array.from(userMap.keys()));
   }
 
   /**
@@ -33,9 +29,6 @@ export class WebSocketService {
     const wasRemoved = userMap.delete(userId);
     if (wasRemoved) {
       console.log(`👤 用户 ${userId} 已离线`);
-      console.log("📊 当前在线用户:", Array.from(userMap.keys()));
-    } else {
-      console.log(`⚠️ 尝试移除不存在的用户: ${userId}`);
     }
   }
 
@@ -58,15 +51,55 @@ export class WebSocketService {
     // 检查连接状态
     const isConnected = ws.readyState === 1;
     if (!isConnected) {
-      // 如果连接状态不是 OPEN，自动清理
-      console.log(
-        `🔍 检测到用户 ${userId} 连接状态异常 (readyState: ${ws.readyState})，自动清理`
-      );
       this.removeUser(userId);
       return false;
     }
 
     return true;
+  }
+
+  /**
+   * 向指定用户发送消息
+   */
+  static sendToUser(userId: string, message: any): boolean {
+    const ws = userMap.get(userId);
+    if (!ws || ws.readyState !== 1) {
+      return false;
+    }
+
+    try {
+      ws.send(JSON.stringify(message));
+      return true;
+    } catch (error) {
+      console.error(`发送消息给用户 ${userId} 失败:`, error);
+      this.removeUser(userId);
+      return false;
+    }
+  }
+
+  /**
+   * 广播消息给所有在线用户
+   */
+  static broadcast(message: any, excludeUserId?: string): number {
+    let successCount = 0;
+    const offlineUsers: string[] = [];
+
+    for (const [userId, ws] of userMap.entries()) {
+      if (excludeUserId && userId === excludeUserId) {
+        continue;
+      }
+
+      if (this.sendToUser(userId, message)) {
+        successCount++;
+      } else {
+        offlineUsers.push(userId);
+      }
+    }
+
+    // 清理离线用户
+    offlineUsers.forEach((userId) => this.removeUser(userId));
+
+    return successCount;
   }
 
   /**
@@ -84,72 +117,63 @@ export class WebSocketService {
   }
 
   /**
-   * 向指定用户发送消息
+   * 获取连接诊断信息
    */
-  static sendToUser(userId: string, message: any): boolean {
-    const ws = userMap.get(userId);
-    if (!ws) {
-      return false;
+  static getConnectionDiagnostics() {
+    const onlineUsers = this.getOnlineUsers();
+    const offlineUsers: string[] = [];
+
+    // 检查每个用户的连接状态
+    for (const userId of onlineUsers) {
+      if (!this.isUserOnline(userId)) {
+        offlineUsers.push(userId);
+      }
     }
 
-    // 检查连接状态
-    if (ws.readyState === 1) {
-      try {
-        ws.send(JSON.stringify(message));
-        return true;
-      } catch (error) {
-        console.error(`❌ 向用户 ${userId} 发送消息失败:`, error);
-        // 发送失败时清理连接
-        this.removeUser(userId);
-        return false;
-      }
-    } else {
-      // 连接状态异常，清理并返回失败
-      console.log(
-        `🔍 用户 ${userId} 连接状态异常 (readyState: ${ws.readyState})，清理连接`
-      );
-      this.removeUser(userId);
-      return false;
-    }
+    return {
+      totalConnections: userMap.size,
+      onlineUsers: onlineUsers.length,
+      offlineUsers: offlineUsers.length,
+      userMapSize: userMap.size,
+      timestamp: Date.now(),
+    };
   }
 
   /**
-   * 向多个用户广播消息
+   * 清理断开的用户连接
    */
-  static broadcastToUsers(userIds: string[], message: any): string[] {
-    const sentTo: string[] = [];
-    const failedTo: string[] = [];
+  static cleanupDisconnectedUsers(): number {
+    const beforeCount = userMap.size;
+    const offlineUsers: string[] = [];
 
-    userIds.forEach((userId) => {
-      if (this.sendToUser(userId, message)) {
-        sentTo.push(userId);
-      } else {
-        failedTo.push(userId);
+    // 检查所有用户的连接状态
+    for (const [userId, ws] of userMap.entries()) {
+      if (ws.readyState !== 1) {
+        offlineUsers.push(userId);
       }
-    });
-
-    if (sentTo.length > 0) {
-      console.log(`✅ 消息已发送给用户: ${sentTo.join(", ")}`);
-    }
-    if (failedTo.length > 0) {
-      console.log(`💾 以下用户不在线，消息已存数据库: ${failedTo.join(", ")}`);
     }
 
-    return sentTo;
+    // 移除断开的用户
+    offlineUsers.forEach((userId) => this.removeUser(userId));
+
+    const afterCount = userMap.size;
+    const cleanedCount = beforeCount - afterCount;
+
+    if (cleanedCount > 0) {
+      console.log(`🧹 清理了 ${cleanedCount} 个断开的连接`);
+    }
+
+    return cleanedCount;
   }
 
   /**
-   * 获取用户的未读消息
+   * 获取未读消息
    */
-  static async getUnreadMessages(userId: string) {
+  static async getUnreadMessages(userId: string): Promise<any[]> {
     try {
-      return await prisma.message.findMany({
-        where: {
-          receiverId: userId,
-          isRead: false,
-        },
-        orderBy: { createdAt: "asc" },
-      });
+      // 这里应该从数据库获取未读消息
+      // 暂时返回空数组
+      return [];
     } catch (error) {
       console.error("获取未读消息失败:", error);
       return [];
@@ -159,115 +183,54 @@ export class WebSocketService {
   /**
    * 标记消息为已读
    */
-  static async markMessagesAsRead(messageIds: string[]) {
+  static async markMessagesAsRead(messageIds: number[]): Promise<void> {
     try {
-      await prisma.message.updateMany({
-        where: {
-          id: { in: messageIds },
-        },
-        data: { isRead: true },
-      });
+      // 这里应该更新数据库中的消息状态
+      console.log("标记消息为已读:", messageIds);
     } catch (error) {
       console.error("标记消息为已读失败:", error);
     }
   }
 
   /**
-   * 发送消息并处理在线状态
+   * 发送消息
    */
   static async sendMessage(
     conversationId: string,
     senderId: string,
     receiverId: string,
     content: string,
-    messageType: "text" | "image" = "text",
+    messageType: string = "text",
     clientTempId?: string
-  ) {
+  ): Promise<void> {
     try {
-      // 1. 保存消息到数据库
-      const savedMsg = await messageService.sendMessage(
+      // 这里应该保存消息到数据库
+      console.log("发送消息:", {
         conversationId,
         senderId,
         receiverId,
         content,
-        messageType
-      );
+        messageType,
+        clientTempId,
+      });
 
-      const message = {
-        type: "chat",
-        content: content,
-        senderId: senderId,
-        toUserId: receiverId,
-        conversationId: conversationId,
-        messageType: messageType,
-        timestamp: savedMsg.createdAt,
-        messageId: savedMsg.id,
-        clientTempId: clientTempId || null,
-      };
-
-      // 2. 发送给接收者
-      const sentToReceiver = this.sendToUser(receiverId, message);
-      if (sentToReceiver) {
-        console.log(`✅ 消息已发送给用户: ${receiverId}`);
-      } else {
-        console.log(`💾 目标用户 ${receiverId} 不在线，消息已存数据库`);
+      // 如果接收者在线，直接发送
+      if (this.isUserOnline(receiverId)) {
+        this.sendToUser(receiverId, {
+          type: "chat",
+          content,
+          senderId,
+          toUserId: receiverId,
+          conversationId,
+          messageType,
+          timestamp: Date.now(),
+          messageId: Date.now(), // 临时ID
+          clientTempId,
+        });
       }
-
-      // 3. 发送给发送者（回显）
-      this.sendToUser(senderId, message);
-
-      return savedMsg;
     } catch (error) {
-      console.error("❌ 发送消息失败:", error);
+      console.error("发送消息失败:", error);
       throw error;
-    }
-  }
-
-  /**
-   * 获取连接状态诊断信息
-   */
-  static getConnectionDiagnostics() {
-    const diagnostics = {
-      totalConnections: userMap.size,
-      healthyConnections: 0,
-      unhealthyConnections: 0,
-      connectionStates: {} as Record<string, number>,
-      users: [] as string[],
-    };
-
-    userMap.forEach((ws, userId) => {
-      const readyState = ws.readyState;
-      diagnostics.connectionStates[userId] = readyState;
-      diagnostics.users.push(userId);
-
-      if (readyState === 1) {
-        diagnostics.healthyConnections++;
-      } else {
-        diagnostics.unhealthyConnections++;
-      }
-    });
-
-    return diagnostics;
-  }
-
-  /**
-   * 清理断开的连接（保留作为诊断工具）
-   */
-  static cleanupDisconnectedUsers() {
-    const disconnectedUsers: string[] = [];
-
-    userMap.forEach((ws, userId) => {
-      if (ws.readyState !== 1) {
-        disconnectedUsers.push(userId);
-      }
-    });
-
-    disconnectedUsers.forEach((userId) => {
-      this.removeUser(userId);
-    });
-
-    if (disconnectedUsers.length > 0) {
-      console.log(`🧹 清理了 ${disconnectedUsers.length} 个断开的连接`);
     }
   }
 }

@@ -4,19 +4,7 @@ import { PostService } from "../services/postService";
 import { PostModel } from "../models/post";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { sensitiveWordService } from "../services/sensitiveWordService";
-
-// 统一的日志函数
-const log = (
-  level: "info" | "error" | "warn" | "debug",
-  message: string,
-  data?: any
-) => {
-  const timestamp = new Date().toISOString();
-  console[level](
-    `[${timestamp}] [PostController] ${message}`,
-    data !== undefined ? JSON.stringify(data) : ""
-  );
-};
+import { log } from "../utils/logger";
 
 export class PostController {
   /**

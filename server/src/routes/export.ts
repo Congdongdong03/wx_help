@@ -1,6 +1,6 @@
 import express from "express";
 import { requireAuth } from "../middleware/auth";
-import exportService from "../services/exportService";
+import { exportService } from "../services/exportService";
 
 const router = express.Router();
 

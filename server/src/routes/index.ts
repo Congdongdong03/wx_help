@@ -9,7 +9,8 @@ import adminRouter from "./admin";
 import feedbackRouter from "./feedback";
 import statisticsRouter from "./statistics";
 import exportRouter from "./export";
-import { log } from "../utils/monitor";
+import { log } from "../utils/logger";
+
 import { prisma } from "../lib/prisma";
 
 console.log("==== index.ts loaded ====");

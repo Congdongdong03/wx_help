@@ -1,6 +1,5 @@
 import "dotenv/config";
 import express, { Request, Response, NextFunction } from "express";
-// import { Logtail } from "@logtail/node";
 import cors from "cors";
 import { config } from "./config";
 import userRoutes from "./routes/user";
@@ -21,7 +20,6 @@ import fs from "fs";
 import { requireAuth } from "./middleware/auth";
 import { errorHandler, notFoundHandler } from "./middleware/error";
 import { RedisService } from "./services/redis";
-// import { socketService } from "./services/socket"; // 已移除 socket.io 相关代码
 import { createServer } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import { WebSocketRouter } from "./routes/websocketRouter";
@@ -67,14 +65,7 @@ wss.on("connection", function connection(ws: ExtWebSocket, req) {
 // 依赖 WebSocket 的 close 和 error 事件进行即时清理
 // 这些事件应该能够准确捕捉到所有连接断开情况
 
-// 简单的日志辅助函数
-const log = (
-  level: "info" | "error" | "warn" | "debug",
-  message: string,
-  data?: any
-) => {
-  console[level](message, data);
-};
+import { log } from "./utils/logger";
 
 // Middleware
 app.use(
@@ -106,7 +97,6 @@ app.use(
   "/catalogue_images",
   express.static(path.join(__dirname, "public/catalogue_images"))
 );
-app.use("/crm", express.static(path.join(__dirname, "crm")));
 
 // 静态文件服务
 app.use(
