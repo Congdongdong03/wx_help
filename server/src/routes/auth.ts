@@ -22,16 +22,28 @@ router.post("/wechat-login", async (req, res) => {
     if (process.env.NODE_ENV === "development" && code === "dev_test_code") {
       console.log("🧪 Auth: Using development test authentication");
 
+      // 根据用户昵称动态生成openid（避免硬编码）
+      const nicknameHash = userInfo?.nickName
+        ? userInfo.nickName
+            .split("")
+            .reduce((a: number, b: string) => a + b.charCodeAt(0), 0) % 1000
+        : Math.floor(Math.random() * 1000);
+      const openid = `dev_openid_${nicknameHash}`;
+
+      console.log(
+        `🔧 Auth: Generated openid for ${userInfo?.nickName}: ${openid}`
+      );
+
       // 创建或查找测试用户
       let user = await prisma.users.findUnique({
-        where: { openid: "dev_openid_123" },
+        where: { openid },
       });
 
       if (!user) {
         user = await prisma.users.create({
           data: {
-            username: "dev_test_user",
-            openid: "dev_openid_123",
+            username: `dev_user_${openid.split("_").pop()}`,
+            openid,
             nickname: userInfo?.nickName || "测试用户",
             avatar_url: userInfo?.avatarUrl || "",
             gender: userInfo?.gender || 0,
@@ -43,6 +55,7 @@ router.post("/wechat-login", async (req, res) => {
             last_login_at: new Date(),
           },
         });
+        console.log(`✅ Auth: Created new user with openid: ${openid}`);
       } else {
         user = await prisma.users.update({
           where: { id: user.id },
@@ -57,6 +70,7 @@ router.post("/wechat-login", async (req, res) => {
             last_login_at: new Date(),
           },
         });
+        console.log(`✅ Auth: Updated existing user with openid: ${openid}`);
       }
 
       return res.json({
@@ -135,7 +149,7 @@ router.post("/wechat-login", async (req, res) => {
         data: {
           username: `user_${openid.slice(-8)}`, // 生成唯一用户名
           openid,
-          nickname: userInfo?.nickName || "微信用户",
+          nickname: userInfo?.nickName || `用户_${Date.now()}`,
           avatar_url: userInfo?.avatarUrl || "",
           gender: userInfo?.gender || 0,
           city: userInfo?.city || "",
@@ -215,6 +229,53 @@ router.post("/logout", async (req, res, next) => {
     res.status(500).json({
       code: 1,
       message: error.message || "登出失败",
+    });
+  }
+});
+
+// 开发环境：获取用户列表（用于用户切换功能）
+router.get("/users", async (req, res) => {
+  // 只在开发环境允许访问
+  if (process.env.NODE_ENV !== "development") {
+    return res.status(403).json({
+      code: 1,
+      message: "此接口仅在开发环境可用",
+    });
+  }
+
+  try {
+    const users = await prisma.users.findMany({
+      select: {
+        id: true,
+        username: true,
+        openid: true,
+        nickname: true,
+        avatar_url: true,
+        gender: true,
+        city: true,
+        province: true,
+        country: true,
+        language: true,
+        status: true,
+        created_at: true,
+        last_login_at: true,
+      },
+      orderBy: {
+        created_at: "desc",
+      },
+      take: 20, // 限制返回20个用户
+    });
+
+    res.json({
+      code: 0,
+      message: "获取用户列表成功",
+      data: users,
+    });
+  } catch (error: any) {
+    console.error("获取用户列表失败:", error);
+    res.status(500).json({
+      code: 1,
+      message: "获取用户列表失败",
     });
   }
 });

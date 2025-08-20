@@ -23,31 +23,7 @@ export interface UserInfo {
   status?: string;
 }
 
-// Mock API for login simulation
-const mockLoginAPI = (
-  profileInfo: Taro.getUserProfile.SuccessCallbackResult["userInfo"]
-): Promise<UserInfo> => {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (Math.random() < 0.1) {
-        // 10% chance of failure
-        reject({ errMsg: "Network error or random API failure" });
-        return;
-      }
-      const mockUser: UserInfo = {
-        ...(profileInfo as any), // Cast to any to spread, then ensure types
-        avatarUrl: profileInfo.avatarUrl,
-        nickName: profileInfo.nickName,
-        openid: `mock_openid_${Date.now()}`,
-        token: `mock_token_${Date.now()}_${Math.random()
-          .toString(36)
-          .substring(7)}`,
-      };
-      console.log("Mock API: Login successful, returning user:", mockUser);
-      resolve(mockUser);
-    }, 1000);
-  });
-};
+// 注意：现在使用真实的API调用，不再使用mock数据
 
 // 为了向后兼容，保留原有的函数
 export function getLoggedInUser(): UserInfo | null {

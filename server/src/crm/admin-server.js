@@ -86,7 +86,7 @@ app.post("/api/users/login", async (req, res) => {
         data: {
           openid,
           username: `user_${Date.now()}`,
-          nickname: userInfo?.nickName || "微信用户",
+          nickname: userInfo?.nickName || `用户_${Date.now()}`,
           avatar_url: userInfo?.avatarUrl,
           last_login_at: new Date(),
         },

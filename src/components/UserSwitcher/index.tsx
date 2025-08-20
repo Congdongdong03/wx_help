@@ -1,42 +1,26 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Taro from "@tarojs/taro";
 import { View, Text, Button } from "@tarojs/components";
 import { useUser } from "../../store/user";
 import { useDispatch } from "react-redux";
 import { loginSuccess, logout } from "../../store/user/actions";
+import { request } from "../../utils/request";
+import { API_CONFIG } from "../../config/api";
 import "./index.scss";
 
-// 测试用户数据
-const TEST_USERS = {
-  userA: {
-    id: 1,
-    openid: "dev_openid_123",
-    nickName: "用户A（卖家）",
-    avatarUrl:
-      "https://thirdwx.qlogo.cn/mmopen/vi_32/POgEwh4mIHO4nibH0KlMECNjjGxQUq24ZEaGT4poC6icRiccVGKSyXwibcPq4BWmiaIGuG1icwxaQX6grC9VemZoJ8rg/132",
-    gender: 1,
-    city: "Sydney",
-    province: "NSW",
-    country: "Australia",
-    language: "zh_CN",
-    status: "active",
-    token: "test_token_user_a",
-  },
-  userB: {
-    id: 2,
-    openid: "dev_openid_456",
-    nickName: "用户B（买家）",
-    avatarUrl:
-      "https://thirdwx.qlogo.cn/mmopen/vi_32/POgEwh4mIHO4nibH0KlMECNjjGxQUq24ZEaGT4poC6icRiccVGKSyXwibcPq4BWmiaIGuG1icwxaQX6grC9VemZoJ8rg/132",
-    gender: 2,
-    city: "Melbourne",
-    province: "VIC",
-    country: "Australia",
-    language: "zh_CN",
-    status: "active",
-    token: "test_token_user_b",
-  },
-};
+interface DatabaseUser {
+  id: number;
+  username: string;
+  openid: string;
+  nickname: string;
+  avatar_url: string;
+  gender: number;
+  city: string;
+  province: string;
+  country: string;
+  language: string;
+  status: string;
+}
 
 interface UserSwitcherProps {
   isVisible: boolean;
@@ -47,6 +31,8 @@ const UserSwitcher = ({ isVisible, onClose }: UserSwitcherProps) => {
   const { currentUser } = useUser();
   const dispatch = useDispatch();
   const [isLoading, setIsLoading] = useState(false);
+  const [databaseUsers, setDatabaseUsers] = useState<DatabaseUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   // 只在开发环境显示
   if (process.env.NODE_ENV !== "development") {
@@ -57,36 +43,91 @@ const UserSwitcher = ({ isVisible, onClose }: UserSwitcherProps) => {
     return null;
   }
 
-  const handleSwitchUser = async (userKey: keyof typeof TEST_USERS) => {
+  // 从数据库获取用户列表
+  const loadDatabaseUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const response = await request(API_CONFIG.getApiUrl("/auth/users"), {
+        method: "GET",
+      });
+
+      if (response.code === 0 && response.data) {
+        setDatabaseUsers(response.data);
+        console.log("✅ 从数据库加载用户列表成功:", response.data);
+      } else {
+        console.warn("⚠️ 无法从数据库获取用户列表，显示空列表");
+        setDatabaseUsers([]);
+      }
+    } catch (error) {
+      console.error("❌ 加载数据库用户失败:", error);
+      // 如果加载失败，显示空列表
+      setDatabaseUsers([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  // 当弹窗显示时加载用户列表
+  useEffect(() => {
+    if (isVisible) {
+      loadDatabaseUsers();
+    }
+  }, [isVisible]);
+
+  const handleSwitchUser = async (user: DatabaseUser) => {
     setIsLoading(true);
     try {
-      const userData = TEST_USERS[userKey];
+      console.log(`🔄 切换到用户: ${user.nickname}`, user);
 
       // 先登出当前用户
       if (currentUser) {
         dispatch(logout());
       }
 
-      // 模拟登录延迟
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // 调用API登录用户
+      const response = await request(
+        API_CONFIG.getApiUrl("/auth/wechat-login"),
+        {
+          method: "POST",
+          data: {
+            code: "dev_test_code", // 使用开发环境测试code
+            userInfo: {
+              nickName: user.nickname,
+              avatarUrl: user.avatar_url,
+              gender: user.gender,
+              city: user.city,
+              province: user.province,
+              country: user.country,
+              language: user.language,
+            },
+          },
+        }
+      );
 
-      // 登录新用户
-      dispatch(loginSuccess(userData));
+      if (response.code === 0) {
+        const userData = response.data;
+        console.log("✅ API返回用户数据:", userData);
 
-      // 存储到本地存储
-      Taro.setStorageSync("openid", userData.openid);
-      Taro.setStorageSync("userInfo", userData);
+        // 登录新用户
+        dispatch(loginSuccess(userData));
 
-      Taro.showToast({
-        title: `已切换到${userData.nickName}`,
-        icon: "success",
-        duration: 2000,
-      });
+        // 存储到本地存储
+        Taro.setStorageSync("openid", userData.openid);
+        Taro.setStorageSync("userInfo", userData);
 
-      // 触发全局事件
-      Taro.eventCenter.trigger("userInfoUpdated");
+        Taro.showToast({
+          title: `已切换到${userData.nickName}`,
+          icon: "success",
+          duration: 2000,
+        });
 
-      onClose();
+        // 触发全局事件
+        Taro.eventCenter.trigger("userInfoUpdated");
+
+        onClose();
+      } else {
+        throw new Error(response.message || "登录失败");
+      }
     } catch (error) {
       console.error("切换用户失败:", error);
       Taro.showToast({
@@ -145,27 +186,32 @@ const UserSwitcher = ({ isVisible, onClose }: UserSwitcherProps) => {
         </View>
 
         <View className="user-buttons">
-          <Button
-            className={`user-button ${
-              currentUser?.id === TEST_USERS.userA.id ? "active" : ""
-            }`}
-            onClick={() => handleSwitchUser("userA")}
-            disabled={isLoading}
-            loading={isLoading}
-          >
-            一键登录为用户A（卖家）
-          </Button>
-
-          <Button
-            className={`user-button ${
-              currentUser?.id === TEST_USERS.userB.id ? "active" : ""
-            }`}
-            onClick={() => handleSwitchUser("userB")}
-            disabled={isLoading}
-            loading={isLoading}
-          >
-            一键登录为用户B（买家）
-          </Button>
+          {loadingUsers ? (
+            <Button className="user-button" disabled loading>
+              加载用户中...
+            </Button>
+          ) : (
+            databaseUsers.map((user) => (
+              <View key={user.id} className="user-item">
+                <View className="user-info">
+                  <Text className="user-nickname">{user.nickname}</Text>
+                  <Text className="user-details">
+                    ID: {user.id} | {user.city || "未知城市"}
+                  </Text>
+                </View>
+                <Button
+                  className={`user-button ${
+                    currentUser?.id === user.id ? "active" : ""
+                  }`}
+                  onClick={() => handleSwitchUser(user)}
+                  disabled={isLoading}
+                  loading={isLoading}
+                >
+                  {currentUser?.id === user.id ? "当前用户" : "切换到此用户"}
+                </Button>
+              </View>
+            ))
+          )}
 
           {currentUser && (
             <Button

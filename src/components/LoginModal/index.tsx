@@ -24,42 +24,7 @@ interface WechatUserInfo {
   language: string;
 }
 
-// Mock API for login simulation (copied from app.tsx for standalone use if needed, or import)
-const mockLoginAPI = (
-  profileInfo: Taro.getUserProfile.SuccessCallbackResult["userInfo"]
-): Promise<UserInfo> => {
-  console.log(
-    "🔄 mockLoginAPI: Starting login API simulation with profile:",
-    profileInfo
-  );
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const shouldFail = Math.random() < 0.1;
-      console.log(
-        `🎲 mockLoginAPI: Random failure check - should fail: ${shouldFail}`
-      );
-
-      if (shouldFail) {
-        console.log("❌ mockLoginAPI: Simulating network error");
-        reject({ errMsg: "Network error or API failure" });
-        return;
-      }
-
-      const mockUser: UserInfo = {
-        ...(profileInfo as any),
-        avatarUrl: profileInfo.avatarUrl,
-        nickName: profileInfo.nickName,
-        openid: `mock_openid_${Date.now()}`,
-        token: `mock_token_${Date.now()}`,
-      };
-      console.log(
-        "✅ mockLoginAPI: Login simulation successful, returning user:",
-        mockUser
-      );
-      resolve(mockUser);
-    }, 1000);
-  });
-};
+// 注意：此组件现在使用真实的API调用，不再使用mock数据
 
 export default function LoginModal(props: LoginModalProps) {
   const [isVisible, setIsVisible] = useState(false);
