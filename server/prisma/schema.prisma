@@ -37,20 +37,20 @@ model favorite {
   user_id    Int
   post_id    Int
   created_at DateTime @default(now())
-  posts      posts    @relation(fields: [post_id], references: [id])
   users      users    @relation(fields: [user_id], references: [id])
+  posts      posts    @relation(fields: [post_id], references: [id])
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model feedback {
-  id         Int            @id @default(autoincrement())
+  id         Int      @id @default(autoincrement())
   user_id    Int
   content    String
   image      String?
-  type       feedback_type? @default(advice)
-  status     Int?           @default(0)
-  created_at DateTime       @default(now())
-  users      users          @relation(fields: [user_id], references: [id])
+  type       String?  @default("advice")
+  status     Int?     @default(0)
+  created_at DateTime @default(now())
+  users      users    @relation(fields: [user_id], references: [id])
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -59,12 +59,12 @@ model polish_log {
   user_id     Int
   post_id     Int
   polished_at DateTime @default(now())
-  posts       posts    @relation(fields: [post_id], references: [id])
   users       users    @relation(fields: [user_id], references: [id])
+  posts       posts    @relation(fields: [post_id], references: [id])
 }
 
 model posts {
-  id               Int           @id @default(autoincrement())
+  id               Int            @id @default(autoincrement())
   user_id          Int
   title            String
   content          String?
@@ -75,31 +75,31 @@ model posts {
   city_code        String?
   price            String?
   price_unit       String?
-  status           posts_status? @default(pending)
-  review_status    String?       @default("pending") // pending, approved, rejected
-  review_note      String?       // 审核备注
-  sensitive_words  String?       // 检测到的敏感词，JSON格式
-  last_polished_at DateTime      @default(now())
-  view_count       Int?          @default(0)
-  favorite_count   Int?          @default(0)
-  recommend_score  String?       @default("0")
-  quality_score    String?       @default("0")
+  status           String?        @default("pending")
+  review_status    String?        @default("pending")
+  review_note      String?
+  sensitive_words  String?
+  last_polished_at DateTime       @default(now())
+  view_count       Int?           @default(0)
+  favorite_count   Int?           @default(0)
+  recommend_score  String?        @default("0")
+  quality_score    String?        @default("0")
   pinned_until     DateTime?
-  is_pinned        Boolean?      @default(false)
+  is_pinned        Boolean?       @default(false)
   expires_at       DateTime?
-  created_at       DateTime      @default(now())
-  updated_at       DateTime      @default(now())
-  users            users         @relation(fields: [user_id], references: [id])
+  created_at       DateTime       @default(now())
+  updated_at       DateTime       @default(now())
+  conversations    Conversation[]
   favorite         favorite[]
   polish_log       polish_log[]
-  conversations    Conversation[]
+  users            users          @relation(fields: [user_id], references: [id])
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model users {
-  id            Int           @id @default(autoincrement())
-  username      String        @unique
-  openid        String?       @unique
+  id            Int          @id @default(autoincrement())
+  username      String       @unique
+  openid        String?      @unique
   unionid       String?
   session_key   String?
   nickname      String?
@@ -110,15 +110,15 @@ model users {
   city          String?
   province      String?
   country       String?
-  language      String?       @default("zh_CN")
-  status        users_status? @default(active)
+  language      String?      @default("zh_CN")
+  status        String?      @default("active")
   last_login_at DateTime?
-  created_at    DateTime      @default(now())
-  updated_at    DateTime      @default(now())
-  posts         posts[]
+  created_at    DateTime     @default(now())
+  updated_at    DateTime     @default(now())
   favorite      favorite[]
   feedback      feedback[]
   polish_log    polish_log[]
+  posts         posts[]
 }
 
 model weekly_deals {
@@ -131,33 +131,6 @@ model weekly_deals {
   updated_at      DateTime @default(now())
 }
 
-enum feedback_type {
-  advice
-  bug
-  report
-}
-
-enum post_category {
-  help
-  secondhand
-  housing
-}
-
-enum posts_status {
-  draft
-  pending
-  published
-  failed
-  review_required
-  rejected
-}
-
-enum users_status {
-  active
-  inactive
-  banned
-}
-
 model catalogue_images {
   id          Int      @id @default(autoincrement())
   store_name  String
@@ -168,7 +141,6 @@ model catalogue_images {
   updated_at  DateTime @default(now())
 }
 
-// 数据验证规则
 model ValidationRule {
   id         Int      @id @default(autoincrement())
   table_name String
@@ -179,7 +151,6 @@ model ValidationRule {
   updated_at DateTime @updatedAt
 }
 
-// 系统配置
 model SystemConfig {
   id          Int      @id @default(autoincrement())
   key         String   @unique
@@ -189,19 +160,17 @@ model SystemConfig {
   updated_at  DateTime @updatedAt
 }
 
-// 对话表
 model Conversation {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   postId         Int
   participant1Id String
   participant2Id String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  post           posts     @relation(fields: [postId], references: [id])
   messages       Message[]
-  post           posts    @relation(fields: [postId], references: [id])
 }
 
-// 消息表
 model Message {
   id             String       @id @default(cuid())
   conversationId String
@@ -214,54 +183,50 @@ model Message {
   conversation   Conversation @relation(fields: [conversationId], references: [id])
 }
 
-// 敏感词表
 model sensitive_word {
-  id         Int      @id @default(autoincrement())
-  word       String
-  category   String   // porn, political, advertisement, illegal, url
-  createdAt  DateTime @default(now())
-  
+  id        Int      @id @default(autoincrement())
+  word      String
+  category  String
+  createdAt DateTime @default(now())
+
   @@unique([word, category], name: "word_category")
 }
 
-// 统计快照表 - 用于存储每日/每周/每月的统计数据
 model statistics_snapshot {
-  id          Int      @id @default(autoincrement())
-  date        DateTime // 统计日期
-  period_type String   // daily, weekly, monthly
-  metric_name String   // 指标名称
-  metric_value Float   // 指标值
-  metadata    String?  // 额外数据，JSON格式
-  created_at  DateTime @default(now())
-  
+  id           Int      @id @default(autoincrement())
+  date         DateTime
+  period_type  String
+  metric_name  String
+  metric_value Float
+  metadata     String?
+  created_at   DateTime @default(now())
+
   @@unique([date, period_type, metric_name], name: "unique_statistic")
   @@index([date, period_type])
   @@index([metric_name])
 }
 
-// 统计指标配置表 - 用于配置需要统计的指标
 model statistics_config {
-  id          Int      @id @default(autoincrement())
-  metric_name String   @unique // 指标名称
-  display_name String  // 显示名称
-  description String?  // 描述
-  unit        String?  // 单位
-  category    String   // 分类：user_growth, content_production, content_moderation, user_feedback
-  is_active   Boolean  @default(true)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  metric_name  String   @unique
+  display_name String
+  description  String?
+  unit         String?
+  category     String
+  is_active    Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
 }
 
-// 用户行为统计表 - 用于存储用户行为数据
 model user_behavior_stats {
   id          Int      @id @default(autoincrement())
   user_id     Int
-  action_type String   // login, post, comment, like, favorite, view
-  target_type String?  // post, comment, user
-  target_id   Int?     // 目标ID
-  metadata    String?  // 额外数据，JSON格式
+  action_type String
+  target_type String?
+  target_id   Int?
+  metadata    String?
   created_at  DateTime @default(now())
-  
+
   @@index([user_id, action_type])
   @@index([created_at])
   @@index([action_type, created_at])
