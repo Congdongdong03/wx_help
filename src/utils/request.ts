@@ -1,8 +1,28 @@
 import Taro from "@tarojs/taro";
+import store from "../store";
+import { selectCurrentUser } from "../store/user/selectors";
 
-// 获取当前用户ID
-function getCurrentUserId(): string {
+// 用户ID获取策略枚举
+export enum UserIdStrategy {
+  STORAGE = "storage", // 从本地存储获取
+  REDUX = "redux", // 从Redux状态获取
+}
+
+// 获取当前用户ID的统一方法
+function getCurrentUserId(
+  strategy: UserIdStrategy = UserIdStrategy.REDUX
+): string {
   try {
+    if (strategy === UserIdStrategy.REDUX) {
+      // 优先从Redux状态获取
+      const state = store.getState();
+      const currentUser = selectCurrentUser(state);
+      if (currentUser?.openid) {
+        return currentUser.openid;
+      }
+    }
+
+    // 回退到本地存储
     const storedOpenId = Taro.getStorageSync("openid");
     if (process.env.NODE_ENV === "development") {
       return storedOpenId || "dev_openid_123";
@@ -18,6 +38,7 @@ interface RequestOptions extends Omit<Taro.request.Option, "url"> {
   retryCount?: number;
   retryDelay?: number;
   retryableStatusCodes?: number[];
+  userIdStrategy?: UserIdStrategy;
 }
 
 interface RetryConfig {
@@ -39,6 +60,9 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * 带重试机制的网络请求
+ * @param url 请求URL
+ * @param options 请求选项
+ * @param userIdStrategy 用户ID获取策略，默认为Redux
  */
 export async function request<T = any>(
   url: string,
@@ -48,6 +72,7 @@ export async function request<T = any>(
     retryCount = DEFAULT_RETRY_CONFIG.retryCount,
     retryDelay = DEFAULT_RETRY_CONFIG.retryDelay,
     retryableStatusCodes = DEFAULT_RETRY_CONFIG.retryableStatusCodes,
+    userIdStrategy = UserIdStrategy.REDUX,
     ...requestOptions
   } = options;
 
@@ -61,7 +86,7 @@ export async function request<T = any>(
         ...requestOptions,
         header: {
           ...(requestOptions.header || {}),
-          "x-openid": getCurrentUserId(),
+          "x-openid": getCurrentUserId(userIdStrategy),
         },
       });
 
@@ -103,6 +128,10 @@ export async function request<T = any>(
 
 /**
  * 带重试机制的上传文件
+ * @param url 上传URL
+ * @param filePath 文件路径
+ * @param options 上传选项
+ * @param userIdStrategy 用户ID获取策略，默认为Redux
  */
 export async function uploadFile<T = any>(
   url: string,
@@ -110,11 +139,13 @@ export async function uploadFile<T = any>(
   options: Omit<Taro.uploadFile.Option, "url" | "filePath"> & {
     retryCount?: number;
     retryDelay?: number;
+    userIdStrategy?: UserIdStrategy;
   } = {}
 ): Promise<T> {
   const {
     retryCount = DEFAULT_RETRY_CONFIG.retryCount,
     retryDelay = DEFAULT_RETRY_CONFIG.retryDelay,
+    userIdStrategy = UserIdStrategy.REDUX,
     ...uploadOptions
   } = options;
 
@@ -129,7 +160,7 @@ export async function uploadFile<T = any>(
         ...uploadOptions,
         header: {
           ...(uploadOptions.header || {}),
-          "x-openid": getCurrentUserId(),
+          "x-openid": getCurrentUserId(userIdStrategy),
         },
       });
 
@@ -170,3 +201,7 @@ export async function uploadFile<T = any>(
   }
   throw lastError;
 }
+
+// 为了向后兼容，导出旧的函数名
+export const requestWithRedux = request;
+export const uploadFileWithRedux = uploadFile;

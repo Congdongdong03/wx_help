@@ -1,6 +1,6 @@
 import Taro from "@tarojs/taro";
 import { request } from "../utils/request";
-import { requestWithRedux } from "../utils/requestWithRedux";
+import { requestWithRedux } from "../utils/request";
 import { API_CONFIG } from "../config/api";
 import { UserInfo } from "../store/user/types";
 
