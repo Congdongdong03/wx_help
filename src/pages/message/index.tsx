@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
 import Taro from "@tarojs/taro";
+import { useState, useEffect } from "react";
 import { View, Text, ScrollView, Image, Button } from "@tarojs/components";
 import { Conversation } from "../../types/message";
 import { messageService } from "../../services/messageService";

@@ -78,31 +78,40 @@ function AppContent({ children }: PropsWithChildren) {
 
   useLaunch(() => {
     console.log("App launched");
-    // 初始化用户状态（从本地存储）
-    initializeUserState();
 
-    // 检查本地缓存中的 openid
-    const cachedOpenid = Taro.getStorageSync("openid");
-    console.log("App: Cached openid:", cachedOpenid);
+    try {
+      // 初始化用户状态（从本地存储）
+      initializeUserState();
 
-    // 如果没有登录，显示登录弹窗
-    if (!isLoggedIn) {
-      console.log(
-        "App: No logged-in user found. Emitting event to show login modal."
-      );
-      loginModalEventBus.trigger("show", { type: "initial" });
-    } else {
-      console.log("App: User already logged in.");
-      loginModalEventBus.trigger("hide");
+      // 检查本地缓存中的 openid
+      const cachedOpenid = Taro.getStorageSync("openid");
+      console.log("App: Cached openid:", cachedOpenid);
+
+      // 延迟检查登录状态，避免在应用启动时立即触发
+      setTimeout(() => {
+        if (!isLoggedIn) {
+          console.log(
+            "App: No logged-in user found. Emitting event to show login modal."
+          );
+          loginModalEventBus.trigger("show", { type: "initial" });
+        } else {
+          console.log("App: User already logged in.");
+          loginModalEventBus.trigger("hide");
+        }
+      }, 100);
+    } catch (error) {
+      console.error("App launch error:", error);
     }
   });
 
   useDidShow(() => {
     console.log("App did show");
-    // 重新检查登录状态
-    if (!isLoggedIn) {
-      checkLoginAndShowModal();
-    }
+    // 延迟重新检查登录状态，避免在应用显示时立即触发
+    setTimeout(() => {
+      if (!isLoggedIn) {
+        checkLoginAndShowModal();
+      }
+    }, 100);
   });
 
   useEffect(() => {

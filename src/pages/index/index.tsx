@@ -5,7 +5,6 @@ import { BASE_URL } from "../../config/env";
 import { clearLoginState, checkLoginAndShowModal } from "../../app";
 import "./index.scss";
 import LoginModal from "../../components/LoginModal";
-import UserSwitcher from "../../components/UserSwitcher";
 import PostCard from "../../components/PostCard";
 import SkeletonCard from "../../components/SkeletonCard";
 import { CATEGORIES } from "../../constants";
@@ -84,8 +83,6 @@ export default function Index() {
   const [selectedCategoryId, setSelectedCategoryId] =
     useState<string>("recommend");
   const [isCityPickerVisible, setIsCityPickerVisible] =
-    useState<boolean>(false);
-  const [isUserSwitcherVisible, setIsUserSwitcherVisible] =
     useState<boolean>(false);
 
   // 使用 usePosts hook
@@ -239,7 +236,7 @@ export default function Index() {
       {process.env.NODE_ENV === "development" && (
         <Button
           className="user-switcher-button"
-          onClick={() => setIsUserSwitcherVisible(true)}
+          onClick={() => {}}
           style={{
             position: "fixed",
             top: "180rpx",
@@ -428,10 +425,6 @@ export default function Index() {
       <LoginModal />
 
       {/* 用户切换面板 - 仅在开发环境显示 */}
-      <UserSwitcher
-        isVisible={isUserSwitcherVisible}
-        onClose={() => setIsUserSwitcherVisible(false)}
-      />
     </View>
   );
 }

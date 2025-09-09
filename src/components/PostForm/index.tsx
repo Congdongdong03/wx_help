@@ -8,7 +8,6 @@ import {
   Picker,
   Textarea,
   Image,
-  Canvas,
 } from "@tarojs/components";
 import BottomActionBar from "@/components/BottomActionBar";
 import { BASE_URL } from "@/config/env";
@@ -213,57 +212,12 @@ const PostForm = ({ postId }: PostFormProps) => {
     setImageFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // 简化的图片生成函数
   const generateImageFromText = async (
     text: string
   ): Promise<{ path: string }> => {
-    return new Promise((resolve) => {
-      const ctx = Taro.createCanvasContext("title-canvas");
-      const canvasWidth = 600;
-      const canvasHeight = 300;
-
-      // 设置背景
-      ctx.setFillStyle("#ffffff");
-      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-      // 设置文字样式
-      ctx.setFillStyle("#333333");
-      ctx.setFontSize(32);
-      ctx.setTextBaseline("middle");
-      ctx.setTextAlign("center"); // 设置文字水平居中对齐
-
-      // 计算文字位置 - 每8个字符换行
-      const maxCharsPerLine = 8; // 每行最多8个字符
-      const lines = [];
-
-      // 按8个字符分割文字
-      for (let i = 0; i < text.length; i += maxCharsPerLine) {
-        const line = text.slice(i, i + maxCharsPerLine);
-        lines.push(line);
-      }
-
-      // 绘制文字 - 完全居中
-      const lineHeight = 40;
-      const totalHeight = lines.length * lineHeight;
-      const startY = (canvasHeight - totalHeight) / 2;
-      const centerX = canvasWidth / 2; // 画布中心X坐标
-
-      lines.forEach((line, index) => {
-        const y = startY + index * lineHeight + lineHeight / 2;
-        ctx.fillText(line, centerX, y); // 使用centerX实现水平居中
-      });
-
-      ctx.draw(false, () => {
-        Taro.canvasToTempFilePath({
-          canvasId: "title-canvas",
-          success: (res) => {
-            resolve({ path: res.tempFilePath });
-          },
-          fail: () => {
-            resolve({ path: "" });
-          },
-        });
-      });
-    });
+    // 简化版本：直接返回空字符串，不生成图片
+    return { path: "" };
   };
 
   const handleSaveDraft = async () => {
@@ -587,16 +541,6 @@ const PostForm = ({ postId }: PostFormProps) => {
         saveDraftText="保存草稿"
         saveDraftLoadingText="保存中..."
         publishLoadingText="发布中..."
-      />
-
-      <Canvas
-        canvasId="title-canvas"
-        style={{
-          position: "absolute",
-          left: -9999,
-          width: "600px",
-          height: "300px",
-        }}
       />
     </View>
   );

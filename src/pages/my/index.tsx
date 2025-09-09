@@ -1,8 +1,8 @@
 import Taro from "@tarojs/taro";
+import { useState, useEffect } from "react";
 import { View, Text, Button, Image } from "@tarojs/components";
 import { useUser } from "../../store/user/hooks";
 import "./index.scss";
-import { useState, useEffect } from "react";
 
 const DEFAULT_AVATAR = "https://picsum.photos/seed/avatar/100";
 const DEFAULT_NICKNAME = "点击设置昵称";

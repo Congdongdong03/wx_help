@@ -1,6 +1,5 @@
 import Taro from "@tarojs/taro";
 import { request } from "../utils/request";
-import { requestWithRedux } from "../utils/request";
 import { API_CONFIG } from "../config/api";
 import { UserInfo } from "../store/user/types";
 
@@ -55,15 +54,12 @@ export class UserService {
    */
   static async getUserInfo(): Promise<UserInfo | null> {
     try {
-      const response = await requestWithRedux(
-        API_CONFIG.getApiUrl("/users/info"),
-        {
-          method: "GET",
-          retryCount: 2,
-          retryDelay: 1000,
-          retryableStatusCodes: [408, 429, 500, 502, 503, 504],
-        }
-      );
+      const response = await request(API_CONFIG.getApiUrl("/users/info"), {
+        method: "GET",
+        retryCount: 2,
+        retryDelay: 1000,
+        retryableStatusCodes: [408, 429, 500, 502, 503, 504],
+      });
 
       if (response.code === 0) {
         return {
@@ -92,16 +88,13 @@ export class UserService {
    */
   static async updateUserInfo(userInfo: Partial<UserInfo>): Promise<boolean> {
     try {
-      const response = await requestWithRedux(
-        API_CONFIG.getApiUrl("/users/info"),
-        {
-          method: "PUT",
-          data: userInfo,
-          retryCount: 2,
-          retryDelay: 1000,
-          retryableStatusCodes: [408, 429, 500, 502, 503, 504],
-        }
-      );
+      const response = await request(API_CONFIG.getApiUrl("/users/info"), {
+        method: "PUT",
+        data: userInfo,
+        retryCount: 2,
+        retryDelay: 1000,
+        retryableStatusCodes: [408, 429, 500, 502, 503, 504],
+      });
 
       if (response.code === 0) {
         return true;
@@ -119,15 +112,12 @@ export class UserService {
    */
   static async logout(): Promise<boolean> {
     try {
-      const response = await requestWithRedux(
-        API_CONFIG.getApiUrl("/users/logout"),
-        {
-          method: "POST",
-          retryCount: 1,
-          retryDelay: 1000,
-          retryableStatusCodes: [408, 429, 500, 502, 503, 504],
-        }
-      );
+      const response = await request(API_CONFIG.getApiUrl("/users/logout"), {
+        method: "POST",
+        retryCount: 1,
+        retryDelay: 1000,
+        retryableStatusCodes: [408, 429, 500, 502, 503, 504],
+      });
 
       if (response.code === 0) {
         return true;

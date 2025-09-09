@@ -1,9 +1,9 @@
 import Taro from "@tarojs/taro";
 import { View, Text, Image } from "@tarojs/components";
-import { FeedPost, Category } from "../../types"; // Assuming types are here
-import { SUB_CATEGORIES } from "../../constants"; // Assuming constants are here
-import { formatRelativeTime } from "../../utils/time"; // Assuming utils are here
-import { getSubCategoryIcon } from "../../utils/categoryUtils"; // Import the new utility function
+import { FeedPost, Category } from "../../types";
+import { SUB_CATEGORIES } from "../../constants";
+import { formatRelativeTime } from "../../utils/time";
+import { getSubCategoryIcon } from "../../utils/categoryUtils";
 import "./index.scss";
 
 interface PostCardProps {

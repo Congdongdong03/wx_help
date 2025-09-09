@@ -5,8 +5,6 @@ import {
   selectIsLoggedIn,
   selectIsLoading,
   selectError,
-  selectUserBasicInfo,
-  selectLoginStatus,
   selectUserNickname,
   selectUserAvatar,
 } from "./selectors";
@@ -40,10 +38,6 @@ export const useUser = () => {
   // 用户信息
   const userNickname = useSelector(selectUserNickname);
   const userAvatar = useSelector(selectUserAvatar);
-
-  // 组合信息
-  const userBasicInfo = useSelector(selectUserBasicInfo);
-  const loginStatus = useSelector(selectLoginStatus);
 
   // 登录方法
   const login = (userInfo: UserInfo) => {
@@ -93,8 +87,6 @@ export const useUser = () => {
     error,
     userNickname,
     userAvatar,
-    userBasicInfo,
-    loginStatus,
 
     // 方法
     login,

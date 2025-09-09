@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
 import Taro, { useRouter } from "@tarojs/taro";
+import { useState, useEffect } from "react";
 import { View, Text, Image, Swiper, SwiperItem } from "@tarojs/components";
 import { BASE_URL } from "../../config/env";
 import "./index.scss";

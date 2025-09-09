@@ -185,7 +185,3 @@ export async function uploadFile<T = any>(
   }
   throw lastError;
 }
-
-// 为了向后兼容，导出旧的函数名
-export const requestWithRedux = request;
-export const uploadFileWithRedux = uploadFile;

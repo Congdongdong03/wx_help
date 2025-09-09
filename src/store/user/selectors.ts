@@ -1,4 +1,3 @@
-import { createSelector } from "reselect";
 import { RootState } from "../index";
 import { UserInfo } from "./types";
 
@@ -25,24 +24,18 @@ export const selectUserNickname = (state: RootState): string =>
 export const selectUserAvatar = (state: RootState): string =>
   state.user.currentUser?.avatarUrl || "";
 
-// 组合选择器
-export const selectUserBasicInfo = createSelector(
-  [selectCurrentUser, selectIsLoggedIn],
-  (currentUser, isLoggedIn) => ({
-    id: currentUser?.id,
-    openid: currentUser?.openid,
-    nickName: currentUser?.nickName,
-    avatarUrl: currentUser?.avatarUrl,
-    isLoggedIn,
-  })
-);
+// 简化的组合选择器
+export const selectUserBasicInfo = (state: RootState) => ({
+  id: state.user.currentUser?.id,
+  openid: state.user.currentUser?.openid,
+  nickName: state.user.currentUser?.nickName,
+  avatarUrl: state.user.currentUser?.avatarUrl,
+  isLoggedIn: state.user.isLoggedIn,
+});
 
-// 登录状态选择器
-export const selectLoginStatus = createSelector(
-  [selectIsLoggedIn, selectIsLoading, selectError],
-  (isLoggedIn, isLoading, error) => ({
-    isLoggedIn,
-    isLoading,
-    error,
-  })
-);
+// 简化的登录状态选择器
+export const selectLoginStatus = (state: RootState) => ({
+  isLoggedIn: state.user.isLoggedIn,
+  isLoading: state.user.isLoading,
+  error: state.user.error,
+});

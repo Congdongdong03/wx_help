@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
 import Taro, { useRouter } from "@tarojs/taro";
+import { useState, useEffect, useCallback } from "react";
 import { View, Text, Image, Button } from "@tarojs/components";
 import { API_CONFIG } from "../../config/api";
 import { messageService } from "../../services/messageService";
