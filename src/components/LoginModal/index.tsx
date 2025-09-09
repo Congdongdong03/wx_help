@@ -4,6 +4,7 @@ import { View, Text, Button } from "@tarojs/components";
 import { useUser } from "../../store/user/hooks";
 import { request } from "../../utils/request";
 import { API_CONFIG } from "../../config/api";
+import { loginModalEventBus } from "../../app";
 import "./index.scss";
 
 // LoginModal组件
@@ -28,13 +29,13 @@ export default function LoginModal() {
     const handleShow = () => setIsVisible(true);
     const handleHide = () => setIsVisible(false);
 
-    // 这里可以添加事件监听器
-    // loginModalEventBus.on("show", handleShow);
-    // loginModalEventBus.on("hide", handleHide);
+    // 添加事件监听器
+    loginModalEventBus.on("show", handleShow);
+    loginModalEventBus.on("hide", handleHide);
 
     return () => {
-      // loginModalEventBus.off("show", handleShow);
-      // loginModalEventBus.off("hide", handleHide);
+      loginModalEventBus.off("show", handleShow);
+      loginModalEventBus.off("hide", handleHide);
     };
   }, []);
 

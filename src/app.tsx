@@ -40,9 +40,10 @@ export function storeLoggedInUser(userInfo: UserInfo) {
 export function clearLoginState() {
   try {
     Taro.removeStorageSync("userInfo");
-    // 用户登录状态已清理
+    Taro.removeStorageSync("openid");
+    console.log("clearLoginState: User login state cleared.");
   } catch (e) {
-    // 静默处理清理错误
+    console.error("clearLoginState: Error clearing login state", e);
   }
 }
 
@@ -50,8 +51,12 @@ export function clearLoginState() {
 export function checkLoginAndShowModal() {
   const user = getLoggedInUser();
   if (!user) {
+    console.log(
+      "App: No logged-in user found. Emitting event to show login modal."
+    );
     loginModalEventBus.trigger("show", { type: "initial" });
   } else {
+    console.log("App: User already logged in.", user);
     loginModalEventBus.trigger("hide");
   }
 }
@@ -127,9 +132,85 @@ export default App;
 // 开发环境下的调试函数
 if (process.env.NODE_ENV === "development") {
   (Taro as any).logout = clearLoginState;
-  (Taro as any).checkLogin = () => getLoggedInUser();
+  (Taro as any).checkLogin = () => {
+    const user = getLoggedInUser();
+    console.log("getLoggedInUser:", user);
+    return user;
+  };
   (Taro as any).clearLoginAndShowModal = () => {
     clearLoginState();
     checkLoginAndShowModal();
+  };
+  (Taro as any).testLogin = (openid: string) => {
+    const testUser: UserInfo = {
+      id: "test_user",
+      openid: openid || "test_openid_123",
+      nickName: "测试用户",
+      avatarUrl: "https://via.placeholder.com/100x100/007AFF/FFFFFF?text=Test",
+      token: "test_token_" + Date.now(),
+      gender: 1,
+      country: "中国",
+      province: "广东省",
+      city: "深圳市",
+      status: "active",
+    };
+    Taro.setStorageSync("userInfo", testUser);
+    Taro.setStorageSync("openid", testUser.openid);
+    console.log("测试用户已登录:", testUser);
+    return testUser;
+  };
+  (Taro as any).switchUser = (userType: string) => {
+    const users = {
+      user1: {
+        id: "user_1",
+        openid: "openid_user_1",
+        nickName: "用户1",
+        avatarUrl:
+          "https://via.placeholder.com/100x100/FF6B6B/FFFFFF?text=User1",
+        token: "token_user_1",
+        gender: 1,
+        country: "中国",
+        province: "北京市",
+        city: "北京市",
+        status: "active",
+      },
+      user2: {
+        id: "user_2",
+        openid: "openid_user_2",
+        nickName: "用户2",
+        avatarUrl:
+          "https://via.placeholder.com/100x100/4ECDC4/FFFFFF?text=User2",
+        token: "token_user_2",
+        gender: 2,
+        country: "中国",
+        province: "上海市",
+        city: "上海市",
+        status: "active",
+      },
+      admin: {
+        id: "admin_user",
+        openid: "openid_admin",
+        nickName: "管理员",
+        avatarUrl:
+          "https://via.placeholder.com/100x100/45B7D1/FFFFFF?text=Admin",
+        token: "token_admin",
+        gender: 1,
+        country: "中国",
+        province: "广东省",
+        city: "深圳市",
+        status: "active",
+      },
+    };
+
+    const user = users[userType as keyof typeof users];
+    if (user) {
+      Taro.setStorageSync("userInfo", user);
+      Taro.setStorageSync("openid", user.openid);
+      console.log(`已切换到${user.nickName}:`, user);
+      return user;
+    } else {
+      console.log("可用的用户类型: user1, user2, admin");
+      return null;
+    }
   };
 }

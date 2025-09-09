@@ -170,3 +170,377 @@ getNormalPosts: Success {
     sort: 'latest'
   }
 }
+Incoming request { method: 'GET', path: '/api/home/cities', body: {} }
+prisma:query SELECT 1
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot` FROM `main`.`cities` WHERE `main`.`cities`.`is_active` = ? ORDER BY `main`.`cities`.`is_hot` DESC, `main`.`cities`.`sort_order` ASC, `main`.`cities`.`name` ASC LIMIT ? OFFSET ?
+Incoming request { method: 'GET', path: '/api/posts/pinned', body: {} }
+getPinnedPosts: Received request { query: { city: 'SYD', limit: '10' } }
+Incoming request { method: 'GET', path: '/api/posts/normal', body: {} }
+getNormalPosts: Received request { query: { city: 'SYD', page: '1', limit: '10' } }
+prisma:query SELECT 1
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT 1
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`is_pinned` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+getPinnedPosts: Success { count: 0, filters: { category: undefined, city: 'SYD' } }
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`nickname`, `main`.`users`.`avatar_url` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT COUNT(*) AS `_count._all` FROM (SELECT `main`.`posts`.`id` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) LIMIT ? OFFSET ?) AS `sub`
+getNormalPosts: Success {
+  count: 1,
+  total: 1,
+  page: 1,
+  filters: {
+    category: undefined,
+    city: 'SYD',
+    keyword: undefined,
+    sort: 'latest'
+  }
+}
+Incoming request { method: 'GET', path: '/api/posts/1', body: {} }
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`nickname`, `main`.`users`.`avatar_url` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?) LIMIT ? OFFSET ?
+prisma:query UPDATE `main`.`posts` SET `view_count` = (`main`.`posts`.`view_count` + ?) WHERE (`main`.`posts`.`id` = ? AND 1=1) RETURNING `id` AS `id`, `user_id` AS `user_id`, `title` AS `title`, `content` AS `content`, `contact_info` AS `contact_info`, `images` AS `images`, `category` AS `category`, `sub_category` AS `sub_category`, `city_code` AS `city_code`, `price` AS `price`, `price_unit` AS `price_unit`, `status` AS `status`, `review_status` AS `review_status`, `review_note` AS `review_note`, `sensitive_words` AS `sensitive_words`, `last_polished_at` AS `last_polished_at`, `view_count` AS `view_count`, `favorite_count` AS `favorite_count`, `recommend_score` AS `recommend_score`, `quality_score` AS `quality_score`, `pinned_until` AS `pinned_until`, `is_pinned` AS `is_pinned`, `expires_at` AS `expires_at`, `created_at` AS `created_at`, `updated_at` AS `updated_at`
+getPostDetail: Success { postId: 1 }
+Incoming request { method: 'GET', path: '/api/home/cities', body: {} }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot` FROM `main`.`cities` WHERE `main`.`cities`.`is_active` = ? ORDER BY `main`.`cities`.`is_hot` DESC, `main`.`cities`.`sort_order` ASC, `main`.`cities`.`name` ASC LIMIT ? OFFSET ?
+Incoming request { method: 'GET', path: '/api/home/cities', body: {} }
+prisma:query SELECT 1
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot` FROM `main`.`cities` WHERE `main`.`cities`.`is_active` = ? ORDER BY `main`.`cities`.`is_hot` DESC, `main`.`cities`.`sort_order` ASC, `main`.`cities`.`name` ASC LIMIT ? OFFSET ?
+Incoming request { method: 'GET', path: '/api/posts/pinned', body: {} }
+getPinnedPosts: Received request { query: { city: 'SYD', limit: '10' } }
+Incoming request { method: 'GET', path: '/api/posts/normal', body: {} }
+getNormalPosts: Received request { query: { city: 'SYD', page: '1', limit: '10' } }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT 1
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`is_pinned` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+getPinnedPosts: Success { count: 0, filters: { category: undefined, city: 'SYD' } }
+prisma:query SELECT COUNT(*) AS `_count._all` FROM (SELECT `main`.`posts`.`id` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`nickname`, `main`.`users`.`avatar_url` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?) LIMIT ? OFFSET ?
+getNormalPosts: Success {
+  count: 1,
+  total: 1,
+  page: 1,
+  filters: {
+    category: undefined,
+    city: 'SYD',
+    keyword: undefined,
+    sort: 'latest'
+  }
+}
+Incoming request { method: 'GET', path: '/api/home/cities', body: {} }
+prisma:query SELECT 1
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot` FROM `main`.`cities` WHERE `main`.`cities`.`is_active` = ? ORDER BY `main`.`cities`.`is_hot` DESC, `main`.`cities`.`sort_order` ASC, `main`.`cities`.`name` ASC LIMIT ? OFFSET ?
+Incoming request { method: 'GET', path: '/api/posts/pinned', body: {} }
+getPinnedPosts: Received request { query: { city: 'SYD', limit: '10' } }
+Incoming request { method: 'GET', path: '/api/posts/normal', body: {} }
+getNormalPosts: Received request { query: { city: 'SYD', page: '1', limit: '10' } }
+prisma:query SELECT 1
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`is_pinned` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+getPinnedPosts: Success { count: 0, filters: { category: undefined, city: 'SYD' } }
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`nickname`, `main`.`users`.`avatar_url` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?) LIMIT ? OFFSET ?
+getNormalPosts: Success {
+  count: 1,
+  total: 1,
+  page: 1,
+  filters: {
+    category: undefined,
+    city: 'SYD',
+    keyword: undefined,
+    sort: 'latest'
+  }
+}
+prisma:query SELECT COUNT(*) AS `_count._all` FROM (SELECT `main`.`posts`.`id` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) LIMIT ? OFFSET ?) AS `sub`
+Incoming request { method: 'GET', path: '/api/home/cities', body: {} }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot` FROM `main`.`cities` WHERE `main`.`cities`.`is_active` = ? ORDER BY `main`.`cities`.`is_hot` DESC, `main`.`cities`.`sort_order` ASC, `main`.`cities`.`name` ASC LIMIT ? OFFSET ?
+Incoming request { method: 'GET', path: '/api/posts/pinned', body: {} }
+getPinnedPosts: Received request { query: { city: 'SYD', limit: '10' } }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+Incoming request { method: 'GET', path: '/api/posts/normal', body: {} }
+getNormalPosts: Received request { query: { city: 'SYD', page: '1', limit: '10' } }
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`is_pinned` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+getPinnedPosts: Success { count: 0, filters: { category: undefined, city: 'SYD' } }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT COUNT(*) AS `_count._all` FROM (SELECT `main`.`posts`.`id` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`nickname`, `main`.`users`.`avatar_url` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?) LIMIT ? OFFSET ?
+getNormalPosts: Success {
+  count: 1,
+  total: 1,
+  page: 1,
+  filters: {
+    category: undefined,
+    city: 'SYD',
+    keyword: undefined,
+    sort: 'latest'
+  }
+}
+Incoming request { method: 'GET', path: '/api/home/cities', body: {} }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot` FROM `main`.`cities` WHERE `main`.`cities`.`is_active` = ? ORDER BY `main`.`cities`.`is_hot` DESC, `main`.`cities`.`sort_order` ASC, `main`.`cities`.`name` ASC LIMIT ? OFFSET ?
+Incoming request { method: 'GET', path: '/api/posts/pinned', body: {} }
+getPinnedPosts: Received request { query: { city: 'SYD', limit: '10' } }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`is_pinned` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+getPinnedPosts: Success { count: 0, filters: { category: undefined, city: 'SYD' } }
+Incoming request { method: 'GET', path: '/api/posts/normal', body: {} }
+getNormalPosts: Received request { query: { city: 'SYD', page: '1', limit: '10' } }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`nickname`, `main`.`users`.`avatar_url` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?) LIMIT ? OFFSET ?
+prisma:query SELECT COUNT(*) AS `_count._all` FROM (SELECT `main`.`posts`.`id` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) LIMIT ? OFFSET ?) AS `sub`
+getNormalPosts: Success {
+  count: 1,
+  total: 1,
+  page: 1,
+  filters: {
+    category: undefined,
+    city: 'SYD',
+    keyword: undefined,
+    sort: 'latest'
+  }
+}
+Incoming request { method: 'GET', path: '/api/home/cities', body: {} }
+prisma:query SELECT 1
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot` FROM `main`.`cities` WHERE `main`.`cities`.`is_active` = ? ORDER BY `main`.`cities`.`is_hot` DESC, `main`.`cities`.`sort_order` ASC, `main`.`cities`.`name` ASC LIMIT ? OFFSET ?
+Incoming request { method: 'GET', path: '/api/home/cities', body: {} }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot` FROM `main`.`cities` WHERE `main`.`cities`.`is_active` = ? ORDER BY `main`.`cities`.`is_hot` DESC, `main`.`cities`.`sort_order` ASC, `main`.`cities`.`name` ASC LIMIT ? OFFSET ?
+Incoming request { method: 'GET', path: '/api/posts/pinned', body: {} }
+getPinnedPosts: Received request { query: { city: 'SYD', limit: '10' } }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+Incoming request { method: 'GET', path: '/api/posts/normal', body: {} }
+getNormalPosts: Received request { query: { city: 'SYD', page: '1', limit: '10' } }
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`is_pinned` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+getPinnedPosts: Success { count: 0, filters: { category: undefined, city: 'SYD' } }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT 1
+prisma:query SELECT COUNT(*) AS `_count._all` FROM (SELECT `main`.`posts`.`id` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`nickname`, `main`.`users`.`avatar_url` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?) LIMIT ? OFFSET ?
+getNormalPosts: Success {
+  count: 1,
+  total: 1,
+  page: 1,
+  filters: {
+    category: undefined,
+    city: 'SYD',
+    keyword: undefined,
+    sort: 'latest'
+  }
+}
+Incoming request { method: 'GET', path: '/api/posts/pinned', body: {} }
+getPinnedPosts: Received request { query: { city: 'SYD', limit: '10' } }
+Incoming request { method: 'GET', path: '/api/posts/normal', body: {} }
+getNormalPosts: Received request { query: { city: 'SYD', page: '1', limit: '10' } }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`is_pinned` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+getPinnedPosts: Success { count: 0, filters: { category: undefined, city: 'SYD' } }
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT COUNT(*) AS `_count._all` FROM (SELECT `main`.`posts`.`id` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`nickname`, `main`.`users`.`avatar_url` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?) LIMIT ? OFFSET ?
+getNormalPosts: Success {
+  count: 1,
+  total: 1,
+  page: 1,
+  filters: {
+    category: undefined,
+    city: 'SYD',
+    keyword: undefined,
+    sort: 'latest'
+  }
+}
+Incoming request { method: 'GET', path: '/api/home/cities', body: {} }
+prisma:query SELECT 1
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot` FROM `main`.`cities` WHERE `main`.`cities`.`is_active` = ? ORDER BY `main`.`cities`.`is_hot` DESC, `main`.`cities`.`sort_order` ASC, `main`.`cities`.`name` ASC LIMIT ? OFFSET ?
+Incoming request { method: 'GET', path: '/api/posts/pinned', body: {} }
+getPinnedPosts: Received request { query: { city: 'SYD', limit: '10' } }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`is_pinned` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+getPinnedPosts: Success { count: 0, filters: { category: undefined, city: 'SYD' } }
+Incoming request { method: 'GET', path: '/api/posts/normal', body: {} }
+getNormalPosts: Received request { query: { city: 'SYD', page: '1', limit: '10' } }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT 1
+prisma:query SELECT COUNT(*) AS `_count._all` FROM (SELECT `main`.`posts`.`id` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`nickname`, `main`.`users`.`avatar_url` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?) LIMIT ? OFFSET ?
+getNormalPosts: Success {
+  count: 1,
+  total: 1,
+  page: 1,
+  filters: {
+    category: undefined,
+    city: 'SYD',
+    keyword: undefined,
+    sort: 'latest'
+  }
+}
+Incoming request { method: 'GET', path: '/api/home/cities', body: {} }
+prisma:query SELECT 1
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot` FROM `main`.`cities` WHERE `main`.`cities`.`is_active` = ? ORDER BY `main`.`cities`.`is_hot` DESC, `main`.`cities`.`sort_order` ASC, `main`.`cities`.`name` ASC LIMIT ? OFFSET ?
+Incoming request { method: 'GET', path: '/api/home/cities', body: {} }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot` FROM `main`.`cities` WHERE `main`.`cities`.`is_active` = ? ORDER BY `main`.`cities`.`is_hot` DESC, `main`.`cities`.`sort_order` ASC, `main`.`cities`.`name` ASC LIMIT ? OFFSET ?
+Incoming request { method: 'GET', path: '/api/posts/pinned', body: {} }
+getPinnedPosts: Received request { query: { city: 'SYD', limit: '10' } }
+Incoming request { method: 'GET', path: '/api/posts/normal', body: {} }
+getNormalPosts: Received request { query: { city: 'SYD', page: '1', limit: '10' } }
+prisma:query SELECT 1
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT 1
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`is_pinned` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT COUNT(*) AS `_count._all` FROM (SELECT `main`.`posts`.`id` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) LIMIT ? OFFSET ?) AS `sub`
+getPinnedPosts: Success { count: 0, filters: { category: undefined, city: 'SYD' } }
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`nickname`, `main`.`users`.`avatar_url` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?) LIMIT ? OFFSET ?
+Incoming request { method: 'GET', path: '/api/posts/pinned', body: {} }
+getPinnedPosts: Received request { query: { city: 'SYD', limit: '10' } }
+getNormalPosts: Success {
+  count: 1,
+  total: 1,
+  page: 1,
+  filters: {
+    category: undefined,
+    city: 'SYD',
+    keyword: undefined,
+    sort: 'latest'
+  }
+}
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+Incoming request { method: 'GET', path: '/api/posts/normal', body: {} }
+getNormalPosts: Received request { query: { city: 'SYD', page: '1', limit: '10' } }
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`is_pinned` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+getPinnedPosts: Success { count: 0, filters: { category: undefined, city: 'SYD' } }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT COUNT(*) AS `_count._all` FROM (SELECT `main`.`posts`.`id` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`nickname`, `main`.`users`.`avatar_url` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?) LIMIT ? OFFSET ?
+getNormalPosts: Success {
+  count: 1,
+  total: 1,
+  page: 1,
+  filters: {
+    category: undefined,
+    city: 'SYD',
+    keyword: undefined,
+    sort: 'latest'
+  }
+}
+Incoming request { method: 'GET', path: '/api/home/cities', body: {} }
+prisma:query SELECT 1
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot` FROM `main`.`cities` WHERE `main`.`cities`.`is_active` = ? ORDER BY `main`.`cities`.`is_hot` DESC, `main`.`cities`.`sort_order` ASC, `main`.`cities`.`name` ASC LIMIT ? OFFSET ?
+Incoming request { method: 'GET', path: '/api/posts/pinned', body: {} }
+getPinnedPosts: Received request { query: { city: 'SYD', limit: '10' } }
+Incoming request { method: 'GET', path: '/api/posts/normal', body: {} }
+getNormalPosts: Received request { query: { city: 'SYD', page: '1', limit: '10' } }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT 1
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`is_pinned` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT 1
+prisma:query SELECT COUNT(*) AS `_count._all` FROM (SELECT `main`.`posts`.`id` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) LIMIT ? OFFSET ?) AS `sub`
+getPinnedPosts: Success { count: 0, filters: { category: undefined, city: 'SYD' } }
+getNormalPosts: Success {
+  count: 1,
+  total: 1,
+  page: 1,
+  filters: {
+    category: undefined,
+    city: 'SYD',
+    keyword: undefined,
+    sort: 'latest'
+  }
+}
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`nickname`, `main`.`users`.`avatar_url` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?) LIMIT ? OFFSET ?
+Incoming request {
+  method: 'POST',
+  path: '/api/auth/wechat-login',
+  body: {
+    code: 'dev_test_code',
+    userInfo: {
+      nickName: '微信用户',
+      gender: 0,
+      language: '',
+      city: '',
+      province: '',
+      country: '',
+      avatarUrl: 'https://thirdwx.qlogo.cn/mmopen/vi_32/POgEwh4mIHO4nibH0KlMECNjjGxQUq24ZEaGT4poC6icRiccVGKSyXwibcPq4BWmiaIGuG1icwxaQX6grC9VemZoJ8rg/132',
+      is_demote: true
+    }
+  }
+}
+🧪 Auth: Using development test authentication
+🔧 Auth: Generated openid for 微信用户: dev_openid_78
+✅ Auth: Updated existing user with openid: dev_openid_78
+Incoming request { method: 'GET', path: '/api/posts/1', body: {} }
+prisma:query SELECT 1
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`nickname`, `main`.`users`.`avatar_url` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?) LIMIT ? OFFSET ?
+prisma:query UPDATE `main`.`posts` SET `view_count` = (`main`.`posts`.`view_count` + ?) WHERE (`main`.`posts`.`id` = ? AND 1=1) RETURNING `id` AS `id`, `user_id` AS `user_id`, `title` AS `title`, `content` AS `content`, `contact_info` AS `contact_info`, `images` AS `images`, `category` AS `category`, `sub_category` AS `sub_category`, `city_code` AS `city_code`, `price` AS `price`, `price_unit` AS `price_unit`, `status` AS `status`, `review_status` AS `review_status`, `review_note` AS `review_note`, `sensitive_words` AS `sensitive_words`, `last_polished_at` AS `last_polished_at`, `view_count` AS `view_count`, `favorite_count` AS `favorite_count`, `recommend_score` AS `recommend_score`, `quality_score` AS `quality_score`, `pinned_until` AS `pinned_until`, `is_pinned` AS `is_pinned`, `expires_at` AS `expires_at`, `created_at` AS `created_at`, `updated_at` AS `updated_at`
+getPostDetail: Success { postId: 1 }
+Incoming request { method: 'GET', path: '/api/posts/1', body: {} }
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`nickname`, `main`.`users`.`avatar_url` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?) LIMIT ? OFFSET ?
+prisma:query UPDATE `main`.`posts` SET `view_count` = (`main`.`posts`.`view_count` + ?) WHERE (`main`.`posts`.`id` = ? AND 1=1) RETURNING `id` AS `id`, `user_id` AS `user_id`, `title` AS `title`, `content` AS `content`, `contact_info` AS `contact_info`, `images` AS `images`, `category` AS `category`, `sub_category` AS `sub_category`, `city_code` AS `city_code`, `price` AS `price`, `price_unit` AS `price_unit`, `status` AS `status`, `review_status` AS `review_status`, `review_note` AS `review_note`, `sensitive_words` AS `sensitive_words`, `last_polished_at` AS `last_polished_at`, `view_count` AS `view_count`, `favorite_count` AS `favorite_count`, `recommend_score` AS `recommend_score`, `quality_score` AS `quality_score`, `pinned_until` AS `pinned_until`, `is_pinned` AS `is_pinned`, `expires_at` AS `expires_at`, `created_at` AS `created_at`, `updated_at` AS `updated_at`
+getPostDetail: Success { postId: 1 }
+Incoming request { method: 'GET', path: '/api/conversations/list', body: {} }
+Backend formattedConversations sent to frontend: []
+Incoming request { method: 'GET', path: '/api/home/cities', body: {} }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot` FROM `main`.`cities` WHERE `main`.`cities`.`is_active` = ? ORDER BY `main`.`cities`.`is_hot` DESC, `main`.`cities`.`sort_order` ASC, `main`.`cities`.`name` ASC LIMIT ? OFFSET ?
+Incoming request {
+  method: 'POST',
+  path: '/api/posts',
+  body: {
+    title: '1',
+    description: '1',
+    categoryMain: 'rent',
+    categorySub: 'rent',
+    cityCode: 'SYD',
+    price: '1',
+    status: 'publish',
+    images: [ '' ],
+    createTime: '2025-09-09T08:26:07.768Z',
+    category: 'rent',
+    city: 'SYD'
+  }
+}
+createPost: Received request {
+  body: {
+    title: '1',
+    description: '1',
+    categoryMain: 'rent',
+    categorySub: 'rent',
+    cityCode: 'SYD',
+    price: '1',
+    status: 'publish',
+    images: [ '' ],
+    createTime: '2025-09-09T08:26:07.768Z',
+    category: 'rent',
+    city: 'SYD'
+  }
+}
+敏感词库初始化完成，共加载 0 个敏感词
+prisma:query SELECT 1
+prisma:query BEGIN IMMEDIATE
+prisma:query INSERT INTO `main`.`posts` (`user_id`, `title`, `content`, `images`, `category`, `sub_category`, `city_code`, `price`, `status`, `review_status`, `last_polished_at`, `view_count`, `favorite_count`, `recommend_score`, `quality_score`, `is_pinned`, `created_at`, `updated_at`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING `id` AS `id`
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE `main`.`posts`.`id` = ? LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`nickname`, `main`.`users`.`avatar_url` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?) LIMIT ? OFFSET ?
+prisma:query COMMIT
+createPost: Success { postId: 2, status: 'pending', userId: 5 }
+Incoming request { method: 'GET', path: '/api/posts/my', body: {} }
+getMyPosts: Received request { query: { page: '1', limit: '10' } }
+prisma:query SELECT 1
+prisma:query SELECT COUNT(*) AS `_count._all` FROM (SELECT `main`.`posts`.`id` FROM `main`.`posts` WHERE (`main`.`posts`.`user_id` = ? AND `main`.`posts`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`user_id` = ? AND `main`.`posts`.`status` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+getMyPosts: Success { userId: 5, status: undefined, resultCount: 0, total: 0 }
+Incoming request { method: 'GET', path: '/api/posts/my', body: {} }
+getMyPosts: Received request { query: { page: '1', limit: '10' } }
+prisma:query SELECT COUNT(*) AS `_count._all` FROM (SELECT `main`.`posts`.`id` FROM `main`.`posts` WHERE (`main`.`posts`.`user_id` = ? AND `main`.`posts`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`user_id` = ? AND `main`.`posts`.`status` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+getMyPosts: Success { userId: 5, status: undefined, resultCount: 0, total: 0 }
