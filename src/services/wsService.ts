@@ -12,27 +12,11 @@ interface WebSocketMessage {
 class WebSocketService {
   private ws: any = null;
   private isConnected: boolean = false;
-  private connectionPromise: Promise<any> | null = null;
-  private connectionTimeout: NodeJS.Timeout | null = null;
-  private messageQueue: WebSocketMessage[] = [];
   private messageCallback: ((message: any) => void) | null = null;
-  private incomingMessageQueue: any[] = [];
   private currentUserId: string = "";
-
-  private _boundHandleOpen: ((value: any) => void) | null = null;
-  private _boundHandleMessage: ((msg: any) => void) | null = null;
-  private _boundHandleClose: (() => void) | null = null;
-  private _boundHandleError: ((err: any) => void) | null = null;
 
   public setMessageCallback(callback: (message: any) => void) {
     this.messageCallback = callback;
-    // Process all cached incoming messages immediately after setting the callback
-    while (this.incomingMessageQueue.length > 0) {
-      const queuedMessage = this.incomingMessageQueue.shift();
-      if (queuedMessage && this.messageCallback) {
-        this.messageCallback(queuedMessage);
-      }
-    }
   }
 
   public removeMessageCallback() {
@@ -42,15 +26,11 @@ class WebSocketService {
   public connect(userId: string = "dev_openid_123"): Promise<any> {
     this.currentUserId = userId;
 
-    if (this.connectionPromise) {
-      return this.connectionPromise;
-    }
-
     if (this.ws && this.isConnected) {
       return Promise.resolve(this.ws);
     }
 
-    this.connectionPromise = new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       try {
         this.ws = Taro.connectSocket({
           url: WS_SERVER_URL,
@@ -60,28 +40,15 @@ class WebSocketService {
           },
           fail: (err) => {
             console.error("WebSocket connection failed:", err);
-            this.connectionPromise = null;
             reject(err);
           },
         });
 
-        // Set connection timeout
-        this.connectionTimeout = setTimeout(() => {
-          console.error("WebSocket connection timeout");
-          this.connectionPromise = null;
-          reject(new Error("连接超时"));
-        }, 10000);
-
         if (isWeapp) {
-          this._boundHandleOpen = this._handleOpen.bind(this, resolve);
-          this._boundHandleMessage = this._handleMessage.bind(this);
-          this._boundHandleClose = this._handleClose.bind(this);
-          this._boundHandleError = this._handleTaroSocketError.bind(this);
-
-          Taro.onSocketOpen(this._boundHandleOpen);
-          Taro.onSocketMessage(this._boundHandleMessage);
-          Taro.onSocketClose(this._boundHandleClose);
-          Taro.onSocketError(this._boundHandleError);
+          Taro.onSocketOpen(() => this._handleOpen(resolve));
+          Taro.onSocketMessage((msg: any) => this._handleMessage(msg));
+          Taro.onSocketClose(() => this._handleClose());
+          Taro.onSocketError((err: any) => this._handleError(err, reject));
         } else {
           this.ws.onopen = () => this._handleOpen(resolve);
           this.ws.onmessage = (msg: any) => this._handleMessage(msg);
@@ -90,37 +57,14 @@ class WebSocketService {
         }
       } catch (error) {
         console.error("WebSocket connection error:", error);
-        if (this.connectionTimeout) {
-          clearTimeout(this.connectionTimeout);
-          this.connectionTimeout = null;
-        }
-        this.connectionPromise = null;
         reject(error);
       }
     });
-
-    return this.connectionPromise;
   }
 
   private _handleOpen(resolve: (value: any) => void) {
-    if (this.connectionTimeout) {
-      clearTimeout(this.connectionTimeout);
-      this.connectionTimeout = null;
-    }
     this.isConnected = true;
     console.log("WebSocket connected");
-
-    // Send queued messages
-    while (this.messageQueue.length > 0) {
-      const queuedMessage = this.messageQueue.shift();
-      if (queuedMessage) {
-        if (queuedMessage.type === "sendMessage") {
-          this.send(queuedMessage.data.content, queuedMessage.data.userId);
-        } else {
-          this.emitEvent(queuedMessage.type, queuedMessage.data);
-        }
-      }
-    }
 
     // Send login/authentication message
     setTimeout(() => {
@@ -152,8 +96,6 @@ class WebSocketService {
       } else {
         if (this.messageCallback) {
           this.messageCallback(data);
-        } else {
-          this.incomingMessageQueue.push(data);
         }
       }
     } catch (e) {
@@ -162,31 +104,17 @@ class WebSocketService {
   }
 
   private _handleClose() {
-    if (this.connectionTimeout) {
-      clearTimeout(this.connectionTimeout);
-      this.connectionTimeout = null;
-    }
     this.isConnected = false;
-    this.connectionPromise = null;
     console.log("WebSocket disconnected");
   }
 
   private _handleError(err: any, reject?: (reason?: any) => void) {
-    if (this.connectionTimeout) {
-      clearTimeout(this.connectionTimeout);
-      this.connectionTimeout = null;
-    }
     this.isConnected = false;
-    this.connectionPromise = null;
     console.error("WebSocket error:", err);
     if (reject) {
       reject(err);
     }
   }
-
-  private _handleTaroSocketError = (err: any) => {
-    this._handleError(err);
-  };
 
   public send(content: string, userId: string) {
     if (this.ws && this.isConnected) {
@@ -210,32 +138,10 @@ class WebSocketService {
       } catch (error) {
         console.error("Send message error:", error);
       }
-    } else {
-      this.messageQueue.push({
-        type: "sendMessage",
-        data: { content, userId },
-      });
     }
   }
 
   public disconnect() {
-    if (this.connectionTimeout) {
-      clearTimeout(this.connectionTimeout);
-      this.connectionTimeout = null;
-    }
-
-    if (isWeapp) {
-      Taro.offSocketOpen(this._boundHandleOpen);
-      Taro.offSocketMessage(this._boundHandleMessage);
-      Taro.offSocketClose(this._boundHandleClose);
-      Taro.offSocketError(this._boundHandleError);
-
-      this._boundHandleOpen = null;
-      this._boundHandleMessage = null;
-      this._boundHandleClose = null;
-      this._boundHandleError = null;
-    }
-
     if (this.ws) {
       if (isWeapp) {
         Taro.closeSocket();
@@ -244,7 +150,6 @@ class WebSocketService {
       }
       this.ws = null;
       this.isConnected = false;
-      this.connectionPromise = null;
     }
     console.log("WebSocket disconnected");
   }
@@ -255,7 +160,6 @@ class WebSocketService {
 
   public emitEvent(eventName: string, data: any) {
     if (!this.ws || !this.isConnected) {
-      this.messageQueue.push({ type: eventName, data });
       return;
     }
 

@@ -1,7 +1,6 @@
 // src/controllers/post.ts
 import { Request, Response } from "express";
 import { PostService } from "../services/postService";
-import { PostModel } from "../models/post";
 import { AuthenticatedRequest } from "../middleware/auth";
 import { sensitiveWordService } from "../services/sensitiveWordService";
 import { log } from "../utils/logger";
@@ -185,7 +184,7 @@ export class PostController {
       }
 
       // 使用 PostService 创建帖子
-      const newPost = await PostService.create({
+      const newPost = await PostService.createPost({
         user_id: userId,
         title: title.trim(),
         content: description ? description.trim() : undefined,
@@ -248,7 +247,7 @@ export class PostController {
         });
       }
 
-      const existingPost = await PostService.findById(postId);
+      const existingPost = await PostService.getPostById(postId);
       if (!existingPost) {
         return res.status(404).json({
           code: 1,
@@ -344,7 +343,7 @@ export class PostController {
       }
 
       // 更新帖子
-      const updatedPost = await PostService.update(postId, {
+      const updatedPost = await PostService.updatePost(postId, {
         title: title ? title.trim() : undefined,
         content: description ? description.trim() : undefined,
         images:
@@ -412,7 +411,7 @@ export class PostController {
         });
       }
 
-      const existingPost = await PostService.findById(postId);
+      const existingPost = await PostService.getPostById(postId);
       if (!existingPost) {
         return res.status(404).json({
           code: 1,
@@ -427,7 +426,7 @@ export class PostController {
         });
       }
 
-      await PostService.delete(postId);
+      await PostService.deletePost(postId);
 
       log("info", "deletePost: Success", { postId, userId });
 
@@ -470,7 +469,7 @@ export class PostController {
         });
       }
 
-      const existingPost = await PostService.findById(postId);
+      const existingPost = await PostService.getPostById(postId);
       if (!existingPost) {
         return res.status(404).json({
           code: 1,
@@ -503,7 +502,7 @@ export class PostController {
       }
 
       // 优化帖子
-      const updatedPost = await PostService.update(postId, {
+      const updatedPost = await PostService.updatePost(postId, {
         title: title ? title.trim() : undefined,
         content: description ? description.trim() : undefined,
         contact_info: contactInfo ? contactInfo.trim() : undefined,
@@ -691,7 +690,7 @@ export class PostController {
         });
       }
 
-      const result = await PostService.getNormalPosts({
+      const result = await PostService.getPosts({
         category: category as string,
         city: cityCode,
         keyword: keyword as string,
@@ -799,7 +798,7 @@ export class PostController {
         });
       }
 
-      const result = await PostService.findWithFilters({
+      const result = await PostService.getPosts({
         category: category as string,
         city: cityCode,
         keyword: keyword as string,
@@ -847,7 +846,7 @@ export class PostController {
         });
       }
 
-      const post = await PostService.findById(postId);
+      const post = await PostService.getPostById(postId);
       if (!post) {
         return res.status(404).json({
           code: 1,
@@ -911,7 +910,7 @@ export class PostController {
         });
       }
 
-      const existingPost = await PostService.findById(postId);
+      const existingPost = await PostService.getPostById(postId);
       if (!existingPost) {
         return res.status(404).json({
           code: 1,
@@ -951,7 +950,7 @@ export class PostController {
       }
 
       // 重新提交帖子
-      const updatedPost = await PostService.update(postId, {
+      const updatedPost = await PostService.updatePost(postId, {
         title: title ? title.trim() : undefined,
         content: description ? description.trim() : undefined,
         status: "pending",
@@ -1003,7 +1002,7 @@ export class PostController {
         });
       }
 
-      const post = await PostService.findById(postId);
+      const post = await PostService.getPostById(postId);
       if (!post) {
         return res.status(404).json({
           code: 1,

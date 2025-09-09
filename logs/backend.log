@@ -1,0 +1,43 @@
+yarn run v1.22.22
+$ nodemon --watch src -e ts,json --exec ts-node src/index.ts
+[33m[nodemon] 2.0.22[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): src/**/*[39m
+[33m[nodemon] watching extensions: ts,json[39m
+[32m[nodemon] starting `ts-node src/index.ts`[39m
+==== index.ts loaded ====
+📁 项目根目录: /Users/wesley/Desktop/帮帮/wx_help/server/src
+🖼️ 图片目录: /Users/wesley/Desktop/帮帮/wx_help/server/src/public/catalogue_images
+🔄 Redis 同步任务已启动
+Server is running on port 3000 (0.0.0.0)
+Using Prisma for database connections
+✅ 图片服务已启用
+🔗 测试链接:
+   - 调试API: http://localhost:3000/api/debug/catalogue-images
+   - 图片目录: http://localhost:3000/catalogue_images/
+Redis connected successfully
+Incoming request { method: 'GET', path: '/api/home/cities', body: {} }
+prisma:info Starting a sqlite pool with 17 connections.
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot` FROM `main`.`cities` WHERE `main`.`cities`.`is_active` = ? ORDER BY `main`.`cities`.`is_hot` DESC, `main`.`cities`.`sort_order` ASC, `main`.`cities`.`name` ASC LIMIT ? OFFSET ?
+Incoming request { method: 'GET', path: '/api/posts/pinned', body: {} }
+getPinnedPosts: Received request { query: { city: 'SYD', limit: '10' } }
+Incoming request { method: 'GET', path: '/api/posts/normal', body: {} }
+getNormalPosts: Received request { query: { city: 'SYD', page: '1', limit: '10' } }
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`cities`.`id`, `main`.`cities`.`name`, `main`.`cities`.`code`, `main`.`cities`.`is_hot`, `main`.`cities`.`sort_order`, `main`.`cities`.`is_active` FROM `main`.`cities` WHERE (`main`.`cities`.`code` = ? OR `main`.`cities`.`name` = ? OR `main`.`cities`.`name` LIKE ?) LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`is_pinned` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+getPinnedPosts: Success { count: 0, filters: { category: undefined, city: 'SYD' } }
+prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
+prisma:query SELECT `main`.`users`.`id`, `main`.`users`.`nickname`, `main`.`users`.`avatar_url` FROM `main`.`users` WHERE `main`.`users`.`id` IN (?) LIMIT ? OFFSET ?
+getNormalPosts: Success {
+  count: 1,
+  total: 1,
+  page: 1,
+  filters: {
+    category: undefined,
+    city: 'SYD',
+    keyword: undefined,
+    sort: 'latest'
+  }
+}
+prisma:query SELECT COUNT(*) AS `_count._all` FROM (SELECT `main`.`posts`.`id` FROM `main`.`posts` WHERE (`main`.`posts`.`status` = ? AND `main`.`posts`.`city_code` = ?) LIMIT ? OFFSET ?) AS `sub`

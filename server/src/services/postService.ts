@@ -9,6 +9,7 @@ export interface PostFilters {
   page: number;
   limit: number;
   status?: posts_status;
+  sort?: "latest" | "popular";
 }
 
 export interface PostCreateInput {
@@ -194,26 +195,6 @@ export class PostService {
     };
   }
 
-  // 为控制器提供的方法别名
-  static async create(input: PostCreateInput): Promise<any> {
-    return this.createPost(input);
-  }
-
-  static async update(
-    id: number,
-    input: Partial<PostCreateInput>
-  ): Promise<any> {
-    return this.updatePost(id, input);
-  }
-
-  static async delete(id: number): Promise<boolean> {
-    return this.deletePost(id);
-  }
-
-  static async findById(id: number): Promise<any | null> {
-    return this.getPostById(id);
-  }
-
   static async findByUserIdWithFilters(
     userId: number,
     filters: any
@@ -253,14 +234,6 @@ export class PostService {
         limit,
       },
     };
-  }
-
-  static async getNormalPosts(filters: any): Promise<PostsResult> {
-    return this.getPosts(filters);
-  }
-
-  static async findWithFilters(filters: any): Promise<PostsResult> {
-    return this.getPosts(filters);
   }
 
   static async incrementViewCount(id: number): Promise<void> {
