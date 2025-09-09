@@ -60,33 +60,23 @@ const CatalogueImagePage = () => {
         setCurrentIndex(parseInt(index) || 0);
       } else {
         // 如果API不存在，使用模拟数据
-        const mockImages = generateMockImages(store);
-        setImages(mockImages);
+        // 从API获取图片数据
+        setImages([]);
         setCurrentIndex(parseInt(index) || 0);
       }
     } catch (error) {
       console.error("加载图片失败:", error);
       // 使用模拟数据作为后备
       const store = id.match(/catalogue_(\w+)_\d+/)?.[1] || "coles";
-      const mockImages = generateMockImages(store);
-      setImages(mockImages);
+      // 从API获取图片数据
+      setImages([]);
       setCurrentIndex(0);
     } finally {
       setLoading(false);
     }
   };
 
-  const generateMockImages = (store: string): CatalogueImage[] => {
-    // 生成模拟的图片数据 - 减少到10张
-    const imageCount = 10;
-    return Array.from({ length: imageCount }, (_, index) => ({
-      id: `catalogue_${store}_${index}`,
-      url: `/catalogue_images/${store}/20250704_page${index + 1}.jpg`,
-      filename: `20250704_page${index + 1}.jpg`,
-      store,
-      title: `${store.toUpperCase()} 打折信息 ${index + 1}`,
-    }));
-  };
+  // 图片数据将从API获取
 
   const handleSwiperChange = (e: any) => {
     const { current } = e.detail;

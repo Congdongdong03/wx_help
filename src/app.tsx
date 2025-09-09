@@ -8,22 +8,10 @@ import { useUser } from "./store/user/hooks";
 // 定义事件总线用于显示/隐藏登录弹窗
 export const loginModalEventBus = new Taro.Events();
 
-// 为了向后兼容，保留原有的UserInfo接口
-export interface UserInfo {
-  id: string | number;
-  avatarUrl: string;
-  nickName: string;
-  openid: string;
-  token: string;
-  // other fields from Taro.getUserProfile or your backend
-  gender?: number;
-  country?: string;
-  province?: string;
-  city?: string;
-  status?: string;
-}
+// 使用统一的UserInfo类型
+export { UserInfo } from "./store/user/types";
 
-// 注意：现在使用真实的API调用，不再使用mock数据
+// 用户登录状态管理
 
 // 为了向后兼容，保留原有的函数
 export function getLoggedInUser(): UserInfo | null {
@@ -52,9 +40,9 @@ export function storeLoggedInUser(userInfo: UserInfo) {
 export function clearLoginState() {
   try {
     Taro.removeStorageSync("userInfo");
-    console.log("clearLoginState: User login state cleared.");
+    // 用户登录状态已清理
   } catch (e) {
-    console.error("clearLoginState: Error clearing login state", e);
+    // 静默处理清理错误
   }
 }
 
@@ -62,13 +50,9 @@ export function clearLoginState() {
 export function checkLoginAndShowModal() {
   const user = getLoggedInUser();
   if (!user) {
-    console.log(
-      "App: No logged-in user found. Emitting event to show login modal."
-    );
     loginModalEventBus.trigger("show", { type: "initial" });
   } else {
-    console.log("App: User already logged in.", user);
-    loginModalEventBus.trigger("hide"); // Ensure it's hidden if somehow stuck
+    loginModalEventBus.trigger("hide");
   }
 }
 
@@ -77,35 +61,24 @@ function AppContent({ children }: PropsWithChildren) {
   const { isLoggedIn, initializeUserState } = useUser();
 
   useLaunch(() => {
-    console.log("App launched");
-
     try {
       // 初始化用户状态（从本地存储）
       initializeUserState();
 
-      // 检查本地缓存中的 openid
-      const cachedOpenid = Taro.getStorageSync("openid");
-      console.log("App: Cached openid:", cachedOpenid);
-
       // 延迟检查登录状态，避免在应用启动时立即触发
       setTimeout(() => {
         if (!isLoggedIn) {
-          console.log(
-            "App: No logged-in user found. Emitting event to show login modal."
-          );
           loginModalEventBus.trigger("show", { type: "initial" });
         } else {
-          console.log("App: User already logged in.");
           loginModalEventBus.trigger("hide");
         }
       }, 100);
     } catch (error) {
-      console.error("App launch error:", error);
+      // 静默处理启动错误
     }
   });
 
   useDidShow(() => {
-    console.log("App did show");
     // 延迟重新检查登录状态，避免在应用显示时立即触发
     setTimeout(() => {
       if (!isLoggedIn) {
@@ -116,14 +89,11 @@ function AppContent({ children }: PropsWithChildren) {
 
   useEffect(() => {
     const handleAuthSuccess = (userInfo: UserInfo) => {
-      console.log(
-        "App: AuthSuccess event received from modal. User:",
-        userInfo
-      );
+      // 处理登录成功事件
     };
 
     const handleAuthReject = () => {
-      console.log("App: AuthReject event received from modal.");
+      // 处理登录拒绝事件
     };
 
     loginModalEventBus.on("authSuccess", handleAuthSuccess);
@@ -154,10 +124,12 @@ function App({ children }: PropsWithChildren) {
 
 export default App;
 
-// For testing purposes, you might add a global function to trigger logout:
-(Taro as any).logout = clearLoginState;
-(Taro as any).checkLogin = () => console.log(getLoggedInUser());
-(Taro as any).clearLoginAndShowModal = () => {
-  clearLoginState();
-  checkLoginAndShowModal();
-};
+// 开发环境下的调试函数
+if (process.env.NODE_ENV === "development") {
+  (Taro as any).logout = clearLoginState;
+  (Taro as any).checkLogin = () => getLoggedInUser();
+  (Taro as any).clearLoginAndShowModal = () => {
+    clearLoginState();
+    checkLoginAndShowModal();
+  };
+}

@@ -6,7 +6,7 @@ import { request } from "../../utils/request";
 import { API_CONFIG } from "../../config/api";
 import "./index.scss";
 
-interface LoginModalProps {}
+// LoginModal组件
 
 interface WechatUserInfo {
   nickName: string;
@@ -18,7 +18,7 @@ interface WechatUserInfo {
   language: string;
 }
 
-export default function LoginModal(props: LoginModalProps) {
+export default function LoginModal() {
   const [isVisible, setIsVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useUser();

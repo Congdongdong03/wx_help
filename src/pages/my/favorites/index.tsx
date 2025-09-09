@@ -17,38 +17,7 @@ interface FavoritePost {
   description?: string;
 }
 
-// Mock data for favorites
-const MOCK_FAVORITES: FavoritePost[] = [
-  {
-    id: "fav1",
-    mockImagePlaceholderHeight: 300,
-    mockImagePlaceholderColor: "#a2d2ff",
-    title: "收藏的帖子标题1 - 温馨小屋",
-    price: "$250/周",
-    category: { id: "rent", name: "租房", color: "#007bff" },
-    collectedTime: new Date(Date.now() - 24 * 60 * 60 * 1000 * 1), // 1 day ago
-    description: "这是收藏的温馨小屋的简短描述...",
-  },
-  {
-    id: "fav2",
-    mockImagePlaceholderHeight: 450,
-    mockImagePlaceholderColor: "#ffafcc",
-    title: "收藏的帖子标题2 - 九成新山地自行车",
-    price: "$120",
-    category: { id: "used", name: "二手", color: "#28a745" },
-    collectedTime: new Date(Date.now() - 24 * 60 * 60 * 1000 * 2),
-    description: "一个几乎全新的自行车，非常适合城市骑行。",
-  },
-  {
-    id: "fav3",
-    mockImagePlaceholderHeight: 280,
-    mockImagePlaceholderColor: "#b0f2c2",
-    title: "收藏的帖子标题3 - 市中心咖啡店招聘服务员",
-    category: { id: "jobs", name: "招聘", color: "#ffc107" },
-    collectedTime: new Date(Date.now() - 24 * 60 * 60 * 1000 * 3),
-    description: "诚聘有经验的服务员数名，待遇优厚。",
-  },
-];
+// 收藏数据将从API获取
 
 // Helper to format collected time for display, similar to index page's formatRelativeTime
 const formatCollectedTime = (date: Date): string => {
@@ -76,7 +45,8 @@ export default function FavoritesPage() {
     setIsLoading(true);
     setTimeout(() => {
       // TODO: In a real app, fetch from storage or backend
-      setFavorites(MOCK_FAVORITES);
+      // 从API获取收藏数据
+      setFavorites([]);
       setIsLoading(false);
     }, 500);
   }, []);
@@ -112,7 +82,7 @@ export default function FavoritesPage() {
   };
 
   if (isLoading) {
-    return <View className="favorites-loading">加载中...</View>; // TODO: Use skeleton
+    return <View className="favorites-loading">加载中...</View>;
   }
 
   return (
