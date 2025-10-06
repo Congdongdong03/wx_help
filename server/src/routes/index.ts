@@ -121,48 +121,7 @@ router.post("/posts", requireAuth, PostController.createPost);
 router.put("/posts/:id", requireAuth, PostController.updatePost);
 router.delete("/posts/:id", requireAuth, PostController.deletePost);
 
-// 临时添加反馈路由到主路由文件
-router.post("/feedback-submit", async (req, res) => {
-  try {
-    console.log("收到反馈：", req.body);
-
-    const { content, type = "advice", image } = req.body;
-
-    if (!content || !content.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "反馈内容不能为空",
-      });
-    }
-
-    // 这里暂时使用默认用户ID，实际应该从认证中获取
-    const userId = 1; // TODO: 从 req.user 获取真实用户ID
-
-    const feedback = await prisma.feedback.create({
-      data: {
-        user_id: userId,
-        content: content.trim(),
-        type: type,
-        image: image || null,
-        status: 0, // 未处理
-      },
-    });
-
-    console.log("反馈已保存到数据库：", feedback);
-
-    res.json({
-      success: true,
-      message: "反馈提交成功",
-      data: { id: feedback.id },
-    });
-  } catch (error) {
-    console.error("保存反馈失败：", error);
-    res.status(500).json({
-      success: false,
-      message: "提交失败，请稍后重试",
-    });
-  }
-});
+// 旧版临时反馈路由已废弃，统一使用 /api/feedback
 
 // 用户相关路由
 router.get("/user/info", requireAuth, UserController.getUserInfo);
@@ -173,7 +132,7 @@ router.post("/user/logout", requireAuth, UserController.logout);
 router.use("/conversations", conversationRouter);
 
 // 反馈相关路由
-// router.use("/feedback", feedbackRouter);
+router.use("/feedback", feedbackRouter);
 
 // 管理员路由
 router.use("/admin", adminRouter);
