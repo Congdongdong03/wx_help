@@ -78,10 +78,14 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 添加图片服务配置
-const PROJECT_ROOT = __dirname;
-// const IMAGES_PATH = path.join(PROJECT_ROOT, "public", "catalogue_images");
-const IMAGES_PATH = path.join(__dirname, "../src/public/catalogue_images");
+// 添加图片服务配置：统一定义并指向编译后或源码目录中的 public 目录
+const PROJECT_ROOT = path.join(__dirname); // dist/src at runtime
+const DEFAULT_PUBLIC_DIR = path.join(__dirname, "public");
+const FALLBACK_PUBLIC_DIR = path.join(__dirname, "../src/public");
+const PUBLIC_DIR = fs.existsSync(DEFAULT_PUBLIC_DIR)
+  ? DEFAULT_PUBLIC_DIR
+  : FALLBACK_PUBLIC_DIR;
+const IMAGES_PATH = path.join(PUBLIC_DIR, "catalogue_images");
 
 console.log("📁 项目根目录:", PROJECT_ROOT);
 console.log("🖼️ 图片目录:", IMAGES_PATH);
@@ -92,11 +96,8 @@ if (!fs.existsSync(IMAGES_PATH)) {
   console.log("✅ 已创建图片目录");
 }
 
-// 静态文件服务
-app.use(
-  "/catalogue_images",
-  express.static(path.join(__dirname, "public/catalogue_images"))
-);
+// 静态文件服务（catalogue images）
+app.use("/catalogue_images", express.static(IMAGES_PATH));
 
 // 静态文件服务
 app.use(
@@ -109,15 +110,16 @@ app.use(
   })
 );
 // 新增上传图片静态服务
-app.use(
-  "/uploads",
-  express.static(path.join(PROJECT_ROOT, "public", "uploads"), {
-    setHeaders: (res) => {
-      res.set("Access-Control-Allow-Origin", "*");
-      res.set("Cache-Control", "public, max-age=31536000");
-    },
-  })
-);
+const UPLOADS_PATH = path.join(PUBLIC_DIR, "uploads");
+if (!fs.existsSync(UPLOADS_PATH)) {
+  fs.mkdirSync(UPLOADS_PATH, { recursive: true });
+}
+app.use("/uploads", express.static(UPLOADS_PATH, {
+  setHeaders: (res) => {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Cache-Control", "public, max-age=31536000");
+  },
+}));
 
 // Logging middleware
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -147,33 +149,36 @@ app.use("/api", indexRoutes);
 // 添加 catalogue 路由
 app.get("/api/catalogue/:store", (req: Request, res: Response) => {
   const { store } = req.params;
-  const fs = require("fs");
-  const path = require("path");
-  const IMAGES_PATH = path.join(__dirname, "public", "catalogue_images");
-  const storeDir = path.join(IMAGES_PATH, store);
   const PORT = process.env.PORT || 3000;
   const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
 
   try {
+    // Sanitize: only allow expected store names; adjust list as needed
+    const allowedStores = new Set(["coles", "woolworths"]);
+    const normalized = String(store).toLowerCase();
+    if (!allowedStores.has(normalized)) {
+      return res.status(400).json({ code: 1, message: "无效的商店标识" });
+    }
+
+    const storeDir = path.join(IMAGES_PATH, normalized);
+
+    // Prevent path traversal by ensuring resolved path remains within IMAGES_PATH
+    const resolved = path.resolve(storeDir);
+    if (!resolved.startsWith(path.resolve(IMAGES_PATH))) {
+      return res.status(400).json({ code: 1, message: "非法路径" });
+    }
+
     if (!fs.existsSync(storeDir)) {
-      return res.json({
-        code: 0,
-        message: "获取成功",
-        data: [],
-      });
+      return res.json({ code: 0, message: "获取成功", data: [] });
     }
 
     const files = fs
       .readdirSync(storeDir)
       .filter((f: string) => f.endsWith(".jpg") || f.endsWith(".jpeg"))
       .sort()
-      .map((file: string) => `${baseUrl}/catalogue_images/${store}/${file}`);
+      .map((file: string) => `${baseUrl}/catalogue_images/${normalized}/${file}`);
 
-    res.json({
-      code: 0,
-      message: "获取成功",
-      data: files,
-    });
+    res.json({ code: 0, message: "获取成功", data: files });
   } catch (error) {
     res.status(500).json({
       code: 1,
