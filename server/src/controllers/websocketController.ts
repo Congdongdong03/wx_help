@@ -107,7 +107,18 @@ export class WebSocketController {
    */
   static handleTyping(ws: ExtWebSocket, data: any) {
     console.log("⌨️ 用户正在输入:", data.conversationId);
-    // TODO: 实现输入状态推送逻辑
+    try {
+      const toUserId = data.toUserId;
+      if (!toUserId) return;
+      WebSocketService.sendToUser(toUserId, {
+        type: "typing",
+        conversationId: data.conversationId,
+        fromUserId: ws.userId,
+        timestamp: Date.now(),
+      });
+    } catch (e) {
+      console.error("typing 推送失败", e);
+    }
   }
 
   /**
@@ -115,7 +126,18 @@ export class WebSocketController {
    */
   static handleStopTyping(ws: ExtWebSocket, data: any) {
     console.log("⌨️ 用户停止输入:", data.conversationId);
-    // TODO: 实现停止输入状态推送逻辑
+    try {
+      const toUserId = data.toUserId;
+      if (!toUserId) return;
+      WebSocketService.sendToUser(toUserId, {
+        type: "stopTyping",
+        conversationId: data.conversationId,
+        fromUserId: ws.userId,
+        timestamp: Date.now(),
+      });
+    } catch (e) {
+      console.error("stopTyping 推送失败", e);
+    }
   }
 
   /**
