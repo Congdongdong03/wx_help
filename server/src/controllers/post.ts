@@ -43,7 +43,9 @@ export class PostController {
 
       if (
         status &&
-        !["draft", "pending", "published", "failed"].includes(status as string)
+        !["draft", "pending", "published", "rejected", "failed"].includes(
+          status as string
+        )
       ) {
         return res.status(400).json({
           code: 1,

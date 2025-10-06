@@ -437,10 +437,10 @@ router.get("/users", requireAuth, async (req, res) => {
 router.get("/stats", async (req, res) => {
   try {
     // 统计各状态帖子数量
-    const [pending, published, failed, reviewRequired] = await Promise.all([
+  const [pending, published, rejected, reviewRequired] = await Promise.all([
       prisma.posts.count({ where: { status: "pending" } }),
       prisma.posts.count({ where: { status: "published" } }),
-      prisma.posts.count({ where: { status: "failed" } }),
+    prisma.posts.count({ where: { status: "rejected" } }),
       prisma.posts.count({
         where: {
           status: "review_required",
@@ -452,7 +452,7 @@ router.get("/stats", async (req, res) => {
     // 统计今日审核（已发布+已拒绝）
     const today = new Date();
     today.setHours(0, 0, 0, 0); // 当天零点
-    const [approvedToday, rejectedToday] = await Promise.all([
+  const [approvedToday, rejectedToday] = await Promise.all([
       prisma.posts.count({
         where: {
           status: "published",
@@ -461,7 +461,7 @@ router.get("/stats", async (req, res) => {
       }),
       prisma.posts.count({
         where: {
-          status: "failed",
+        status: "rejected",
           updated_at: { gte: today },
         },
       }),
@@ -477,7 +477,7 @@ router.get("/stats", async (req, res) => {
       success: true,
       code: 0,
       data: {
-        status: { pending, published, failed, reviewRequired },
+        status: { pending, published, rejected, reviewRequired },
         today: {
           approved: approvedToday,
           rejected: rejectedToday,

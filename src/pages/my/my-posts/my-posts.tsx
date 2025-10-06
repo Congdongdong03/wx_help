@@ -49,12 +49,11 @@ type UITabStatus = "all" | "published" | "draft" | "reviewing" | "failed"; // Ad
 // 定义帖子的前端展示状态类型 (可以逐步替换 auditStatus)
 type UIDisplayStatus =
   | "pending"
-  | "approved"
+  | "published"
   | "rejected"
   | "draft"
   | "taken_down"
-  | "published"
-  | "failed";
+  ;
 
 // 定义 TabItem 接口
 interface TabItem {
@@ -97,7 +96,7 @@ const tabList: TabItem[] = [
   { title: "全部", status: "all" },
   { title: "已发布", status: "published" },
   { title: "审核中", status: "reviewing" },
-  { title: "未通过", status: "failed" }, // 新增 "未通过" 标签页
+  { title: "未通过", status: "rejected" },
   { title: "草稿", status: "draft" },
 ];
 
@@ -173,9 +172,9 @@ export default function MyPosts() {
       case "pending":
         uiStatus = "pending";
         break;
-      case "failed":
+      case "rejected":
         uiStatus = "rejected";
-        break; // API 'failed' -> UI 'rejected' (未通过)
+        break; // 未通过
       case "draft":
         uiStatus = "draft";
         break;
@@ -418,7 +417,7 @@ export default function MyPosts() {
           apiStatusFilter = "pending";
           break;
         case "failed":
-          apiStatusFilter = "failed";
+          apiStatusFilter = "rejected";
           break;
         case "all": // "all" falls through to no filter
         default:
