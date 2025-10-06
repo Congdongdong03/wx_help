@@ -111,6 +111,10 @@ export class PostService {
         city_code: input.city_code,
         status: input.status,
         price: input.price,
+        // Ensure moderation and contact fields are persisted
+        review_status: input.review_status,
+        sensitive_words: input.sensitive_words ?? undefined,
+        contact_info: input.contact_info,
       },
       include: {
         users: {
@@ -187,11 +191,39 @@ export class PostService {
    * 处理帖子数据
    */
   private static processPost(post: any): any {
+    const parseImagesSafely = (images: unknown): any[] => {
+      if (!images) return [];
+      if (Array.isArray(images)) return images;
+      if (typeof images === "string") {
+        try {
+          const parsed = JSON.parse(images);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    };
+
+    const toIsoDateSafely = (value: unknown): string | undefined => {
+      try {
+        if (!value) return undefined;
+        if (value instanceof Date) return value.toISOString();
+        if (typeof value === "string") {
+          const d = new Date(value);
+          return isNaN(d.getTime()) ? undefined : d.toISOString();
+        }
+        return undefined;
+      } catch {
+        return undefined;
+      }
+    };
+
     return {
       ...post,
-      images: post.images ? JSON.parse(post.images) : [],
-      created_at: post.created_at?.toISOString(),
-      updated_at: post.updated_at?.toISOString(),
+      images: parseImagesSafely(post.images),
+      created_at: toIsoDateSafely(post.created_at),
+      updated_at: toIsoDateSafely(post.updated_at),
     };
   }
 
