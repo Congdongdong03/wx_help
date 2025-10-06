@@ -544,3 +544,24 @@ getMyPosts: Received request { query: { page: '1', limit: '10' } }
 prisma:query SELECT COUNT(*) AS `_count._all` FROM (SELECT `main`.`posts`.`id` FROM `main`.`posts` WHERE (`main`.`posts`.`user_id` = ? AND `main`.`posts`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
 prisma:query SELECT `main`.`posts`.`id`, `main`.`posts`.`user_id`, `main`.`posts`.`title`, `main`.`posts`.`content`, `main`.`posts`.`contact_info`, `main`.`posts`.`images`, `main`.`posts`.`category`, `main`.`posts`.`sub_category`, `main`.`posts`.`city_code`, `main`.`posts`.`price`, `main`.`posts`.`price_unit`, `main`.`posts`.`status`, `main`.`posts`.`review_status`, `main`.`posts`.`review_note`, `main`.`posts`.`sensitive_words`, `main`.`posts`.`last_polished_at`, `main`.`posts`.`view_count`, `main`.`posts`.`favorite_count`, `main`.`posts`.`recommend_score`, `main`.`posts`.`quality_score`, `main`.`posts`.`pinned_until`, `main`.`posts`.`is_pinned`, `main`.`posts`.`expires_at`, `main`.`posts`.`created_at`, `main`.`posts`.`updated_at` FROM `main`.`posts` WHERE (`main`.`posts`.`user_id` = ? AND `main`.`posts`.`status` = ?) ORDER BY `main`.`posts`.`created_at` DESC LIMIT ? OFFSET ?
 getMyPosts: Success { userId: 5, status: undefined, resultCount: 0, total: 0 }
+[32m[nodemon] restarting child process[39m
+[32m[nodemon] starting `ts-node src/index.ts`[39m
+/Users/wesley/Desktop/帮帮/wx_help/server/node_modules/ts-node/src/index.ts:859
+    return new TSError(diagnosticText, diagnosticCodes, diagnostics);
+           ^
+TSError: ⨯ Unable to compile TypeScript:
+src/services/postService.ts(3,10): error TS2305: Module '"@prisma/client"' has no exported member 'posts_status'.
+
+    at createTSError (/Users/wesley/Desktop/帮帮/wx_help/server/node_modules/ts-node/src/index.ts:859:12)
+    at reportTSError (/Users/wesley/Desktop/帮帮/wx_help/server/node_modules/ts-node/src/index.ts:863:19)
+    at getOutput (/Users/wesley/Desktop/帮帮/wx_help/server/node_modules/ts-node/src/index.ts:1077:36)
+    at Object.compile (/Users/wesley/Desktop/帮帮/wx_help/server/node_modules/ts-node/src/index.ts:1433:41)
+    at Module.m._compile (/Users/wesley/Desktop/帮帮/wx_help/server/node_modules/ts-node/src/index.ts:1617:30)
+    at Module._extensions..js (node:internal/modules/cjs/loader:1613:10)
+    at Object.require.extensions.<computed> [as .ts] (/Users/wesley/Desktop/帮帮/wx_help/server/node_modules/ts-node/src/index.ts:1621:12)
+    at Module.load (node:internal/modules/cjs/loader:1275:32)
+    at Function.Module._load (node:internal/modules/cjs/loader:1096:12)
+    at Module.require (node:internal/modules/cjs/loader:1298:19) {
+  diagnosticCodes: [ 2305 ]
+}
+[31m[nodemon] app crashed - waiting for file changes before starting...[39m

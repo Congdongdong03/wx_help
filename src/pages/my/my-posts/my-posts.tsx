@@ -49,12 +49,11 @@ type UITabStatus = "all" | "published" | "draft" | "reviewing" | "failed"; // Ad
 // 定义帖子的前端展示状态类型 (可以逐步替换 auditStatus)
 type UIDisplayStatus =
   | "pending"
-  | "approved"
+  | "published"
   | "rejected"
   | "draft"
   | "taken_down"
-  | "published"
-  | "failed";
+  ;
 
 // 定义 TabItem 接口
 interface TabItem {
@@ -97,7 +96,7 @@ const tabList: TabItem[] = [
   { title: "全部", status: "all" },
   { title: "已发布", status: "published" },
   { title: "审核中", status: "reviewing" },
-  { title: "未通过", status: "failed" }, // 新增 "未通过" 标签页
+  { title: "未通过", status: "rejected" },
   { title: "草稿", status: "draft" },
 ];
 
@@ -173,9 +172,9 @@ export default function MyPosts() {
       case "pending":
         uiStatus = "pending";
         break;
-      case "failed":
+      case "rejected":
         uiStatus = "rejected";
-        break; // API 'failed' -> UI 'rejected' (未通过)
+        break; // 未通过
       case "draft":
         uiStatus = "draft";
         break;
@@ -418,7 +417,7 @@ export default function MyPosts() {
           apiStatusFilter = "pending";
           break;
         case "failed":
-          apiStatusFilter = "failed";
+          apiStatusFilter = "rejected";
           break;
         case "all": // "all" falls through to no filter
         default:
@@ -561,11 +560,10 @@ export default function MyPosts() {
     ) {
       // 是API帖子
       // 对于API帖子，导航到表单页，并传递ID和分类，表单页应能根据ID获取完整帖子信息
-      Taro.setStorageSync("editingPostData", postToEdit.originalApiPost); // 可以先存一份用于快速回填
+      // 仅传递 ID 到表单页，表单页进入后自行从 API 获取最新数据
       Taro.navigateTo({
         url: `/pages/post/form/index?editingPostId=${postToEdit.id}&category=${postToEdit.category}`,
       });
-      // TODO: 后续表单页应实现根据 editingPostId 从API获取最新数据
     } else {
       Taro.showToast({ title: "无法确定帖子类型进行编辑", icon: "none" });
     }

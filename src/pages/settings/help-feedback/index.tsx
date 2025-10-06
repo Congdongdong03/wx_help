@@ -73,13 +73,13 @@ export default function HelpFeedbackPage() {
         }
       }
 
-      // 提交反馈
-      await request("/api/feedback-submit", {
+      // 提交反馈（统一到 /api/feedback）
+      await request("/api/feedback", {
         method: "POST",
         data: {
           content: feedbackText.trim(),
           type: feedbackType,
-          image: imageUrl,
+          imageUrl: imageUrl,
         },
       });
 

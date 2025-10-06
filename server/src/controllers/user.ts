@@ -201,6 +201,27 @@ export class UserController {
 
       const { nickname, avatar_url, phone, city, province, country } = req.body;
 
+      // 昵称基础校验
+      if (nickname && (nickname.trim().length === 0 || nickname.trim().length > 20)) {
+        return res.status(400).json({ code: 1, message: "昵称长度需为1-20个字符" });
+      }
+
+      // 昵称敏感词校验（兜底）
+      if (nickname) {
+        const text = String(nickname).trim();
+        try {
+          const { SensitiveWordService } = await import("../services/sensitiveWordService");
+          const svc = new SensitiveWordService();
+          const result = await svc.checkSensitiveWords(text);
+          if (result.hasSensitiveWords) {
+            return res.status(400).json({ code: 1, message: "昵称包含敏感词，请更换" });
+          }
+        } catch (e) {
+          // 失败不阻断，但会记录
+          console.warn("敏感词校验失败，放行更新:", e);
+        }
+      }
+
       // 更新用户信息
       const updatedUser = await UserService.update(userId, {
         nickname,

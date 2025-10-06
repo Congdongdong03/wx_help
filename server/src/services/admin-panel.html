@@ -554,7 +554,7 @@
             if (publishedCountEl)
               publishedCountEl.textContent = stats.status.published || 0;
             if (failedCountEl)
-              failedCountEl.textContent = stats.status.failed || 0;
+              failedCountEl.textContent = stats.status.rejected || 0;
             if (todayCountEl) todayCountEl.textContent = stats.today.total || 0;
           }
         } catch (error) {
