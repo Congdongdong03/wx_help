@@ -1,4 +1,5 @@
 import { WebSocket } from "ws";
+import { PrismaClient } from "@prisma/client";
 
 // 扩展 WebSocket 类型，支持 userId
 interface ExtWebSocket extends WebSocket {
@@ -9,6 +10,7 @@ interface ExtWebSocket extends WebSocket {
 const userMap = new Map<string, ExtWebSocket>();
 
 export class WebSocketService {
+  private static prisma = new PrismaClient();
   /**
    * 添加用户连接
    */
@@ -171,9 +173,12 @@ export class WebSocketService {
    */
   static async getUnreadMessages(userId: string): Promise<any[]> {
     try {
-      // 这里应该从数据库获取未读消息
-      // 暂时返回空数组
-      return [];
+      const messages = await this.prisma.message.findMany({
+        where: { receiverId: userId, isRead: false },
+        orderBy: { createdAt: "asc" },
+        take: 100,
+      });
+      return messages;
     } catch (error) {
       console.error("获取未读消息失败:", error);
       return [];
@@ -183,10 +188,13 @@ export class WebSocketService {
   /**
    * 标记消息为已读
    */
-  static async markMessagesAsRead(messageIds: number[]): Promise<void> {
+  static async markMessagesAsRead(messageIds: (number | string)[]): Promise<void> {
     try {
-      // 这里应该更新数据库中的消息状态
-      console.log("标记消息为已读:", messageIds);
+      if (!messageIds || messageIds.length === 0) return;
+      await this.prisma.message.updateMany({
+        where: { id: { in: messageIds as string[] } },
+        data: { isRead: true },
+      });
     } catch (error) {
       console.error("标记消息为已读失败:", error);
     }
@@ -204,14 +212,15 @@ export class WebSocketService {
     clientTempId?: string
   ): Promise<void> {
     try {
-      // 这里应该保存消息到数据库
-      console.log("发送消息:", {
-        conversationId,
-        senderId,
-        receiverId,
-        content,
-        messageType,
-        clientTempId,
+      // 保存消息
+      const saved = await this.prisma.message.create({
+        data: {
+          conversationId,
+          senderId,
+          receiverId,
+          type: messageType,
+          content,
+        },
       });
 
       // 如果接收者在线，直接发送
@@ -224,7 +233,7 @@ export class WebSocketService {
           conversationId,
           messageType,
           timestamp: Date.now(),
-          messageId: Date.now(), // 临时ID
+          messageId: saved.id,
           clientTempId,
         });
       }

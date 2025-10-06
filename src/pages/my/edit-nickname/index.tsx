@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { View, Input, Button, Text } from "@tarojs/components";
 import { debounce, throttle } from "../../../utils/debounce";
 import { useUser } from "../../../store/user/hooks";
+import { request } from "../../../utils/request";
 import "./index.scss";
 
 export default function EditNicknamePage() {
@@ -48,33 +49,37 @@ export default function EditNicknamePage() {
   }, 300);
 
   // 使用节流处理保存操作
-  const handleSave = throttle(() => {
+  const handleSave = throttle(async () => {
     if (isSaveDisabled || errorText) {
       // Double check with errorText as well
       Taro.showToast({ title: errorText || "昵称无效", icon: "none" });
       return;
     }
 
-    // TODO: Add sensitive word check here (local or backend)
-    console.log("Attempting to save nickname:", currentNickname);
+    // 基础长度校验
+    if (currentNickname.trim().length === 0 || currentNickname.trim().length > 20) {
+      Taro.showToast({ title: "昵称长度需为1-20个字符", icon: "none" });
+      return;
+    }
 
-    // Simulate API call
+    // 提交到后端
     Taro.showLoading({ title: "保存中..." });
-    setTimeout(() => {
-      Taro.hideLoading();
-      // Assume success for now
-      try {
-        // 使用新的用户状态管理更新昵称
-        updateUser({ nickName: currentNickname.trim() });
-        console.log("Updated nickname in Redux store:", currentNickname.trim());
+    try {
+      const resp = await request("/api/user/info", {
+        method: "PUT",
+        data: { nickname: currentNickname.trim() },
+      });
 
-        Taro.showToast({ title: "昵称更新成功", icon: "success" });
-        Taro.navigateBack();
-      } catch (e) {
-        console.error("Failed to update nickname:", e);
-        Taro.showToast({ title: "保存失败，请稍后再试", icon: "none" });
-      }
-    }, 1000);
+      // 更新本地状态
+      updateUser({ nickName: currentNickname.trim() });
+      Taro.showToast({ title: "昵称更新成功", icon: "success" });
+      Taro.navigateBack();
+    } catch (e: any) {
+      console.error("Failed to update nickname:", e);
+      Taro.showToast({ title: e?.message || "保存失败，请稍后再试", icon: "none" });
+    } finally {
+      Taro.hideLoading();
+    }
   }, 1000);
 
   return (
