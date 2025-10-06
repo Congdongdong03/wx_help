@@ -60,7 +60,8 @@ interface PostFormProps {
 
 const PostForm = ({ postId }: PostFormProps) => {
   const router = useRouter();
-  const id = postId || router.params?.id;
+  // 兼容两种入参：?id=123 或 ?editingPostId=123
+  const id = postId || router.params?.editingPostId || router.params?.id;
 
   const [formData, setFormData] = useState<PostFormData>({
     title: "",

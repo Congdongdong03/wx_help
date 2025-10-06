@@ -560,11 +560,10 @@ export default function MyPosts() {
     ) {
       // 是API帖子
       // 对于API帖子，导航到表单页，并传递ID和分类，表单页应能根据ID获取完整帖子信息
-      Taro.setStorageSync("editingPostData", postToEdit.originalApiPost); // 可以先存一份用于快速回填
+      // 仅传递 ID 到表单页，表单页进入后自行从 API 获取最新数据
       Taro.navigateTo({
         url: `/pages/post/form/index?editingPostId=${postToEdit.id}&category=${postToEdit.category}`,
       });
-      // TODO: 后续表单页应实现根据 editingPostId 从API获取最新数据
     } else {
       Taro.showToast({ title: "无法确定帖子类型进行编辑", icon: "none" });
     }
