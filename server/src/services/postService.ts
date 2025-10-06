@@ -260,18 +260,25 @@ export class PostService {
 
     if (existingFavorite) {
       // 如果已收藏，则取消收藏
-      await prisma.favorite.delete({
-        where: { id: existingFavorite.id },
-      });
+      await prisma.$transaction([
+        prisma.favorite.delete({ where: { id: existingFavorite.id } }),
+        prisma.posts.update({
+          where: { id: postId },
+          data: { favorite_count: { decrement: 1 } },
+        }),
+      ]);
       return false;
     } else {
       // 如果未收藏，则添加收藏
-      await prisma.favorite.create({
-        data: {
-          user_id: userId,
-          post_id: postId,
-        },
-      });
+      await prisma.$transaction([
+        prisma.favorite.create({
+          data: { user_id: userId, post_id: postId },
+        }),
+        prisma.posts.update({
+          where: { id: postId },
+          data: { favorite_count: { increment: 1 } },
+        }),
+      ]);
       return true;
     }
   }

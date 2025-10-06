@@ -1,21 +1,13 @@
 import Taro from "@tarojs/taro";
-import { useState, useEffect } from "react";
-import { View, Text, Image, Button, ScrollView } from "@tarojs/components";
-import PostCard, { PostCardData } from "../../../components/PostCard";
+import { useState, useEffect, useCallback } from "react";
+import { View, Text, Button, ScrollView } from "@tarojs/components";
+import PostCard from "../../../components/PostCard";
+import { request } from "../../../utils/request";
+import { FeedPost } from "../../../types";
 import "./index.scss";
 
 // FavoritePost can be directly compatible with PostCardData or mapped
-interface FavoritePost {
-  id: string;
-  mockImagePlaceholderHeight?: number;
-  mockImagePlaceholderColor?: string;
-  title: string;
-  price?: string;
-  category: { name: string; color: string; id: string }; // Ensure category has id for filtering
-  collectedTime: Date; // Use Date object for easier formatting
-  // Add other fields if PostCard expects them e.g. description
-  description?: string;
-}
+type FavoritePost = FeedPost;
 
 // 收藏数据将从API获取
 
@@ -40,16 +32,26 @@ export default function FavoritesPage() {
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Simulate fetching favorites
+  const loadFavorites = useCallback(async () => {
     setIsLoading(true);
-    setTimeout(() => {
-      // TODO: In a real app, fetch from storage or backend
-      // 从API获取收藏数据
+    try {
+      const resp = await request<{ data: { favorites: FavoritePost[] } }>(
+        "/api/user/favorites",
+        { method: "GET" }
+      );
+      const list = (resp as any)?.data?.favorites || [];
+      setFavorites(list);
+    } catch (e) {
+      Taro.showToast({ title: "加载收藏失败", icon: "none" });
       setFavorites([]);
+    } finally {
       setIsLoading(false);
-    }, 500);
+    }
   }, []);
+
+  useEffect(() => {
+    loadFavorites();
+  }, [loadFavorites]);
 
   useEffect(() => {
     // Filter favorites when `favorites` or `selectedFilter` changes
@@ -66,16 +68,20 @@ export default function FavoritesPage() {
     setSelectedFilter(filterId);
   };
 
-  const handleCancelFavorite = (favId: string) => {
+  const handleCancelFavorite = (favId: string | number) => {
     Taro.showModal({
       title: "取消收藏",
       content: "确定要取消收藏该信息吗？",
       success: (res) => {
         if (res.confirm) {
-          console.log("Cancelling favorite:", favId);
-          // TODO: Remove from storage/backend
-          setFavorites((prev) => prev.filter((fav) => fav.id !== favId));
-          Taro.showToast({ title: "已取消收藏", icon: "success" });
+          request(`/api/posts/${favId}/favorite`, { method: "POST" })
+            .then(() => {
+              setFavorites((prev) => prev.filter((fav) => fav.id !== favId));
+              Taro.showToast({ title: "已取消收藏", icon: "success" });
+            })
+            .catch(() => {
+              Taro.showToast({ title: "取消失败", icon: "none" });
+            });
         }
       },
     });
@@ -118,31 +124,18 @@ export default function FavoritesPage() {
 
       <ScrollView scrollY className="favorites-scroll-view">
         <View className="post-list-masonry-container">
-          {filteredFavorites.map((fav) => {
-            // Adapt FavoritePost to PostCardData
-            const cardData: PostCardData = {
-              id: fav.id,
-              mockImagePlaceholderHeight: fav.mockImagePlaceholderHeight,
-              mockImagePlaceholderColor: fav.mockImagePlaceholderColor,
-              title: fav.title,
-              description: fav.description || "", // Ensure description is a string
-              category: fav.category, // Assumes FavoritePost.category has {name, color}
-              price: fav.price,
-              displayTimeText: formatCollectedTime(fav.collectedTime),
-            };
-            return (
-              <View key={fav.id} className="favorite-item-wrapper">
-                <PostCard post={cardData} />
-                <Button
-                  size="mini"
-                  className="cancel-fav-button-external"
-                  onClick={() => handleCancelFavorite(fav.id)}
-                >
-                  取消收藏
-                </Button>
-              </View>
-            );
-          })}
+          {filteredFavorites.map((fav) => (
+            <View key={fav.id} className="favorite-item-wrapper">
+              <PostCard post={fav as any} />
+              <Button
+                size="mini"
+                className="cancel-fav-button-external"
+                onClick={() => handleCancelFavorite(fav.id)}
+              >
+                取消收藏
+              </Button>
+            </View>
+          ))}
         </View>
       </ScrollView>
     </View>

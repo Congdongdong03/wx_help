@@ -1014,6 +1014,9 @@ export class PostController {
 
       const isFavorited = await PostService.toggleFavorite(userId, postId);
 
+      // 查询最新收藏数
+      const updated = await PostService.getPostById(postId);
+
       log("info", "toggleFavorite: Success", {
         postId,
         userId,
@@ -1023,7 +1026,7 @@ export class PostController {
       res.json({
         code: 0,
         message: isFavorited ? "收藏成功" : "取消收藏成功",
-        data: { isFavorited },
+        data: { isFavorited, favorite_count: updated?.favorite_count || 0 },
       });
     } catch (error: any) {
       log("error", "toggleFavorite: Error", {
