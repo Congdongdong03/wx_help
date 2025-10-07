@@ -8,6 +8,24 @@ import { UserInfo } from "../store/user/types";
  */
 export class UserService {
   /**
+   * 统一后端->前端的字段命名：只保留 nickName/avatarUrl
+   */
+  private static normalizeUserFromApi(data: any): UserInfo {
+    return {
+      id: data.id,
+      openid: data.openid,
+      nickName: data.nickName ?? data.nickname ?? "",
+      avatarUrl: data.avatarUrl ?? data.avatar_url ?? "",
+      gender: data.gender,
+      city: data.city,
+      province: data.province,
+      country: data.country,
+      language: data.language,
+      status: data.status,
+      token: data.token || `token_${Date.now()}`,
+    };
+  }
+  /**
    * 微信登录
    */
   static async wechatLogin(code: string, userInfo: any): Promise<UserInfo> {
@@ -27,19 +45,7 @@ export class UserService {
       );
 
       if (response.code === 0) {
-        return {
-          id: response.data.id,
-          openid: response.data.openid,
-          nickName: response.data.nickName,
-          avatarUrl: response.data.avatarUrl,
-          gender: response.data.gender,
-          city: response.data.city,
-          province: response.data.province,
-          country: response.data.country,
-          language: response.data.language,
-          status: response.data.status,
-          token: response.data.token || `token_${Date.now()}`,
-        };
+        return this.normalizeUserFromApi(response.data);
       } else {
         throw new Error(response.message || "登录失败");
       }
@@ -62,18 +68,7 @@ export class UserService {
       });
 
       if (response.code === 0) {
-        return {
-          id: response.data.id,
-          openid: response.data.openid,
-          nickName: response.data.nickname,
-          avatarUrl: response.data.avatar_url,
-          gender: response.data.gender,
-          city: response.data.city,
-          province: response.data.province,
-          country: response.data.country,
-          language: response.data.language,
-          status: response.data.status,
-        };
+        return this.normalizeUserFromApi(response.data);
       } else {
         throw new Error(response.message || "获取用户信息失败");
       }

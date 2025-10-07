@@ -1,4 +1,10 @@
 Environment variables loaded from .env
 Prisma schema loaded from prisma/schema.prisma
 Prisma Studio is up on http://localhost:5555
+┌─────────────────────────────────────────────────────────┐
+│  Update available 6.9.0 -> 6.16.3                       │
+│  Run the following to update                            │
+│    npm i --save-dev prisma@latest                       │
+│    npm i @prisma/client@latest                          │
+└─────────────────────────────────────────────────────────┘
 Prisma schema loaded from prisma/schema.prisma

@@ -1,7 +1,8 @@
-import Taro from "@tarojs/taro";
-import { useState, useEffect } from "react";
+import Taro, { useDidShow } from "@tarojs/taro";
+import { useState, useEffect, useCallback } from "react";
 import { View, Text, Button, Image } from "@tarojs/components";
-import { useUser } from "../../store/user/hooks";
+import { API_CONFIG } from "../../config/api";
+import { request } from "../../utils/request";
 import "./index.scss";
 
 const DEFAULT_AVATAR = "https://picsum.photos/seed/avatar/100";
@@ -13,24 +14,35 @@ interface LocalUserInfo {
 }
 
 export default function My() {
-  const { currentUser, userNickname, userAvatar } = useUser();
-
   const [userInfo, setUserInfo] = useState<LocalUserInfo>({
     nickname: DEFAULT_NICKNAME,
     avatarUrl: DEFAULT_AVATAR,
   });
 
-  // 更新用户信息显示
-  useEffect(() => {
-    if (currentUser && userNickname) {
-      setUserInfo({
-        nickname: userNickname,
-        avatarUrl: userAvatar || DEFAULT_AVATAR,
+  // 直接从后端获取用户信息（不经过 Redux）
+  const fetchUserInfo = useCallback(async () => {
+    try {
+      const resp = await request(API_CONFIG.getApiUrl("/users/info"), {
+        method: "GET",
+        retryCount: 1,
       });
-    } else {
+      if (resp?.code === 0 && resp?.data) {
+        setUserInfo({
+          nickname: resp.data.nickname || DEFAULT_NICKNAME,
+          avatarUrl: resp.data.avatar_url || DEFAULT_AVATAR,
+        });
+      } else {
+        setUserInfo({ nickname: DEFAULT_NICKNAME, avatarUrl: DEFAULT_AVATAR });
+      }
+    } catch (_e) {
       setUserInfo({ nickname: DEFAULT_NICKNAME, avatarUrl: DEFAULT_AVATAR });
     }
-  }, [currentUser, userNickname, userAvatar]);
+  }, []);
+
+  // 页面展示时刷新，确保拿到数据库最新值
+  useDidShow(() => {
+    fetchUserInfo();
+  });
 
   const handleAvatarClick = () => {
     Taro.showActionSheet({

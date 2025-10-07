@@ -1,4 +1,6 @@
-import { PrismaClient, posts_status } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
+
+type PostStatus = "draft" | "pending" | "published" | "rejected" | "failed";
 
 const prisma = new PrismaClient();
 
@@ -6,7 +8,7 @@ export interface ExportOptions {
   format: "csv" | "excel";
   filters?: {
     category?: string;
-    status?: posts_status;
+    status?: PostStatus;
   };
 }
 

@@ -2,6 +2,7 @@ import Taro from "@tarojs/taro";
 import { useState, useEffect } from "react";
 import { View, Text, Button } from "@tarojs/components";
 import { useUser } from "../../store/user/hooks";
+import { UserService } from "../../services/userService";
 import "./index.scss";
 
 interface UserSwitcherProps {
@@ -13,7 +14,7 @@ export default function UserSwitcher({
   isVisible,
   onClose,
 }: UserSwitcherProps) {
-  const { currentUser, logout } = useUser();
+  const { currentUser, logout, login } = useUser();
   const [selectedUser, setSelectedUser] = useState<string>("");
 
   const testUsers = [
@@ -22,14 +23,49 @@ export default function UserSwitcher({
     { key: "admin", name: "管理员", color: "#45B7D1" },
   ];
 
-  const handleUserSwitch = (userType: string) => {
-    if ((Taro as any).switchUser) {
-      (Taro as any).switchUser(userType);
+  const handleUserSwitch = async (userType: string) => {
+    try {
+      Taro.showLoading({ title: "切换中..." });
+      const nicknameMap: Record<string, string> = {
+        user1: "用户1",
+        user2: "用户2",
+        admin: "管理员",
+      };
+
+      const taroLogin = await Taro.login();
+      const code =
+        process.env.NODE_ENV === "development"
+          ? "dev_test_code"
+          : taroLogin.code;
+
+      const userInfo = {
+        nickName: nicknameMap[userType] || "微信用户",
+        avatarUrl: "",
+        gender: 0,
+        country: "中国",
+        province: "",
+        city: "",
+        language: "zh_CN",
+        // 传入固定 openid，保证切换后仍是同一数据库用户
+        openid:
+          userType === "user1"
+            ? "dev_openid_user1"
+            : userType === "user2"
+            ? "dev_openid_user2"
+            : "dev_openid_admin",
+      } as any;
+
+      const user = await UserService.wechatLogin(code, userInfo);
+      Taro.setStorageSync("openid", user.openid);
+      login(user);
       setSelectedUser(userType);
-      // 延迟关闭，让用户看到切换结果
-      setTimeout(() => {
-        onClose();
-      }, 500);
+      Taro.showToast({ title: `已切换到${user.nickName}`, icon: "success" });
+      setTimeout(() => onClose(), 400);
+    } catch (e) {
+      console.error("切换用户失败:", e);
+      Taro.showToast({ title: "切换失败，请稍后重试", icon: "none" });
+    } finally {
+      Taro.hideLoading();
     }
   };
 
@@ -38,12 +74,7 @@ export default function UserSwitcher({
     onClose();
   };
 
-  const handleTestLogin = () => {
-    if ((Taro as any).testLogin) {
-      (Taro as any).testLogin("test_openid_" + Date.now());
-      onClose();
-    }
-  };
+  // 已移除本地测试登录，使用真实登录流程
 
   if (!isVisible) {
     return null;
@@ -84,9 +115,6 @@ export default function UserSwitcher({
           ))}
 
           <Text className="action-section-title">其他操作:</Text>
-          <Button className="test-login-button" onClick={handleTestLogin}>
-            测试登录
-          </Button>
           <Button className="logout-button" onClick={handleLogout}>
             退出登录
           </Button>

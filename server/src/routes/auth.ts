@@ -22,13 +22,14 @@ router.post("/wechat-login", async (req, res) => {
     if (process.env.NODE_ENV === "development" && code === "dev_test_code") {
       console.log("🧪 Auth: Using development test authentication");
 
-      // 根据用户昵称动态生成openid（避免硬编码）
+      // 优先使用前端传入的 openid，保证稳定；否则根据昵称生成临时 openid
+      const preferOpenid = userInfo?.openid as string | undefined;
       const nicknameHash = userInfo?.nickName
         ? userInfo.nickName
             .split("")
             .reduce((a: number, b: string) => a + b.charCodeAt(0), 0) % 1000
         : Math.floor(Math.random() * 1000);
-      const openid = `dev_openid_${nicknameHash}`;
+      const openid = preferOpenid || `dev_openid_${nicknameHash}`;
 
       console.log(
         `🔧 Auth: Generated openid for ${userInfo?.nickName}: ${openid}`
@@ -57,16 +58,10 @@ router.post("/wechat-login", async (req, res) => {
         });
         console.log(`✅ Auth: Created new user with openid: ${openid}`);
       } else {
+        // 已存在用户：不覆盖昵称等资料，只更新最后登录时间
         user = await prisma.users.update({
           where: { id: user.id },
           data: {
-            nickname: userInfo?.nickName || user.nickname,
-            avatar_url: userInfo?.avatarUrl || user.avatar_url,
-            gender: userInfo?.gender || user.gender,
-            city: userInfo?.city || user.city,
-            province: userInfo?.province || user.province,
-            country: userInfo?.country || user.country,
-            language: userInfo?.language || user.language,
             last_login_at: new Date(),
           },
         });

@@ -70,6 +70,8 @@ export async function request<T = any>(
     try {
       const response = await Taro.request({
         url,
+        // 默认超时，避免长时间挂起
+        timeout: (requestOptions as any).timeout ?? 8000,
         ...requestOptions,
         header: {
           ...(requestOptions.header || {}),
@@ -97,14 +99,21 @@ export async function request<T = any>(
       );
     } catch (error: any) {
       lastError = error;
-      if (
-        error.errMsg?.includes("request:fail") ||
-        error.errMsg?.includes("timeout")
-      ) {
+      const errMsg: string = error?.errMsg || "";
+      const isConnRefused =
+        errMsg.includes("ERR_CONNECTION_REFUSED") ||
+        errMsg.includes("request:fail");
+      const isTimeout = errMsg.includes("timeout");
+
+      if (isConnRefused || isTimeout) {
         attempt++;
         if (attempt <= retryCount) {
           await delay(retryDelay);
           continue;
+        }
+        // 尽量标准化错误，便于上层友好提示
+        if (!error.errMsg || isConnRefused || isTimeout) {
+          error.errMsg = "Network error";
         }
       }
       throw error;

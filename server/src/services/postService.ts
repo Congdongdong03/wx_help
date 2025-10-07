@@ -1,6 +1,8 @@
 // src/services/postService.ts
 import { prisma } from "../lib/prisma";
-import { posts_status } from "@prisma/client";
+
+// Prisma schema 中 posts.status 是 String 字段，使用字符串联合类型更合适
+type PostStatus = "draft" | "pending" | "published" | "rejected" | "failed";
 
 export interface PostFilters {
   category?: string;
@@ -8,7 +10,7 @@ export interface PostFilters {
   keyword?: string;
   page: number;
   limit: number;
-  status?: posts_status;
+  status?: PostStatus;
   sort?: "latest" | "popular";
 }
 
@@ -20,7 +22,7 @@ export interface PostCreateInput {
   category?: string;
   sub_category?: string;
   city_code?: string;
-  status: posts_status;
+  status: PostStatus;
   price?: string;
   review_status?: string;
   contact_info?: string;

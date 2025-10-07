@@ -1,13 +1,14 @@
 // src/services/adminPostService.ts
 import { prisma } from "../lib/prisma";
-import { posts_status } from "@prisma/client";
+
+type PostStatus = "draft" | "pending" | "published" | "rejected" | "failed";
 
 export interface AdminPostFilters {
   category?: string;
   keyword?: string;
   page: number;
   limit: number;
-  status?: posts_status | "all";
+  status?: PostStatus | "all";
   reviewType?: "all" | "normal" | "sensitive";
   city?: string;
   startDate?: string;

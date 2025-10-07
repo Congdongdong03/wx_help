@@ -43,6 +43,26 @@ export default function LoginModal() {
     setIsLoading(true);
 
     try {
+      // 后端健康检查（快速失败，避免多次无效请求）
+      try {
+        await request(API_CONFIG.getApiUrl("/health"), {
+          method: "GET",
+          // 1.5s 快速探测
+          // @ts-ignore: Taro 类型定义允许 timeout
+          timeout: 1500,
+          retryCount: 0,
+        });
+      } catch (_e) {
+        if (process.env.NODE_ENV === "development") {
+          Taro.showToast({
+            title: "后端未启动或不可达，请先启动 server",
+            icon: "none",
+            duration: 2500,
+          });
+        }
+        throw new Error("Backend unreachable");
+      }
+
       // 获取用户信息
       const userProfileRes = await Taro.getUserProfile({
         desc: "用于完善会员资料与登录",
@@ -100,8 +120,11 @@ export default function LoginModal() {
       let errMsg = "授权失败，请稍后重试";
       if (err.errMsg?.includes("getUserProfile:fail auth deny")) {
         errMsg = "您已拒绝授权";
-      } else if (err.errMsg?.includes("Network error")) {
-        errMsg = "网络连接失败，请检查网络后重试";
+      } else if (
+        err.errMsg?.includes("Network error") ||
+        err?.message === "Backend unreachable"
+      ) {
+        errMsg = "服务器不可用，请稍后重试或检查后端服务";
       }
 
       Taro.showToast({
